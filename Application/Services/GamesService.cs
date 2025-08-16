@@ -3,7 +3,6 @@ using Application.IServices;
 using Application.Mapping;
 using Domain.Entities;
 using Infrastructure.IRepositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
