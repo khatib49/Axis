@@ -1,4 +1,5 @@
 ﻿using Infrastructure.IRepositories;
+using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
@@ -6,9 +7,9 @@ namespace Infrastructure.Repositories
 {
     public class BaseRepository<T> : IBaseRepository<T> where T : class
     {
-        private readonly DbContext _db;
+        private readonly ApplicationDbContext _db;
 
-        public BaseRepository(DbContext db) => _db = db;
+        public BaseRepository(ApplicationDbContext db) => _db = db;
 
         public async Task<T?> GetByIdAsync(Guid id, bool asNoTracking = true, CancellationToken ct = default)
         {

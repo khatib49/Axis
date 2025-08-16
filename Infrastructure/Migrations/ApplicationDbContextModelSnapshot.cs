@@ -26,615 +26,482 @@ namespace Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("CardName")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("card_name");
+                        .HasColumnType("text");
 
                     b.Property<string>("CardType")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("card_type");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_on");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_on");
+                        .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("Id")
-                        .HasName("pk_card");
+                    b.HasKey("Id");
 
-                    b.ToTable("card", (string)null);
+                    b.ToTable("Cards");
                 });
 
             modelBuilder.Entity("Domain.Entities.Category", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id")
-                        .HasName("pk_category");
+                    b.HasKey("Id");
 
-                    b.ToTable("category", (string)null);
+                    b.ToTable("Categories");
                 });
 
             modelBuilder.Entity("Domain.Entities.CoffeeShopOrder", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CardId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("card_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("item_id");
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("Price")
-                        .HasColumnType("numeric")
-                        .HasColumnName("price");
+                        .HasColumnType("numeric");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("integer")
-                        .HasColumnName("quantity");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("timestamp");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_coffee_shop_order");
+                    b.HasKey("Id");
 
-                    b.HasIndex("CardId")
-                        .HasDatabaseName("ix_coffee_shop_order_card_id");
+                    b.HasIndex("CardId");
 
-                    b.HasIndex("ItemId")
-                        .HasDatabaseName("ix_coffee_shop_order_item_id");
+                    b.HasIndex("ItemId");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_coffee_shop_order_user_id");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("coffee_shop_order", (string)null);
+                    b.ToTable("CoffeeShopOrders");
                 });
 
             modelBuilder.Entity("Domain.Entities.Expense", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("Amount")
-                        .HasColumnType("numeric")
-                        .HasColumnName("amount");
+                        .HasColumnType("numeric");
 
                     b.Property<string>("Category")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("category");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_on");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id")
-                        .HasName("pk_expense");
+                    b.HasKey("Id");
 
-                    b.ToTable("expense", (string)null);
+                    b.ToTable("Expenses");
                 });
 
             modelBuilder.Entity("Domain.Entities.Game", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_on");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_on");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("type");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id")
-                        .HasName("pk_game");
+                    b.HasKey("Id");
 
-                    b.ToTable("game", (string)null);
+                    b.ToTable("Games");
                 });
 
             modelBuilder.Entity("Domain.Entities.GameSession", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CardId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("card_id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("EndTime")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("end_time");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("GameId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("game_id");
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsOpenTime")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_open_time");
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("PassTypeId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("pass_type_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("RoomId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("room_id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("StartTime")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("start_time");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("status");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_game_session");
+                    b.HasKey("Id");
 
-                    b.HasIndex("CardId")
-                        .HasDatabaseName("ix_game_session_card_id");
+                    b.HasIndex("CardId");
 
-                    b.HasIndex("GameId")
-                        .HasDatabaseName("ix_game_session_game_id");
+                    b.HasIndex("GameId");
 
-                    b.HasIndex("PassTypeId")
-                        .HasDatabaseName("ix_game_session_pass_type_id");
+                    b.HasIndex("PassTypeId");
 
-                    b.HasIndex("RoomId")
-                        .HasDatabaseName("ix_game_session_room_id");
+                    b.HasIndex("RoomId");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_game_session_user_id");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("game_session", (string)null);
+                    b.ToTable("GameSessions");
                 });
 
             modelBuilder.Entity("Domain.Entities.Item", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CategoryId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("category_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("GameId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("game_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("Price")
-                        .HasColumnType("numeric")
-                        .HasColumnName("price");
+                        .HasColumnType("numeric");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("integer")
-                        .HasColumnName("quantity");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("type");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id")
-                        .HasName("pk_item");
+                    b.HasKey("Id");
 
-                    b.HasIndex("CategoryId")
-                        .HasDatabaseName("ix_item_category_id");
+                    b.HasIndex("CategoryId");
 
-                    b.HasIndex("GameId")
-                        .HasDatabaseName("ix_item_game_id");
+                    b.HasIndex("GameId");
 
-                    b.ToTable("item", (string)null);
+                    b.ToTable("Items");
                 });
 
             modelBuilder.Entity("Domain.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Body")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("body");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_on");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsRead")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_read");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("title");
+                        .HasColumnType("text");
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("type");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_notification");
+                    b.HasKey("Id");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_notification_user_id");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("notification", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("Domain.Entities.PassType", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("DurationInMinutes")
-                        .HasColumnType("integer")
-                        .HasColumnName("duration_in_minutes");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("GameId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("game_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("Price")
-                        .HasColumnType("numeric")
-                        .HasColumnName("price");
+                        .HasColumnType("numeric");
 
-                    b.HasKey("Id")
-                        .HasName("pk_pass_type");
+                    b.HasKey("Id");
 
-                    b.HasIndex("GameId")
-                        .HasDatabaseName("ix_pass_type_game_id");
+                    b.HasIndex("GameId");
 
-                    b.ToTable("pass_type", (string)null);
+                    b.ToTable("PassTypes");
                 });
 
             modelBuilder.Entity("Domain.Entities.Receipt", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CardId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("card_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("content");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("GeneratedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("generated_on");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("TransactionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("transaction_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_receipt");
+                    b.HasKey("Id");
 
-                    b.HasIndex("CardId")
-                        .HasDatabaseName("ix_receipt_card_id");
+                    b.HasIndex("CardId");
 
-                    b.HasIndex("TransactionId")
-                        .HasDatabaseName("ix_receipt_transaction_id");
+                    b.HasIndex("TransactionId");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_receipt_user_id");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("receipt", (string)null);
+                    b.ToTable("Receipts");
                 });
 
             modelBuilder.Entity("Domain.Entities.Room", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("AssignedUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("assigned_user_id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CurrentSessionStartTime")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("current_session_start_time");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("GameId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("game_id");
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsAvailable")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_available");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id")
-                        .HasName("pk_room");
+                    b.HasKey("Id");
 
-                    b.HasIndex("AssignedUserId")
-                        .HasDatabaseName("ix_room_assigned_user_id");
+                    b.HasIndex("AssignedUserId");
 
-                    b.HasIndex("GameId")
-                        .HasDatabaseName("ix_room_game_id");
+                    b.HasIndex("GameId");
 
-                    b.ToTable("room", (string)null);
+                    b.ToTable("Rooms");
                 });
 
             modelBuilder.Entity("Domain.Entities.Setting", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("GameId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("game_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("type");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id")
-                        .HasName("pk_setting");
+                    b.HasKey("Id");
 
-                    b.HasIndex("GameId")
-                        .HasDatabaseName("ix_setting_game_id");
+                    b.HasIndex("GameId");
 
-                    b.ToTable("setting", (string)null);
+                    b.ToTable("Settings");
                 });
 
             modelBuilder.Entity("Domain.Entities.SettingsAttribute", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AttributeValue")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("attribute_value");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("SettingsId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("settings_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_settings_attribute");
+                    b.HasKey("Id");
 
-                    b.HasIndex("SettingsId")
-                        .HasDatabaseName("ix_settings_attribute_settings_id");
+                    b.HasIndex("SettingsId");
 
-                    b.ToTable("settings_attribute", (string)null);
+                    b.ToTable("SettingsAttributes");
                 });
 
             modelBuilder.Entity("Domain.Entities.SettingsValue", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("AttributeId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("attribute_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("SettingsId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("settings_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Value")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("value");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id")
-                        .HasName("pk_settings_value");
+                    b.HasKey("Id");
 
-                    b.HasIndex("AttributeId")
-                        .HasDatabaseName("ix_settings_value_attribute_id");
+                    b.HasIndex("AttributeId");
 
-                    b.HasIndex("SettingsId")
-                        .HasDatabaseName("ix_settings_value_settings_id");
+                    b.HasIndex("SettingsId");
 
-                    b.ToTable("settings_value", (string)null);
+                    b.ToTable("SettingsValues");
                 });
 
             modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CardId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("card_id");
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("Price")
-                        .HasColumnType("numeric")
-                        .HasColumnName("price");
+                        .HasColumnType("numeric");
 
                     b.Property<string>("Reference")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("reference");
+                        .HasColumnType("text");
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("type");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_transactions");
+                    b.HasKey("Id");
 
-                    b.HasIndex("CardId")
-                        .HasDatabaseName("ix_transactions_card_id");
+                    b.HasIndex("CardId");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_transactions_user_id");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("transactions", (string)null);
+                    b.ToTable("transactions");
                 });
 
             modelBuilder.Entity("Domain.Entities.UserCard", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CardId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("card_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_user_card");
+                    b.HasKey("Id");
 
-                    b.HasIndex("CardId")
-                        .HasDatabaseName("ix_user_card_card_id");
+                    b.HasIndex("CardId");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_user_card_user_id");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("user_card", (string)null);
+                    b.ToTable("UserCards");
                 });
 
             modelBuilder.Entity("Domain.Identity.AppRole", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("text")
-                        .HasColumnName("concurrency_stamp");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("name");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("normalized_name");
+                        .HasColumnType("character varying(256)");
 
-                    b.HasKey("Id")
-                        .HasName("pk_asp_net_roles");
+                    b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
@@ -647,76 +514,59 @@ namespace Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("access_failed_count");
+                        .HasColumnType("integer");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("text")
-                        .HasColumnName("concurrency_stamp");
+                        .HasColumnType("text");
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("text")
-                        .HasColumnName("display_name");
+                        .HasColumnType("text");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("email");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("email_confirmed");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("lockout_enabled");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("lockout_end");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("normalized_email");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("normalized_user_name");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("text")
-                        .HasColumnName("password_hash");
+                        .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("text")
-                        .HasColumnName("phone_number");
+                        .HasColumnType("text");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("phone_number_confirmed");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("text")
-                        .HasColumnName("security_stamp");
+                        .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("two_factor_enabled");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("user_name");
+                        .HasColumnType("character varying(256)");
 
-                    b.HasKey("Id")
-                        .HasName("pk_asp_net_users");
+                    b.HasKey("Id");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -732,28 +582,22 @@ namespace Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
+                        .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("text")
-                        .HasColumnName("claim_type");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("text")
-                        .HasColumnName("claim_value");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("role_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_asp_net_role_claims");
+                    b.HasKey("Id");
 
-                    b.HasIndex("RoleId")
-                        .HasDatabaseName("ix_asp_net_role_claims_role_id");
+                    b.HasIndex("RoleId");
 
                     b.ToTable("AspNetRoleClaims", (string)null);
                 });
@@ -762,28 +606,22 @@ namespace Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
+                        .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("text")
-                        .HasColumnName("claim_type");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("text")
-                        .HasColumnName("claim_value");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_asp_net_user_claims");
+                    b.HasKey("Id");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_asp_net_user_claims_user_id");
+                    b.HasIndex("UserId");
 
                     b.ToTable("AspNetUserClaims", (string)null);
                 });
@@ -791,26 +629,20 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("text")
-                        .HasColumnName("login_provider");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("text")
-                        .HasColumnName("provider_key");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("text")
-                        .HasColumnName("provider_display_name");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("LoginProvider", "ProviderKey")
-                        .HasName("pk_asp_net_user_logins");
+                    b.HasKey("LoginProvider", "ProviderKey");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_asp_net_user_logins_user_id");
+                    b.HasIndex("UserId");
 
                     b.ToTable("AspNetUserLogins", (string)null);
                 });
@@ -818,18 +650,14 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("role_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("UserId", "RoleId")
-                        .HasName("pk_asp_net_user_roles");
+                    b.HasKey("UserId", "RoleId");
 
-                    b.HasIndex("RoleId")
-                        .HasDatabaseName("ix_asp_net_user_roles_role_id");
+                    b.HasIndex("RoleId");
 
                     b.ToTable("AspNetUserRoles", (string)null);
                 });
@@ -837,23 +665,18 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("text")
-                        .HasColumnName("login_provider");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
-                        .HasColumnType("text")
-                        .HasColumnName("name");
+                        .HasColumnType("text");
 
                     b.Property<string>("Value")
-                        .HasColumnType("text")
-                        .HasColumnName("value");
+                        .HasColumnType("text");
 
-                    b.HasKey("UserId", "LoginProvider", "Name")
-                        .HasName("pk_asp_net_user_tokens");
+                    b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
@@ -864,22 +687,19 @@ namespace Infrastructure.Migrations
                         .WithMany("CoffeeShopOrders")
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_coffee_shop_order_card_card_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.Item", "Item")
                         .WithMany("CoffeeShopOrders")
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_coffee_shop_order_item_item_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_coffee_shop_order_app_user_user_id");
+                        .IsRequired();
 
                     b.Navigation("Card");
 
@@ -894,36 +714,31 @@ namespace Infrastructure.Migrations
                         .WithMany("GameSessions")
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_game_session_card_card_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.Game", "Game")
                         .WithMany("GameSessions")
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_game_session_game_game_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.PassType", "PassType")
                         .WithMany("GameSessions")
                         .HasForeignKey("PassTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_game_session_pass_type_pass_type_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.Room", "Room")
                         .WithMany()
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_game_session_room_room_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_game_session_app_user_user_id");
+                        .IsRequired();
 
                     b.Navigation("Card");
 
@@ -942,14 +757,12 @@ namespace Infrastructure.Migrations
                         .WithMany("Items")
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_item_category_category_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.Game", "Game")
                         .WithMany("Items")
                         .HasForeignKey("GameId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_item_game_game_id");
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Category");
 
@@ -962,8 +775,7 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_notification_app_user_user_id");
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -974,8 +786,7 @@ namespace Infrastructure.Migrations
                         .WithMany("PassTypes")
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_pass_type_game_game_id");
+                        .IsRequired();
 
                     b.Navigation("Game");
                 });
@@ -986,22 +797,19 @@ namespace Infrastructure.Migrations
                         .WithMany("Receipts")
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_receipt_card_card_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.TransactionRecord", "Transaction")
                         .WithMany()
                         .HasForeignKey("TransactionId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_receipt_transactions_transaction_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_receipt_app_user_user_id");
+                        .IsRequired();
 
                     b.Navigation("Card");
 
@@ -1015,15 +823,13 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Identity.AppUser", "AssignedUser")
                         .WithMany()
                         .HasForeignKey("AssignedUserId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_room_app_user_assigned_user_id");
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Domain.Entities.Game", "Game")
                         .WithMany("Rooms")
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_room_game_game_id");
+                        .IsRequired();
 
                     b.Navigation("AssignedUser");
 
@@ -1036,8 +842,7 @@ namespace Infrastructure.Migrations
                         .WithMany("Settings")
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_setting_game_game_id");
+                        .IsRequired();
 
                     b.Navigation("Game");
                 });
@@ -1048,8 +853,7 @@ namespace Infrastructure.Migrations
                         .WithMany("Attributes")
                         .HasForeignKey("SettingsId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_settings_attribute_setting_settings_id");
+                        .IsRequired();
 
                     b.Navigation("Settings");
                 });
@@ -1060,15 +864,13 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("AttributeId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_settings_value_settings_attribute_attribute_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.Setting", "Settings")
                         .WithMany("Values")
                         .HasForeignKey("SettingsId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_settings_value_setting_settings_id");
+                        .IsRequired();
 
                     b.Navigation("Attribute");
 
@@ -1081,15 +883,13 @@ namespace Infrastructure.Migrations
                         .WithMany("Transactions")
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_transactions_card_card_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_transactions_app_user_user_id");
+                        .IsRequired();
 
                     b.Navigation("Card");
 
@@ -1102,15 +902,13 @@ namespace Infrastructure.Migrations
                         .WithMany("UserCards")
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_card_card_card_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_card_app_user_user_id");
+                        .IsRequired();
 
                     b.Navigation("Card");
 
@@ -1123,8 +921,7 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_asp_net_role_claims_asp_net_roles_role_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -1133,8 +930,7 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_asp_net_user_claims_asp_net_users_user_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -1143,8 +939,7 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_asp_net_user_logins_asp_net_users_user_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -1153,15 +948,13 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_asp_net_user_roles_asp_net_roles_role_id");
+                        .IsRequired();
 
                     b.HasOne("Domain.Identity.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_asp_net_user_roles_asp_net_users_user_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -1170,8 +963,7 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Domain.Entities.Card", b =>

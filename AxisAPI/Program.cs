@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -6,16 +6,46 @@ using Microsoft.IdentityModel.Tokens;
 
 using Domain.Identity;
 using Infrastructure.Persistence;
+using Microsoft.OpenApi.Models;
+using Application;
+using Infrastructure;
 
 
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+builder.Services.AddInfrastructure(builder.Configuration); // DbContext + repos
+builder.Services.AddApplication();                         // <-- registers IAuthService & IGameService
+
+
+
+// Swagger services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Axis API", Version = "v1" });
+
+    // JWT bearer in Swagger UI
+    var scheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter: Bearer {your JWT}",
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+    };
+    c.AddSecurityDefinition("Bearer", scheme);
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement { { scheme, Array.Empty<string>() } });
+});
+
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(opt =>
 {
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
-    opt.UseSnakeCaseNamingConvention(); // works now because we installed the naming conventions package
+    //opt.UseSnakeCaseNamingConvention(); // works now because we installed the naming conventions package
 });
 
 // Identity
@@ -54,6 +84,15 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+// 🔧 Serve Swagger ALWAYS (dev & prod)
+// (Move these OUTSIDE any if (app.Environment.IsDevelopment()) block)
+app.UseSwagger();
+app.UseSwaggerUI(ui =>
+{
+    ui.SwaggerEndpoint("/swagger/v1/swagger.json", "Axis API v1");
+    // ui.RoutePrefix = string.Empty; // <— uncomment if you want Swagger at root "/"
+});
 
 app.UseHttpsRedirection();
 app.UseAuthentication();

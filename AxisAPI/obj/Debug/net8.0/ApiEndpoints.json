@@ -8,8 +8,8 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "dto",
-        "Type": "Api.Controllers.LoginDto",
+        "Name": "req",
+        "Type": "Application.DTOs.LoginRequest",
         "IsRequired": true
       }
     ],
@@ -24,8 +24,8 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "dto",
-        "Type": "Api.Controllers.RegisterDto",
+        "Name": "req",
+        "Type": "Application.DTOs.RegisterRequest",
         "IsRequired": true
       }
     ],
