@@ -1,0 +1,17 @@
+﻿namespace Domain.Entities
+{
+    public class Game
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = default!;
+        public string Type { get; set; } = default!;
+        public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
+        public DateTime? ModifiedOn { get; set; }
+
+        public ICollection<Room> Rooms { get; set; } = new List<Room>();
+        public ICollection<PassType> PassTypes { get; set; } = new List<PassType>();
+        public ICollection<GameSession> GameSessions { get; set; } = new List<GameSession>();
+        public ICollection<Setting> Settings { get; set; } = new List<Setting>();
+        public ICollection<Item> Items { get; set; } = new List<Item>();
+    }
+}
