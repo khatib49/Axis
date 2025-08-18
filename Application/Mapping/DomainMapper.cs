@@ -88,6 +88,11 @@ namespace Application.Mapping
         public partial NotificationDto ToDto(Notification e);
         public partial Notification ToEntity(NotificationCreateDto dto);
         public partial void MapTo(NotificationUpdateDto dto, [MappingTarget] Notification e);
+        
+        // ---------- UserCard ----------
+        public partial UserCardDto ToDto(UserCard e);
+        public partial UserCard ToEntity(UserCardCreateDto dto);
+        public partial void MapTo(UserCardUpdateDto dto, [MappingTarget] UserCard e);
     }
 
 }
