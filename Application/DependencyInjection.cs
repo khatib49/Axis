@@ -27,6 +27,7 @@ namespace Application
             services.AddScoped<ISettingsAttributeService, SettingsAttributeService>();
             services.AddScoped<ISettingsValueService, SettingsValueService>();
             services.AddScoped<ITransactionRecordService, TransactionRecordService>();
+            services.AddScoped<IUserCardService, UserCardService>();
 
             return services;
         }
