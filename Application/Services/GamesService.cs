@@ -41,7 +41,7 @@ namespace Application.Services
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
-
+            e.ModifiedOn = DateTime.UtcNow;
             _mapper.MapTo(dto, e); // updates only non-null fields
             await _uow.SaveChangesAsync(ct);
             return true;
