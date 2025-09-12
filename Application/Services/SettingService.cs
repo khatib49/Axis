@@ -3,6 +3,7 @@ using Application.IServices;
 using Application.Mapping;
 using Domain.Entities;
 using Infrastructure.IRepositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
@@ -19,13 +20,23 @@ namespace Application.Services
 
         public async Task<SettingDto?> GetAsync(Guid id, CancellationToken ct = default)
         {
-            var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
+            //var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
+            var e = await _repo.Query()
+                    .Include(s => s.Attributes)
+                    .Include(s => s.Values)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
 
         public async Task<List<SettingDto>> ListAsync(CancellationToken ct = default)
         {
-            var list = await _repo.ListAsync(null, asNoTracking: true, ct);
+            //var list = await _repo.ListAsync(null, asNoTracking: true, ct);
+            var list = await _repo.Query()
+                        .Include(s => s.Attributes)
+                        .Include(s => s.Values)
+                        .AsNoTracking()
+                        .ToListAsync(ct);
             return list.Select(_mapper.ToDto).ToList();
         }
 
