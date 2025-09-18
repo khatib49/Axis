@@ -37,18 +37,25 @@ namespace Application.Services
             return _mapper.ToDto(e, roles);
         }
 
-        public async Task<List<UserDto>> ListAsync(CancellationToken ct = default)
+        public async Task<PaginatedResponse<UserDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            var users = await _repo.ListAsync(null, asNoTracking: true, ct);
+            var list = await _repo.ListAsync(null, asNoTracking: true, ct);
+            var totalCount = list.Count;
+
+            var pagedList = list
+                .Skip((pagination.Page - 1) * pagination.PageSize)
+                .Take(pagination.PageSize)
+                .ToList();
+
             var result = new List<UserDto>();
 
-            foreach (var u in users)
+            foreach (var u in pagedList)
             {
                 var roles = (await _userManager.GetRolesAsync(u)).ToList();
                 result.Add(_mapper.ToDto(u, roles));
             }
 
-            return result;
+            return new PaginatedResponse<UserDto>(totalCount, result);
         }
         public async Task<bool> UpdateAsync(Guid Id, UserUpdateDto request, CancellationToken ct = default)
         {

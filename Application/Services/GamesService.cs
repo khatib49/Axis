@@ -23,10 +23,19 @@ namespace Application.Services
             return e is null ? null : _mapper.ToDto(e);
         }
 
-        public async Task<List<GameDto>> ListAsync(CancellationToken ct = default)
+        public async Task<PaginatedResponse<GameDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
             var list = await _repo.ListAsync(null, asNoTracking: true, ct);
-            return list.Select(_mapper.ToDto).ToList();
+            var totalCount = list.Count();
+
+            var pagedList = list
+                .Skip((pagination.Page - 1) * pagination.PageSize)
+                .Take(pagination.PageSize)
+                .ToList();
+
+            var result = pagedList.Select(_mapper.ToDto).ToList();
+
+            return new PaginatedResponse<GameDto>(totalCount, result);
         }
 
         public async Task<GameDto> CreateAsync(GameCreateDto dto, CancellationToken ct = default)
