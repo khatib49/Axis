@@ -127,10 +127,10 @@ C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets\msbuild.buildMultiTargeting.AxisAPI.props
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets\msbuild.buildTransitive.AxisAPI.props
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.pack.json
+C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.csproj.Up2Date
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.dll
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\refint\AxisAPI.dll
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.pdb
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.genruntimeconfig.cache
 C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\ref\AxisAPI.dll
-C:\Users\User\Desktop\Related\Axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
