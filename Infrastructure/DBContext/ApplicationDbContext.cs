@@ -27,6 +27,7 @@ namespace Infrastructure.Persistence
         public DbSet<CoffeeShopOrder> CoffeeShopOrders => Set<CoffeeShopOrder>();
         public DbSet<Expense> Expenses => Set<Expense>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<Status> Status => Set<Status>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -92,6 +93,12 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.Card).WithMany(x => x.Transactions)
               .HasForeignKey(x => x.CardId)
               .OnDelete(DeleteBehavior.Restrict);
+            
+            b.Entity<TransactionRecord>()
+              .HasOne(x => x.Status)
+              .WithMany() // Status does not have a collection of Games
+              .HasForeignKey(x => x.StatusId)
+              .OnDelete(DeleteBehavior.Restrict);
 
             b.Entity<Receipt>()
               .HasOne(x => x.Transaction).WithMany()
@@ -137,6 +144,17 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.Game).WithMany(x => x.Items)
               .HasForeignKey(x => x.GameId)
               .OnDelete(DeleteBehavior.SetNull);
+            
+            b.Entity<Item>()
+              .HasOne(x => x.Status).WithMany()
+              .HasForeignKey(x => x.StatusId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            b.Entity<Game>()
+              .HasOne(x => x.Status)
+              .WithMany()
+              .HasForeignKey(x => x.StatusId)
+              .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

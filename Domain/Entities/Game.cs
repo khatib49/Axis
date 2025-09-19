@@ -5,6 +5,8 @@
         public Guid Id { get; set; }
         public string Name { get; set; } = default!;
         public string Type { get; set; } = default!;
+        public Guid StatusId { get; set; }       
+        public Status Status { get; set; } = default!;
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedOn { get; set; }
 

@@ -17,6 +17,9 @@ namespace Domain.Entities
         public Guid? GameId { get; set; }   // optional link to Game (if needed)
         public Game? Game { get; set; }
 
+        public Guid StatusId { get; set; }
+        public Status Status { get; set; } = default!;
+
         public ICollection<CoffeeShopOrder> CoffeeShopOrders { get; set; } = new List<CoffeeShopOrder>();
     }
 }

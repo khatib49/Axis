@@ -17,5 +17,7 @@ namespace Domain.Entities
 
         public Guid CardId { get; set; }
         public Card Card { get; set; } = default!;
+        public Guid StatusId { get; set; }
+        public Status Status { get; set; } = default!;
     }
 }
