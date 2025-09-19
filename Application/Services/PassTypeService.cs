@@ -35,7 +35,7 @@ namespace Application.Services
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
-            return new PaginatedResponse<PassTypeDto>(totalCount, result);
+            return new PaginatedResponse<PassTypeDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
         public async Task<PassTypeDto> CreateAsync(PassTypeCreateDto dto, CancellationToken ct = default)

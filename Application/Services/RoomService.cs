@@ -35,7 +35,7 @@ namespace Application.Services
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
-            return new PaginatedResponse<RoomDto>(totalCount, result);
+            return new PaginatedResponse<RoomDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
         public async Task<RoomDto> CreateAsync(RoomCreateDto dto, CancellationToken ct = default)

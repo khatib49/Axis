@@ -55,7 +55,7 @@ namespace Application.Services
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
-            return new PaginatedResponse<CategoryDto>(totalCount, result);
+            return new PaginatedResponse<CategoryDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
         public async Task<bool> UpdateAsync(Guid id, CategoryUpdateDto dto, CancellationToken ct = default)

@@ -35,7 +35,7 @@ namespace Application.Services
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
-            return new PaginatedResponse<ItemDto>(totalCount, result);
+            return new PaginatedResponse<ItemDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
         public async Task<ItemDto> CreateAsync(ItemCreateDto dto, CancellationToken ct = default)
@@ -64,6 +64,21 @@ namespace Application.Services
             _repo.Remove(e);
             await _uow.SaveChangesAsync(ct);
             return true;
+        }
+
+        public async Task<PaginatedResponse<ItemDto>> GetByCategoryIdAsync(Guid id, BasePaginationRequestDto pagination, CancellationToken ct = default)
+        {
+            var list = await _repo.ListAsync(i => i.CategoryId == id, asNoTracking: true, ct);
+            var totalCount = list.Count();
+
+            var pagedList = list
+                .Skip((pagination.Page - 1) * pagination.PageSize)
+                .Take(pagination.PageSize)
+                .ToList();
+
+            var result = pagedList.Select(_mapper.ToDto).ToList();
+
+            return new PaginatedResponse<ItemDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
     }
 }
