@@ -60,6 +60,10 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Categories");
@@ -140,11 +144,16 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid>("StatusId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("StatusId");
 
                     b.ToTable("Games");
                 });
@@ -220,6 +229,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("StatusId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
@@ -229,6 +241,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("GameId");
+
+                    b.HasIndex("StatusId");
 
                     b.ToTable("Items");
                 });
@@ -430,6 +444,21 @@ namespace Infrastructure.Migrations
                     b.ToTable("SettingsValues");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Status", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Status");
+                });
+
             modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -446,6 +475,9 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid>("StatusId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
@@ -456,6 +488,8 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CardId");
+
+                    b.HasIndex("StatusId");
 
                     b.HasIndex("UserId");
 
@@ -708,6 +742,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Game", b =>
+                {
+                    b.HasOne("Domain.Entities.Status", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Status");
+                });
+
             modelBuilder.Entity("Domain.Entities.GameSession", b =>
                 {
                     b.HasOne("Domain.Entities.Card", "Card")
@@ -764,9 +809,17 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Domain.Entities.Status", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Category");
 
                     b.Navigation("Game");
+
+                    b.Navigation("Status");
                 });
 
             modelBuilder.Entity("Domain.Entities.Notification", b =>
@@ -885,6 +938,12 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.Status", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -892,6 +951,8 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Card");
+
+                    b.Navigation("Status");
 
                     b.Navigation("User");
                 });

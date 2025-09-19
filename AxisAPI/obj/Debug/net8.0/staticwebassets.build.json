@@ -1,12 +1,11 @@
 {
   "Version": 1,
-  "Hash": "hqz+2CNcSr/XnPHUxF9Yu3tIJWeGTgD1GKJVM7Ib4J8=",
+  "Hash": "+2E7jZPje1ao4ANRxwTYG+3CUJiIGejC07xY3RiRSX8=",
   "Source": "AxisAPI",
   "BasePath": "_content/AxisAPI",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
   "DiscoveryPatterns": [],
-  "Assets": [],
-  "Endpoints": []
+  "Assets": []
 }
