@@ -109,6 +109,11 @@ namespace Application.Mapping
         public partial UserCardDto ToDto(UserCard e);
         public partial UserCard ToEntity(UserCardCreateDto dto);
         public partial void MapTo(UserCardUpdateDto dto, [MappingTarget] UserCard e);
+
+        // ---------- Status ----------
+        public partial StatusDto ToDto(Status e);
+        public partial Status ToEntity(StatusCreateDto dto);
+        public partial void MapTo(StatusUpdateDto dto, [MappingTarget] Status e);
     }
 
 }

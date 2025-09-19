@@ -29,6 +29,7 @@ namespace Application
             services.AddScoped<ITransactionRecordService, TransactionRecordService>();
             services.AddScoped<IUserCardService, UserCardService>();
             services.AddScoped<IUsersService, UsersService>();
+            services.AddScoped<IStatusService, StatusService>();
 
             return services;
         }
