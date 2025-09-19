@@ -33,9 +33,9 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> List(CancellationToken ct)
+        public async Task<IActionResult> List([FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
         {
-            var usersCards = await _userCardService.ListAsync(ct);
+            var usersCards = await _userCardService.ListAsync(pagination, ct);
             return Ok(usersCards);
         }
         

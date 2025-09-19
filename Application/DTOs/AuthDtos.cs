@@ -5,4 +5,6 @@
     public record AuthResponse(bool Success, string? Token, string? Error);
     public record BaseResponse(bool Success, string? Error);
     public record UserDto(Guid Id, string? Email, string? DisplayName, List<string> Roles);
+    public record UserUpdateDto(string? DisplayName, string? Email, List<string>? Roles);
+
 }
