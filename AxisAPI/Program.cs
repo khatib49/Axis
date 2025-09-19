@@ -83,6 +83,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 
+
+builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
+                option =>
+                {
+                    option
+                    .WithOrigins("http://localhost:5173")
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+                }));
+
+
+
 var app = builder.Build();
 
 // 🔧 Serve Swagger ALWAYS (dev & prod)
@@ -98,6 +111,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseCors("CorsPolicy");
 app.MapControllers();
 
 // Auto-create/upgrade the DB schema on boot (creates DB *schema* if DB exists)
