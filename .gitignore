@@ -12,3 +12,10 @@ Domain/bin/
 Domain/obj/
 Infrastructure/bin/
 Infrastructure/obj/
+/Application/DependencyInjection.cs
+/Application/obj/Debug/net8.0/Application.AssemblyInfo.cs
+/Application/obj/Debug/net8.0/Application.AssemblyInfoInputs.cache
+/AxisAPI/obj/Debug/net8.0/AxisAPI.AssemblyInfo.cs
+/AxisAPI/obj/Debug/net8.0/AxisAPI.AssemblyInfoInputs.cache
+/Infrastructure/obj/Debug/net8.0/Infrastructure.AssemblyInfo.cs
+/Infrastructure/obj/Debug/net8.0/Infrastructure.AssemblyInfoInputs.cache
