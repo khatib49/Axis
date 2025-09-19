@@ -6,6 +6,6 @@ using System.Threading.Tasks;
 
 namespace Application.DTOs
 {
-    public record PaginatedResponse<T>(int TotalCount, IReadOnlyList<T> Items);
+    public record PaginatedResponse<T>(int TotalCount, IReadOnlyList<T> Items, int PageNumber, int PageSize);
 
 }

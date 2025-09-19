@@ -35,7 +35,7 @@ namespace Application.Services
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
-            return new PaginatedResponse<CoffeeShopOrderDto>(totalCount, result);
+            return new PaginatedResponse<CoffeeShopOrderDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
         public async Task<CoffeeShopOrderDto> CreateAsync(CoffeeShopOrderCreateDto dto, CancellationToken ct = default)

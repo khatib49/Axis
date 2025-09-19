@@ -36,7 +36,7 @@ namespace Application.Services
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
-            return new PaginatedResponse<GameSessionDto>(totalCount, result);
+            return new PaginatedResponse<GameSessionDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
         public async Task<GameSessionDto> CreateAsync(GameSessionCreateDto dto, CancellationToken ct = default)

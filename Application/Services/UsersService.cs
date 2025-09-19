@@ -55,7 +55,7 @@ namespace Application.Services
                 result.Add(_mapper.ToDto(u, roles));
             }
 
-            return new PaginatedResponse<UserDto>(totalCount, result);
+            return new PaginatedResponse<UserDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
         public async Task<bool> UpdateAsync(Guid Id, UserUpdateDto request, CancellationToken ct = default)
         {

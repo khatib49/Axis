@@ -35,7 +35,7 @@ namespace Application.Services
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
-            return new PaginatedResponse<ExpenseDto>(totalCount, result); ;
+            return new PaginatedResponse<ExpenseDto>(totalCount, result, pagination.Page, pagination.PageSize); ;
         }
 
         public async Task<ExpenseDto> CreateAsync(ExpenseCreateDto dto, CancellationToken ct = default)
