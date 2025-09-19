@@ -482,6 +482,32 @@
     "ReturnTypes": []
   },
   {
+    "ContainingType": "AxisAPI.Controllers.ItemController",
+    "Method": "GetItemsByCategoryId",
+    "RelativePath": "api/item/category/{categoryId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "categoryId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "Page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "PageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "AxisAPI.Controllers.PassTypeController",
     "Method": "List",
     "RelativePath": "api/passtype",
