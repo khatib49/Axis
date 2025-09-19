@@ -9,7 +9,7 @@
     public record SettingsValueUpdateDto(Guid? AttributeId, string? Value);
 
     public record SettingDto(
-        Guid Id, string Name, string Type, Guid GameId,
+        Guid Id, string Name, string Type, Guid GameId, string GameName,
         List<SettingsAttributeDto> Attributes, List<SettingsValueDto> Values);
 
     public record SettingCreateDto(string Name, string Type, Guid GameId);

@@ -35,6 +35,7 @@ namespace Application.Services
             var list = await _repo.Query()
                         .Include(s => s.Attributes)
                         .Include(s => s.Values)
+                        .Include(s => s.Game)
                         .AsNoTracking()
                         .ToListAsync(ct);
             var totalCount = list.Count();

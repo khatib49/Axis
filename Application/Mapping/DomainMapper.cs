@@ -52,23 +52,25 @@ namespace Application.Mapping
         public partial void MapTo(ReceiptUpdateDto dto, [MappingTarget] Receipt e);
 
         // ---------- Settings / Attributes / Values ----------
-        public SettingDto ToDto(Setting e) =>
-                new SettingDto(
-                    e.Id,
-                    e.Name,
-                    e.Type,
-                    e.GameId,
-                    e.Attributes.Select(a => new SettingsAttributeDto(
-                        a.Id,
-                        a.Name,
-                        a.AttributeValue,
-                        a.SettingsId)).ToList(),
-                    e.Values.Select(v => new SettingsValueDto(
-                        v.Id,
-                        v.SettingsId,
-                        v.AttributeId,
-                        v.Value)).ToList()
-                );
+    public SettingDto ToDto(Setting e) =>
+        new SettingDto(
+            e.Id,
+            e.Name,
+            e.Type,
+            e.GameId,
+            e.Game?.Name ?? string.Empty,
+            e.Attributes.Select(a => new SettingsAttributeDto(
+                a.Id,
+                a.Name,
+                a.AttributeValue,
+                a.SettingsId)).ToList(),
+            e.Values.Select(v => new SettingsValueDto(
+                v.Id,
+                v.SettingsId,
+                v.AttributeId,
+                v.Value)).ToList()
+        );
+
         public partial Setting ToEntity(SettingCreateDto dto);
         public partial void MapTo(SettingUpdateDto dto, [MappingTarget] Setting e);
 
