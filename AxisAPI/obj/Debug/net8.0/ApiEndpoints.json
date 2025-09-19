@@ -212,6 +212,32 @@
     "ReturnTypes": []
   },
   {
+    "ContainingType": "AxisAPI.Controllers.CategoryController",
+    "Method": "GetCategoriesByType",
+    "RelativePath": "api/category/type/{type}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "type",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "Page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "PageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "AxisAPI.Controllers.GameController",
     "Method": "List",
     "RelativePath": "api/game",

@@ -45,7 +45,7 @@ namespace Application.Services
 
         public async Task<PaginatedResponse<CategoryDto>> GetByTypeAsync(string type, BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            var list = await _repo.ListAsync(i => i.upda.Trim().ToLower().Equals(type.Trim().ToLower()) , asNoTracking: true, ct);
+            var list = await _repo.ListAsync(i => i.Type.Trim().ToLower().Equals(type.Trim().ToLower()) , asNoTracking: true, ct);
             var totalCount = list.Count();
 
             var pagedList = list
