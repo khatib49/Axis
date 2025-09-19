@@ -43,6 +43,21 @@ namespace Application.Services
             return e is null ? null : _mapper.ToDto(e);
         }
 
+        public async Task<PaginatedResponse<CategoryDto>> GetByTypeAsync(string type, BasePaginationRequestDto pagination, CancellationToken ct = default)
+        {
+            var list = await _repo.ListAsync(i => i.upda.Trim().ToLower().Equals(type.Trim().ToLower()) , asNoTracking: true, ct);
+            var totalCount = list.Count();
+
+            var pagedList = list
+                .Skip((pagination.Page - 1) * pagination.PageSize)
+                .Take(pagination.PageSize)
+                .ToList();
+
+            var result = pagedList.Select(_mapper.ToDto).ToList();
+
+            return new PaginatedResponse<CategoryDto>(totalCount, result, pagination.Page, pagination.PageSize);
+        }
+
         public async Task<PaginatedResponse<CategoryDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
             var list = await _repo.ListAsync(null, asNoTracking: true, ct);

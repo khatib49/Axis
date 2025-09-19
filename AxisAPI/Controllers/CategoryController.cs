@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Application.Services;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,6 +30,13 @@ namespace AxisAPI.Controllers
         {
             var categories = await _categoryService.ListAsync(pagination, ct);
             return Ok(categories);
+        }
+
+        [HttpGet("type/{type}")]
+        public async Task<IActionResult> GetCategoriesByType(string type, [FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
+        {
+            var items = await _categoryService.GetByTypeAsync(type, pagination, ct);
+            return Ok(items);
         }
 
         [HttpPut("{id:guid}")]
