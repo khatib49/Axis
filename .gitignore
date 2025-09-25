@@ -19,3 +19,12 @@ Infrastructure/obj/
 /AxisAPI/obj/Debug/net8.0/AxisAPI.AssemblyInfoInputs.cache
 /Infrastructure/obj/Debug/net8.0/Infrastructure.AssemblyInfo.cs
 /Infrastructure/obj/Debug/net8.0/Infrastructure.AssemblyInfoInputs.cache
+/Application/obj/project.nuget.cache
+/Application/obj
+/AxisAPI/bin
+/AxisAPI/obj
+/Domain/bin
+/Domain/obj
+/Infrastructure/bin
+/Infrastructure/obj
+/AxisAPI/bin/Debug/net8.0/cs/Microsoft.CodeAnalysis.CSharp.resources.dll
