@@ -13,6 +13,6 @@
         string CreatedBy, string? ModifiedBy
        );
 
-    public record SettingCreateDto(string Name, string Type, Guid GameId);
-    public record SettingUpdateDto(string? Name, string? Type, Guid? GameId);
+    public record SettingCreateDto(string Name, string Type, Guid GameId, decimal Hours, decimal Price);
+    public record SettingUpdateDto(string? Name, string? Type, Guid? GameId, decimal Hours, decimal Price);
 }

@@ -12,7 +12,6 @@ namespace Application.Services
         private readonly IBaseRepository<Setting> _repo;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
-
         public SettingService(IBaseRepository<Setting> repo, IUnitOfWork uow, DomainMapper mapper)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -49,19 +48,21 @@ namespace Application.Services
             return new PaginatedResponse<SettingDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
-        public async Task<SettingDto> CreateAsync(SettingCreateDto dto, CancellationToken ct = default)
+        public async Task<SettingDto> CreateAsync(SettingCreateDto dto, string createdBy, CancellationToken ct = default)
         {
             var e = _mapper.ToEntity(dto);
+            e.CreatedBy = createdBy ?? "";
+            e.CreatedOn = DateTime.UtcNow;
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
             return _mapper.ToDto(e);
         }
-
-        public async Task<bool> UpdateAsync(Guid id, SettingUpdateDto dto, CancellationToken ct = default)
+        public async Task<bool> UpdateAsync(Guid id, SettingUpdateDto dto, string? ModifiedBy, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
-
+            e.ModifiedBy = ModifiedBy ?? "";
+            e.ModifiedOn = DateTime.UtcNow;
             _mapper.MapTo(dto, e); // updates only non-null fields
             await _uow.SaveChangesAsync(ct);
             return true;

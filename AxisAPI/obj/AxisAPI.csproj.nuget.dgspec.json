@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\User\\Source\\Repos\\AxisAPI\\AxisAPI\\AxisAPI.csproj": {}
+    "C:\\Users\\user\\axis\\Axis\\AxisAPI\\AxisAPI.csproj": {}
   },
   "projects": {
-    "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Application\\Application.csproj": {
+    "C:\\Users\\user\\axis\\Axis\\Application\\Application.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Application\\Application.csproj",
+        "projectUniqueName": "C:\\Users\\user\\axis\\Axis\\Application\\Application.csproj",
         "projectName": "Application",
-        "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Application\\Application.csproj",
-        "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Application\\obj\\",
+        "projectPath": "C:\\Users\\user\\axis\\Axis\\Application\\Application.csproj",
+        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\user\\axis\\Axis\\Application\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\User\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -26,15 +26,14 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\Infrastructure.csproj": {
-                "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\Infrastructure.csproj"
+              "C:\\Users\\user\\axis\\Axis\\Infrastructure\\Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\user\\axis\\Axis\\Infrastructure\\Infrastructure.csproj"
               }
             }
           }
@@ -48,7 +47,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -79,24 +79,24 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "C:\\Users\\User\\Source\\Repos\\AxisAPI\\AxisAPI\\AxisAPI.csproj": {
+    "C:\\Users\\user\\axis\\Axis\\AxisAPI\\AxisAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\AxisAPI\\AxisAPI.csproj",
+        "projectUniqueName": "C:\\Users\\user\\axis\\Axis\\AxisAPI\\AxisAPI.csproj",
         "projectName": "AxisAPI",
-        "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\AxisAPI\\AxisAPI.csproj",
-        "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\AxisAPI\\obj\\",
+        "projectPath": "C:\\Users\\user\\axis\\Axis\\AxisAPI\\AxisAPI.csproj",
+        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\user\\axis\\Axis\\AxisAPI\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\User\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -105,18 +105,17 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Application\\Application.csproj": {
-                "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Application\\Application.csproj"
+              "C:\\Users\\user\\axis\\Axis\\Application\\Application.csproj": {
+                "projectPath": "C:\\Users\\user\\axis\\Axis\\Application\\Application.csproj"
               },
-              "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\Infrastructure.csproj": {
-                "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\Infrastructure.csproj"
+              "C:\\Users\\user\\axis\\Axis\\Infrastructure\\Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\user\\axis\\Axis\\Infrastructure\\Infrastructure.csproj"
               }
             }
           }
@@ -130,7 +129,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -178,24 +178,24 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Domain\\Domain.csproj": {
+    "C:\\Users\\user\\axis\\Axis\\Domain\\Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Domain\\Domain.csproj",
+        "projectUniqueName": "C:\\Users\\user\\axis\\Axis\\Domain\\Domain.csproj",
         "projectName": "Domain",
-        "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Domain\\Domain.csproj",
-        "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Domain\\obj\\",
+        "projectPath": "C:\\Users\\user\\axis\\Axis\\Domain\\Domain.csproj",
+        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\user\\axis\\Axis\\Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\User\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -204,7 +204,6 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -222,7 +221,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -253,24 +253,24 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\Infrastructure.csproj": {
+    "C:\\Users\\user\\axis\\Axis\\Infrastructure\\Infrastructure.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\Infrastructure.csproj",
+        "projectUniqueName": "C:\\Users\\user\\axis\\Axis\\Infrastructure\\Infrastructure.csproj",
         "projectName": "Infrastructure",
-        "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\Infrastructure.csproj",
-        "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Infrastructure\\obj\\",
+        "projectPath": "C:\\Users\\user\\axis\\Axis\\Infrastructure\\Infrastructure.csproj",
+        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\user\\axis\\Axis\\Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\User\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -279,15 +279,14 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Domain\\Domain.csproj": {
-                "projectPath": "C:\\Users\\User\\Source\\Repos\\AxisAPI\\Domain\\Domain.csproj"
+              "C:\\Users\\user\\axis\\Axis\\Domain\\Domain.csproj": {
+                "projectPath": "C:\\Users\\user\\axis\\Axis\\Domain\\Domain.csproj"
               }
             }
           }
@@ -301,7 +300,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -348,7 +348,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

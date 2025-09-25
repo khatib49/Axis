@@ -2197,6 +2197,14 @@
           "gameId": {
             "type": "string",
             "format": "uuid"
+          },
+          "hours": {
+            "type": "number",
+            "format": "double"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -2216,6 +2224,14 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "hours": {
+            "type": "number",
+            "format": "double"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false

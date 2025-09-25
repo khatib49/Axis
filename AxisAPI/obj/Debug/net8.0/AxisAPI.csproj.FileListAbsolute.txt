@@ -254,10 +254,10 @@ C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.build.json
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.build.json.cache
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.development.json
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.build.endpoints.json
+C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.csproj.Up2Date
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.dll
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\refint\AxisAPI.dll
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.pdb
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\AxisAPI.genruntimeconfig.cache
 C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\ref\AxisAPI.dll
-C:\Users\user\axis\Axis\AxisAPI\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

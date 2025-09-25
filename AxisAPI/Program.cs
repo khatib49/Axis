@@ -82,6 +82,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
 
 builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
