@@ -9,8 +9,9 @@
     public record SettingsValueUpdateDto(Guid? AttributeId, string? Value);
 
     public record SettingDto(
-        Guid Id, string Name, string Type, Guid GameId, string GameName,
-        List<SettingsAttributeDto> Attributes, List<SettingsValueDto> Values);
+        Guid Id, string Name, string Type, Guid GameId, string GameName,decimal Hours, decimal Price, DateTime CreatedOn, DateTime? ModifiedOn,
+        string CreatedBy, string? ModifiedBy
+       );
 
     public record SettingCreateDto(string Name, string Type, Guid GameId);
     public record SettingUpdateDto(string? Name, string? Type, Guid? GameId);

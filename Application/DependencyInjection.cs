@@ -24,8 +24,7 @@ namespace Application
             services.AddScoped<IReceiptService, ReceiptService>();
             services.AddScoped<IRoomService, RoomService>();
             services.AddScoped<ISettingService, SettingService>();
-            services.AddScoped<ISettingsAttributeService, SettingsAttributeService>();
-            services.AddScoped<ISettingsValueService, SettingsValueService>();
+          
             services.AddScoped<ITransactionRecordService, TransactionRecordService>();
             services.AddScoped<IUserCardService, UserCardService>();
             services.AddScoped<IUsersService, UsersService>();

@@ -59,29 +59,21 @@ namespace Application.Mapping
             e.Type,
             e.GameId,
             e.Game?.Name ?? string.Empty,
-            e.Attributes.Select(a => new SettingsAttributeDto(
-                a.Id,
-                a.Name,
-                a.AttributeValue,
-                a.SettingsId)).ToList(),
-            e.Values.Select(v => new SettingsValueDto(
-                v.Id,
-                v.SettingsId,
-                v.AttributeId,
-                v.Value)).ToList()
+            e.Hours,
+            e.Price,
+            e.CreatedOn,
+            e.ModifiedOn,
+            e.CreatedBy,
+            e.ModifiedBy
+          
         );
 
         public partial Setting ToEntity(SettingCreateDto dto);
         public partial void MapTo(SettingUpdateDto dto, [MappingTarget] Setting e);
 
-        public partial SettingsAttributeDto ToDto(SettingsAttribute e);
-        public partial SettingsAttribute ToEntity(SettingsAttributeCreateDto dto);
-        public partial void MapTo(SettingsAttributeUpdateDto dto, [MappingTarget] SettingsAttribute e);
+       
 
-        public partial SettingsValueDto ToDto(SettingsValue e);
-        public partial SettingsValue ToEntity(SettingsValueCreateDto dto);
-        public partial void MapTo(SettingsValueUpdateDto dto, [MappingTarget] SettingsValue e);
-
+      
         // ---------- Category ----------
         public partial CategoryDto ToDto(Category e);
         public partial Category ToEntity(CategoryCreateDto dto);

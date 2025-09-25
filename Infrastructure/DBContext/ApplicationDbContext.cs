@@ -20,8 +20,6 @@ namespace Infrastructure.Persistence
         public DbSet<TransactionRecord> Transactions => Set<TransactionRecord>();
         public DbSet<Receipt> Receipts => Set<Receipt>();
         public DbSet<Setting> Settings => Set<Setting>();
-        public DbSet<SettingsAttribute> SettingsAttributes => Set<SettingsAttribute>();
-        public DbSet<SettingsValue> SettingsValues => Set<SettingsValue>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Item> Items => Set<Item>();
         public DbSet<CoffeeShopOrder> CoffeeShopOrders => Set<CoffeeShopOrder>();
@@ -118,21 +116,6 @@ namespace Infrastructure.Persistence
             b.Entity<Setting>()
               .HasOne(x => x.Game).WithMany(x => x.Settings)
               .HasForeignKey(x => x.GameId)
-              .OnDelete(DeleteBehavior.Cascade);
-
-            b.Entity<SettingsAttribute>()
-              .HasOne(x => x.Settings).WithMany(x => x.Attributes)
-              .HasForeignKey(x => x.SettingsId)
-              .OnDelete(DeleteBehavior.Cascade);
-
-            b.Entity<SettingsValue>()
-              .HasOne(x => x.Settings).WithMany(x => x.Values)
-              .HasForeignKey(x => x.SettingsId)
-              .OnDelete(DeleteBehavior.Cascade);
-
-            b.Entity<SettingsValue>()
-              .HasOne(x => x.Attribute).WithMany()
-              .HasForeignKey(x => x.AttributeId)
               .OnDelete(DeleteBehavior.Cascade);
 
             b.Entity<Item>()
