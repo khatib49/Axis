@@ -3,6 +3,7 @@ using Application.IServices;
 using Application.Mapping;
 using Domain.Entities;
 using Infrastructure.IRepositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
@@ -19,13 +20,19 @@ namespace Application.Services
 
         public async Task<RoomDto?> GetAsync(Guid id, CancellationToken ct = default)
         {
-            var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
+            var e = await _repo.Query()
+                    .Include(s => s.Category)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
 
         public async Task<PaginatedResponse<RoomDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            var list = await _repo.ListAsync(null, asNoTracking: true, ct);
+            var list = await _repo.Query()
+                        .Include(s => s.Category)
+                        .AsNoTracking()
+                        .ToListAsync(ct);
             var totalCount = list.Count();
 
             var pagedList = list

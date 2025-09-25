@@ -353,6 +353,44 @@
         }
       }
     },
+    "/api/category/type/{type}": {
+      "get": {
+        "tags": [
+          "Category"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/game/{id}": {
       "get": {
         "tags": [
@@ -713,6 +751,45 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/item/category/{categoryId}": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "parameters": [
+          {
+            "name": "categoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -1211,10 +1288,10 @@
         }
       }
     },
-    "/api/settingsattribute/{id}": {
+    "/api/status/{id}": {
       "get": {
         "tags": [
-          "SettingsAttribute"
+          "Status"
         ],
         "parameters": [
           {
@@ -1235,7 +1312,7 @@
       },
       "put": {
         "tags": [
-          "SettingsAttribute"
+          "Status"
         ],
         "parameters": [
           {
@@ -1252,17 +1329,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsAttributeUpdateDto"
+                "$ref": "#/components/schemas/StatusUpdateDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsAttributeUpdateDto"
+                "$ref": "#/components/schemas/StatusUpdateDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsAttributeUpdateDto"
+                "$ref": "#/components/schemas/StatusUpdateDto"
               }
             }
           }
@@ -1275,7 +1352,7 @@
       },
       "delete": {
         "tags": [
-          "SettingsAttribute"
+          "Status"
         ],
         "parameters": [
           {
@@ -1295,10 +1372,10 @@
         }
       }
     },
-    "/api/settingsattribute": {
+    "/api/status": {
       "get": {
         "tags": [
-          "SettingsAttribute"
+          "Status"
         ],
         "parameters": [
           {
@@ -1326,23 +1403,23 @@
       },
       "post": {
         "tags": [
-          "SettingsAttribute"
+          "Status"
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsAttributeCreateDto"
+                "$ref": "#/components/schemas/StatusCreateDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsAttributeCreateDto"
+                "$ref": "#/components/schemas/StatusCreateDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsAttributeCreateDto"
+                "$ref": "#/components/schemas/StatusCreateDto"
               }
             }
           }
@@ -1354,10 +1431,10 @@
         }
       }
     },
-    "/api/settingsvalue/{id}": {
+    "/api/transactions/{id}": {
       "get": {
         "tags": [
-          "SettingsValue"
+          "Transactions"
         ],
         "parameters": [
           {
@@ -1378,7 +1455,7 @@
       },
       "put": {
         "tags": [
-          "SettingsValue"
+          "Transactions"
         ],
         "parameters": [
           {
@@ -1395,17 +1472,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsValueUpdateDto"
+                "$ref": "#/components/schemas/TransactionUpdateDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsValueUpdateDto"
+                "$ref": "#/components/schemas/TransactionUpdateDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsValueUpdateDto"
+                "$ref": "#/components/schemas/TransactionUpdateDto"
               }
             }
           }
@@ -1418,7 +1495,7 @@
       },
       "delete": {
         "tags": [
-          "SettingsValue"
+          "Transactions"
         ],
         "parameters": [
           {
@@ -1438,10 +1515,10 @@
         }
       }
     },
-    "/api/settingsvalue": {
+    "/api/transactions": {
       "get": {
         "tags": [
-          "SettingsValue"
+          "Transactions"
         ],
         "parameters": [
           {
@@ -1469,23 +1546,23 @@
       },
       "post": {
         "tags": [
-          "SettingsValue"
+          "Transactions"
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsValueCreateDto"
+                "$ref": "#/components/schemas/TransactionCreateDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsValueCreateDto"
+                "$ref": "#/components/schemas/TransactionCreateDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SettingsValueCreateDto"
+                "$ref": "#/components/schemas/TransactionCreateDto"
               }
             }
           }
@@ -1795,6 +1872,10 @@
           "name": {
             "type": "string",
             "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1803,6 +1884,10 @@
         "type": "object",
         "properties": {
           "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
             "type": "string",
             "nullable": true
           }
@@ -1818,6 +1903,11 @@
           },
           "type": {
             "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
@@ -1896,6 +1986,11 @@
           "type": {
             "type": "string",
             "nullable": true
+          },
+          "statusId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1923,7 +2018,7 @@
             "type": "string",
             "format": "uuid"
           },
-          "gameId": {
+          "statusId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -1957,7 +2052,7 @@
             "format": "uuid",
             "nullable": true
           },
-          "gameId": {
+          "statusId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -2055,13 +2150,14 @@
             "type": "string",
             "nullable": true
           },
-          "gameId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "assignedUserId": {
+          "categoryId": {
             "type": "string",
             "format": "uuid",
+            "nullable": true
+          },
+          "sets": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },
@@ -2074,13 +2170,14 @@
             "type": "string",
             "nullable": true
           },
-          "isAvailable": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "assignedUserId": {
+          "categoryId": {
             "type": "string",
             "format": "uuid",
+            "nullable": true
+          },
+          "sets": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },
@@ -2123,66 +2220,81 @@
         },
         "additionalProperties": false
       },
-      "SettingsAttributeCreateDto": {
+      "StatusCreateDto": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
             "nullable": true
-          },
-          "attributeValue": {
-            "type": "string",
-            "nullable": true
-          },
-          "settingsId": {
-            "type": "string",
-            "format": "uuid"
           }
         },
         "additionalProperties": false
       },
-      "SettingsAttributeUpdateDto": {
+      "StatusUpdateDto": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
             "nullable": true
-          },
-          "attributeValue": {
+          }
+        },
+        "additionalProperties": false
+      },
+      "TransactionCreateDto": {
+        "type": "object",
+        "properties": {
+          "reference": {
             "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "statusId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "SettingsValueCreateDto": {
+      "TransactionUpdateDto": {
         "type": "object",
         "properties": {
-          "settingsId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "attributeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "value": {
+          "reference": {
             "type": "string",
             "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "SettingsValueUpdateDto": {
-        "type": "object",
-        "properties": {
-          "attributeId": {
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "cardId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
           },
-          "value": {
+          "statusId": {
             "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },

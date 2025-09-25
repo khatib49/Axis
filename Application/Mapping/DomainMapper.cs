@@ -22,7 +22,14 @@ namespace Application.Mapping
         public partial void MapTo(GameUpdateDto dto, [MappingTarget] Game e);
 
         // ---------- Room ----------
-        public partial RoomDto ToDto(Room e);
+        public RoomDto ToDto(Room e) =>
+            new RoomDto(
+                e.Id,
+                e.Name,
+                e.CategoryId,
+                e.Category?.Name ?? string.Empty, // ✅ category name like settings
+                e.Sets
+            );
         public partial Room ToEntity(RoomCreateDto dto);
         public partial void MapTo(RoomUpdateDto dto, [MappingTarget] Room e);
 

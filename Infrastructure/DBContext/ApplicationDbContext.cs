@@ -42,16 +42,6 @@ namespace Infrastructure.Persistence
               .HasForeignKey(x => x.CardId)
               .OnDelete(DeleteBehavior.Cascade);
 
-            b.Entity<Room>()
-              .HasOne(x => x.Game).WithMany(x => x.Rooms)
-              .HasForeignKey(x => x.GameId)
-              .OnDelete(DeleteBehavior.Cascade);
-
-            b.Entity<Room>()
-              .HasOne(x => x.AssignedUser).WithMany()
-              .HasForeignKey(x => x.AssignedUserId)
-              .OnDelete(DeleteBehavior.SetNull);
-
             b.Entity<PassType>()
               .HasOne(x => x.Game).WithMany(x => x.PassTypes)
               .HasForeignKey(x => x.GameId)

@@ -7,14 +7,8 @@ namespace Domain.Entities
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = default!;
-        public bool IsAvailable { get; set; } = true;
-
-        public Guid GameId { get; set; }
-        public Game Game { get; set; } = default!;
-
-        public Guid? AssignedUserId { get; set; }
-        public AppUser? AssignedUser { get; set; }
-
-        public DateTime? CurrentSessionStartTime { get; set; }
+        public Guid? CategoryId { get; set; }
+        public Category? Category { get; set; }
+        public int? Sets { get; set; }
     }
 }
