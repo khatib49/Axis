@@ -28,3 +28,11 @@ Infrastructure/obj/
 /Infrastructure/bin
 /Infrastructure/obj
 /AxisAPI/bin/Debug/net8.0/cs/Microsoft.CodeAnalysis.CSharp.resources.dll
+/Application/obj/Debug/net8.0/ref/Application.dll
+/Application/obj/Application.csproj.nuget.g.props
+/Application/obj/project.assets.json
+/Application/bin/Debug/net8.0/Application.dll
+/Application/bin/Debug/net8.0/Application.pdb
+/Application/bin/Debug/net8.0/Domain.dll
+/Domain/bin/Debug/net8.0/Domain.dll
+/Domain/bin/Debug/net8.0/Domain.pdb

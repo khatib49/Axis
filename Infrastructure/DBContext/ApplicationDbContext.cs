@@ -72,21 +72,39 @@ namespace Infrastructure.Persistence
               .HasForeignKey(x => x.PassTypeId)
               .OnDelete(DeleteBehavior.Restrict);
 
-            b.Entity<TransactionRecord>()
-              .HasOne(x => x.User).WithMany()
-              .HasForeignKey(x => x.UserId)
-              .OnDelete(DeleteBehavior.Restrict);
+            b.Entity<TransactionRecord>(e =>
+            {
+                e.ToTable("transactions");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TotalPrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
 
-            b.Entity<TransactionRecord>()
-              .HasOne(x => x.Card).WithMany(x => x.Transactions)
-              .HasForeignKey(x => x.CardId)
-              .OnDelete(DeleteBehavior.Restrict);
-            
-            b.Entity<TransactionRecord>()
-              .HasOne(x => x.Status)
-              .WithMany() // Status does not have a collection of Games
-              .HasForeignKey(x => x.StatusId)
-              .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Room)
+                    .WithMany(r => r.Transactions)   // ← updated
+                    .HasForeignKey(x => x.RoomId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.GameType)            // Category – stays without collection
+                    .WithMany()
+                    .HasForeignKey(x => x.GameTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.Game)
+                    .WithMany(g => g.Transactions)   // ← updated
+                    .HasForeignKey(x => x.GameId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.GameSetting)         // Setting – stays without collection
+                    .WithMany()
+                    .HasForeignKey(x => x.GameSettingId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.Status)
+                    .WithMany()
+                    .HasForeignKey(x => x.StatusId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
 
             b.Entity<Receipt>()
               .HasOne(x => x.Transaction).WithMany()

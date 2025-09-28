@@ -14,5 +14,8 @@
         public ICollection<GameSession> GameSessions { get; set; } = new List<GameSession>();
         public ICollection<Setting> Settings { get; set; } = new List<Setting>();
         public ICollection<Item> Items { get; set; } = new List<Item>();
+
+        public ICollection<TransactionRecord> Transactions { get; set; } = new List<TransactionRecord>();
+
     }
 }

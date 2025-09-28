@@ -1,7 +1,4 @@
-﻿using System;
-using Domain.Identity;
-
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class Room
     {
@@ -10,5 +7,7 @@ namespace Domain.Entities
         public Guid? CategoryId { get; set; }
         public Category? Category { get; set; }
         public int? Sets { get; set; }
+        public ICollection<TransactionRecord> Transactions { get; set; } = new List<TransactionRecord>();
+
     }
 }
