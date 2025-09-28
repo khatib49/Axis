@@ -49,7 +49,23 @@ namespace Application.Mapping
         public partial void MapTo(GameSessionUpdateDto dto, [MappingTarget] GameSession e);
 
         // ---------- Transaction ----------
-        public partial TransactionDto ToDto(TransactionRecord e);
+        public TransactionDto ToDto(TransactionRecord e) =>
+            new TransactionDto(
+                e.Id,
+                e.RoomId,
+                e.Room?.Name ?? string.Empty,
+                e.GameTypeId,
+                e.GameType?.Name ?? string.Empty,
+                e.GameId,
+                e.Game?.Name ?? string.Empty,
+                e.GameSettingId,
+                e.GameSetting?.Name ?? string.Empty,
+                e.Hours,
+                e.TotalPrice,
+                e.StatusId,
+                e.CreatedOn,
+                e.ModifiedOn,
+                e.CreatedBy);
         public partial TransactionRecord ToEntity(TransactionCreateDto dto);
         public partial void MapTo(TransactionUpdateDto dto, [MappingTarget] TransactionRecord e);
 

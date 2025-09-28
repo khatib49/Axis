@@ -1,6 +1,7 @@
 ﻿using Application.DTOs;
 using Application.IServices;
 using Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -10,10 +11,12 @@ namespace AxisAPI.Controllers
     public class TransactionsController : ControllerBase
     {
         private readonly ITransactionRecordService _transactionService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public TransactionsController(ITransactionRecordService transationService)
+        public TransactionsController(ITransactionRecordService transationService, IHttpContextAccessor httpContextAccessor)
         {
             _transactionService = transationService;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         [HttpGet("{id:guid}")]
@@ -38,11 +41,12 @@ namespace AxisAPI.Controllers
             if (!success) return NotFound();
             return NoContent();
         }
-
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Create(TransactionCreateDto dto, CancellationToken ct)
         {
-            var created = await _transactionService.CreateAsync(dto, ct);
+            var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            var created = await _transactionService.CreateAsync(dto, createdBy, ct);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 

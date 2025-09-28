@@ -3,6 +3,7 @@ using Application.IServices;
 using Application.Mapping;
 using Domain.Entities;
 using Infrastructure.IRepositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
@@ -19,13 +20,25 @@ namespace Application.Services
 
         public async Task<TransactionDto?> GetAsync(Guid id, CancellationToken ct = default)
         {
-            var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
+            var e = await _repo.Query()
+                    .Include(s => s.Game)
+                    .Include(s => s.GameType)
+                    .Include(s => s.GameSetting)
+                    .Include(s => s.Room)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
 
         public async Task<PaginatedResponse<TransactionDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            var list = await _repo.ListAsync(null, asNoTracking: true, ct);
+            var list = await _repo.Query()
+                        .Include(s => s.Game)
+                        .Include(s=> s.GameType)
+                        .Include(s=> s.GameSetting)
+                        .Include(s => s.Room)
+                        .AsNoTracking()
+                        .ToListAsync(ct);
             var totalCount = list.Count();
 
             var pagedList = list
@@ -38,9 +51,11 @@ namespace Application.Services
             return new PaginatedResponse<TransactionDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
 
-        public async Task<TransactionDto> CreateAsync(TransactionCreateDto dto, CancellationToken ct = default)
+        public async Task<TransactionDto> CreateAsync(TransactionCreateDto dto, string createdBy, CancellationToken ct = default)
         {
             var e = _mapper.ToEntity(dto);
+            e.CreatedBy = createdBy ?? "";
+            e.CreatedOn = DateTime.UtcNow;
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
             return _mapper.ToDto(e);
@@ -50,7 +65,7 @@ namespace Application.Services
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
-
+            e.ModifiedOn = DateTime.UtcNow;
             _mapper.MapTo(dto, e); // updates only non-null fields
             await _uow.SaveChangesAsync(ct);
             return true;

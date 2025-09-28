@@ -2259,30 +2259,33 @@
       "TransactionCreateDto": {
         "type": "object",
         "properties": {
-          "reference": {
+          "roomId": {
             "type": "string",
-            "nullable": true
+            "format": "uuid"
           },
-          "type": {
+          "gameTypeId": {
             "type": "string",
-            "nullable": true
+            "format": "uuid"
           },
-          "price": {
+          "gameId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameSettingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPrice": {
             "type": "number",
             "format": "double"
           },
-          "userId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "cardId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "statusId": {
             "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -2290,28 +2293,33 @@
       "TransactionUpdateDto": {
         "type": "object",
         "properties": {
-          "reference": {
+          "roomId": {
             "type": "string",
-            "nullable": true
+            "format": "uuid"
           },
-          "type": {
+          "gameTypeId": {
             "type": "string",
-            "nullable": true
+            "format": "uuid"
           },
-          "price": {
+          "gameId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameSettingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPrice": {
             "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "cardId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "format": "double"
           },
           "statusId": {
             "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "format": "uuid"
           }
         },
         "additionalProperties": false

@@ -3,9 +3,13 @@
     public record TransactionDto(
     Guid Id,
     Guid RoomId,
+    string Room,
     Guid GameTypeId,
+    string GameType,
     Guid GameId,
+    string Game,
     Guid GameSettingId,
+    string GameSetting,
     int Hours,
     decimal TotalPrice,
     Guid StatusId,
@@ -15,6 +19,18 @@
 );
 
 
-    public record TransactionCreateDto(string Reference, string Type, decimal Price, Guid UserId, Guid CardId, Guid? StatusId);
-    public record TransactionUpdateDto(string? Reference, string? Type, decimal? Price, Guid? CardId, Guid? StatusId);
+    public record TransactionCreateDto(Guid RoomId,
+    Guid GameTypeId,
+    Guid GameId,
+    Guid GameSettingId,
+    int Hours,
+    decimal TotalPrice,
+    Guid StatusId);
+    public record TransactionUpdateDto(Guid RoomId,
+    Guid GameTypeId,
+    Guid GameId,
+    Guid GameSettingId,
+    int Hours,
+    decimal TotalPrice,
+    Guid StatusId);
 }
