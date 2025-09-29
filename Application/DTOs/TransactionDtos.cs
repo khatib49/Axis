@@ -20,8 +20,7 @@
 
 
     public record TransactionCreateDto(
-
-    Guid RoomId,
+        Guid RoomId,
     Guid GameTypeId,
     Guid GameId,
     Guid GameSettingId,

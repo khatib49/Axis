@@ -83,7 +83,7 @@ namespace Application.Services
 
             var room = await _repoRoom.Query()
                 .AsNoTracking()
-                //.Where(s => s.CategoryId == game.Type)
+                .Where(s => s.CategoryId == game.CategoryId)
                 .FirstOrDefaultAsync(ct);
 
             if(room == null)
@@ -94,7 +94,7 @@ namespace Application.Services
 
             var ongoingTrnx = await _repo.Query()
                 .AsNoTracking()
-                .Where(s => s.RoomId == room.Id && s.StatusId == statusid)
+                .Where(s => s.RoomId == room.Id && s.StatusId == statusid) // status id should be equal to ongoing status
                 .CountAsync(ct);
 
             if (ongoingTrnx >= room.Sets)
@@ -124,18 +124,17 @@ namespace Application.Services
 
             decimal totalPrice = settingDto.Price * hours / settingDto.Hours;
 
-            var entity = new TransactionCreateDto
-            {
-                RoomId = room.Id,
-                GameId = gameId,
-                //GameTypeId = game.Type,
-                GameSettingId = gameSettingId,
-                StatusId = statusid,
-                Hours = hours,
-                TotalPrice = totalPrice,
-                CreatedBy = createdBy ?? "",
-                CreatedOn = DateTime.Now
-            };
+            var entity = new TransactionCreateDto(
+                                RoomId: room.Id,
+                                GameTypeId: game.CategoryId,
+                                GameId: gameId,
+                                GameSettingId: gameSettingId,
+                                Hours: hours,
+                                TotalPrice: totalPrice,
+                                StatusId: statusid,
+                                CreatedOn: DateTime.UtcNow,
+                                CreatedBy: createdBy ?? string.Empty
+                            );
 
 
             var e = _mapper.ToEntity(entity);
