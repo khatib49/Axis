@@ -22,6 +22,7 @@ namespace Application.Services
         {
             var e = await _repo.Query()
                     .Include(s => s.Category)
+                    .Include(s => s.Status)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == id, ct);
 
@@ -32,6 +33,7 @@ namespace Application.Services
         {
             var list = await _repo.Query()
                         .Include(s => s.Category)
+                        .Include(s=>s.Status)
                         .AsNoTracking()
                         .ToListAsync(ct);
 
