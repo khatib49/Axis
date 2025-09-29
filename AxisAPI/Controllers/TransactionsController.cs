@@ -42,7 +42,7 @@ namespace AxisAPI.Controllers
             return NoContent();
         }
         [Authorize]
-        [HttpPost]
+        [HttpPost("CreateGame")]
         public async Task<IActionResult> Create(TransactionCreateDto dto, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
@@ -52,7 +52,7 @@ namespace AxisAPI.Controllers
 
 
         [Authorize("cashier")]
-        [HttpPost]
+        [HttpPost("CreateGameSession")]
         public async Task<IActionResult> CreateGameSession(Guid gameId, Guid gameSettingId, int hours, Guid status, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
