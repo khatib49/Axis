@@ -51,14 +51,13 @@ namespace AxisAPI.Controllers
         }
 
 
-        [Authorize]
+        [Authorize("cashier")]
         [HttpPost]
-        public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status, CancellationToken ct)
+        public async Task<IActionResult> CreateGameSession(Guid gameId, Guid gameSettingId, int hours, Guid status, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            //var created = await _transactionService.CreateAsync(dto, createdBy, ct);
-            //return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
-            return Ok();
+            var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, ct);
+            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
 

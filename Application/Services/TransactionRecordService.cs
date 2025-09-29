@@ -70,7 +70,7 @@ namespace Application.Services
         }
 
 
-        public async Task<TransactionDto> CreateGame(Guid gameId, Guid gameSettingId, int hours, Guid statusid, string createdBy, CancellationToken ct = default)
+        public async Task<TransactionDto> CreateGameSession(Guid gameId, Guid gameSettingId, int hours, Guid statusid, string createdBy, CancellationToken ct = default)
         {
 
             #region Check if the Room Available
