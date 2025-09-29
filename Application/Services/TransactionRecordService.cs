@@ -10,12 +10,20 @@ namespace Application.Services
     public class TransactionRecordService : ITransactionRecordService
     {
         private readonly IBaseRepository<TransactionRecord> _repo;
+        private readonly IBaseRepository<Setting> _repoSetting;
+        private readonly IBaseRepository<Room> _repoRoom;
+        private readonly IBaseRepository<Game> _repoGame;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
 
-        public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IUnitOfWork uow, DomainMapper mapper)
+        public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
+            IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame,
+            IUnitOfWork uow, DomainMapper mapper)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
+            _repoSetting = repoSetting;
+            _repoRoom = repoRoom;
+            _repoGame = repoGame;
         }
 
         public async Task<TransactionDto?> GetAsync(Guid id, CancellationToken ct = default)
@@ -54,6 +62,83 @@ namespace Application.Services
         public async Task<TransactionDto> CreateAsync(TransactionCreateDto dto, string createdBy, CancellationToken ct = default)
         {
             var e = _mapper.ToEntity(dto);
+            e.CreatedBy = createdBy ?? "";
+            e.CreatedOn = DateTime.UtcNow;
+            await _repo.AddAsync(e, ct);
+            await _uow.SaveChangesAsync(ct);
+            return _mapper.ToDto(e);
+        }
+
+
+        public async Task<TransactionDto> CreateGame(Guid gameId, Guid gameSettingId, int hours, Guid statusid, string createdBy, CancellationToken ct = default)
+        {
+
+            #region Check if the Room Available
+            var game = await _repoGame.Query()
+                .AsNoTracking()
+                .Where(s => s.Id == gameId)
+                .FirstOrDefaultAsync(ct);
+            if(game == null)
+                throw new ArgumentException("Invalid game ID");
+
+            var room = await _repoRoom.Query()
+                .AsNoTracking()
+                //.Where(s => s.CategoryId == game.Type)
+                .FirstOrDefaultAsync(ct);
+
+            if(room == null)
+                throw new InvalidOperationException("No available room for the selected game type.");
+
+
+            // check if there is trnx ongoing for the same room and compare it with number of set
+
+            var ongoingTrnx = await _repo.Query()
+                .AsNoTracking()
+                .Where(s => s.RoomId == room.Id && s.StatusId == statusid)
+                .CountAsync(ct);
+
+            if (ongoingTrnx >= room.Sets)
+            {
+                throw new InvalidOperationException("No available room for the selected game type.");
+            }
+            #endregion
+            Setting? settingDto = await  _repoSetting.Query()
+                .AsNoTracking()
+                .Where(s => s.Id == gameSettingId)
+                .Select(s => new Setting
+                {
+                    Id = s.Id,
+                    Hours = s.Hours,
+                    Price = s.Price,
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (settingDto == null)
+            {
+                throw new ArgumentException("Invalid game setting ID");
+            }
+
+            if (settingDto.Hours <= 0)
+                throw new InvalidOperationException("Configured Hours must be > 0 for price calculation.");
+
+
+            decimal totalPrice = settingDto.Price * hours / settingDto.Hours;
+
+            var entity = new TransactionCreateDto
+            {
+                RoomId = room.Id,
+                GameId = gameId,
+                //GameTypeId = game.Type,
+                GameSettingId = gameSettingId,
+                StatusId = statusid,
+                Hours = hours,
+                TotalPrice = totalPrice,
+                CreatedBy = createdBy ?? "",
+                CreatedOn = DateTime.Now
+            };
+
+
+            var e = _mapper.ToEntity(entity);
             e.CreatedBy = createdBy ?? "";
             e.CreatedOn = DateTime.UtcNow;
             await _repo.AddAsync(e, ct);

@@ -19,13 +19,20 @@
 );
 
 
-    public record TransactionCreateDto(Guid RoomId,
+    public record TransactionCreateDto(
+
+    Guid RoomId,
     Guid GameTypeId,
     Guid GameId,
     Guid GameSettingId,
     int Hours,
     decimal TotalPrice,
-    Guid StatusId);
+    Guid StatusId,
+    DateTime CreatedOn,
+    string CreatedBy
+        );
+
+
     public record TransactionUpdateDto(Guid RoomId,
     Guid GameTypeId,
     Guid GameId,

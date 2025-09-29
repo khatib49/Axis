@@ -50,6 +50,19 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status, CancellationToken ct)
+        {
+            var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            //var created = await _transactionService.CreateAsync(dto, createdBy, ct);
+            //return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+            return Ok();
+        }
+
+
+
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
         {
