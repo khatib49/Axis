@@ -5,7 +5,7 @@
         public Guid Id { get; set; }
         public string Name { get; set; } = default!;
         public Guid CategoryId { get; set; }
-        public Category Category { get; set; } = default!;
+        public Category? Category { get; set; } = default!;
         public Guid StatusId { get; set; }       
         public Status Status { get; set; } = default!;
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
