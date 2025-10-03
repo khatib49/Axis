@@ -32,5 +32,9 @@ namespace Domain.Entities
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedOn { get; set; }
         public string CreatedBy { get; set; } = default!;
+
+
+        public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
+
     }
 }
