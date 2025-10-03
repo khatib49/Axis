@@ -21,5 +21,7 @@ namespace Domain.Entities
         public Status Status { get; set; } = default!;
 
         public ICollection<CoffeeShopOrder> CoffeeShopOrders { get; set; } = new List<CoffeeShopOrder>();
+
+        public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
     }
 }
