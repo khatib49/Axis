@@ -146,27 +146,108 @@ namespace Application.Services
             await _uow.SaveChangesAsync(ct);
             return _mapper.ToDto(e);
         }
-        
-        public async Task<TransactionDto> CreateCoffeeShopOrder(string itemIds, CancellationToken ct)
+
+        public async Task<TransactionDto> CreateCoffeeShopOrder(
+    List<OrderItemRequest> itemsRequest,
+    string createdBy,
+    CancellationToken ct)
         {
+            if (itemsRequest is null || itemsRequest.Count == 0)
+                throw new ArgumentException("No items provided.");
 
-            #region Check if the Item quantity Avaliable
-            bool available  = _repoItem.GetByIdAsync(Guid.Parse(itemIds), asNoTracking: true, ct) != null;
-            #endregion
+            // Normalize: aggregate duplicates (same ItemId appears multiple times)
+            var requested = itemsRequest
+                .GroupBy(x => x.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
-            #region Calculate the Total Price
+            // Validate quantities > 0
+            var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
+            if (invalidQty.Any())
+                throw new ArgumentException($"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
 
-            #endregion
+            var ids = requested.Keys.ToList();
 
+            // Load all requested items in one query (AsNoTracking by default is fine)
+            var dbItems = await _repoItem.Query()
+                .Where(i => ids.Contains(i.Id))
+                .ToListAsync(ct);
 
+            // Validate missing items
+            if (dbItems.Count != ids.Count)
+            {
+                var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
+                throw new ArgumentException($"Items not found: {string.Join(", ", missing)}");
+            }
 
-            var e = _mapper.ToEntity(entity);
-            e.CreatedBy = createdBy ?? "";
-            e.CreatedOn = DateTime.UtcNow;
-            await _repo.AddAsync(e, ct);
+            // Validate stock per-item
+            var outOfStock = new List<Guid>();
+            foreach (var it in dbItems)
+            {
+                var need = requested[it.Id];
+                if (it.Quantity < need)
+                    outOfStock.Add(it.Id);
+            }
+            if (outOfStock.Any())
+                throw new InvalidOperationException($"Insufficient stock for: {string.Join(", ", outOfStock)}");
+
+            // Compute total = sum(UnitPrice * Quantity)
+            decimal totalPrice = 0m;
+            foreach (var it in dbItems)
+            {
+                var qty = requested[it.Id];
+                totalPrice += (it.Price * qty);
+            }
+
+            // Create transaction
+            var trx = new TransactionRecord
+            {
+                Id = Guid.NewGuid(),
+                RoomId = Guid.Empty, // no room for coffee shop
+                GameTypeId = Guid.Empty, // no game type for coffee shop
+                GameId = Guid.Empty, // no game for coffee shop
+                GameSettingId = Guid.Empty, // no game setting for coffee shop
+                Hours = 0, // no hours for coffee shop
+                TotalPrice = totalPrice,
+                CreatedBy = createdBy ?? "",
+                CreatedOn = DateTime.UtcNow,
+            };
+
+            // Create line items
+            var trxItems = new List<TransactionItem>();
+            foreach (var it in dbItems)
+            {
+                var qty = requested[it.Id];
+                trxItems.Add(new TransactionItem
+                {
+                    Id = Guid.NewGuid(),
+                    TransactionId = trx.Id,
+                    ItemId = it.Id,
+                    Quantity = qty,
+                    UnitPrice = it.Price,
+                    TotalPrice = it.Price * qty,
+                    CreatedBy = createdBy ?? "",
+                    CreatedOn = DateTime.UtcNow
+                });
+            }
+
+            // Persist transaction + line items
+            await _repo.AddAsync(trx, ct);                 // _repo : IBaseRepository<TransactionRecord>
+            await _repoTrxItem.AddRangeAsync(trxItems, ct); // use your repo for TransactionItem
+
+            // Decrement stock per item
+            foreach (var it in dbItems)
+            {
+                it.Quantity -= requested[it.Id];
+                _repoItem.Update(it); // safe even if it came AsNoTracking
+            }
+
+            // Save atomically
             await _uow.SaveChangesAsync(ct);
-            return _mapper.ToDto(e);
+
+            // Map back to DTO (include line items if your mapper supports it)
+            return _mapper.ToDto(trx);
         }
+
 
         public async Task<bool> UpdateAsync(Guid id, TransactionUpdateDto dto, CancellationToken ct = default)
         {
