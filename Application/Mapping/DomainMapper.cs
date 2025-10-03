@@ -16,7 +16,17 @@ namespace Application.Mapping
         public partial UserDto ToDto(AppUser user, IList<string> roles);
 
         // ---------- Game ----------
-        public partial GameDto ToDto(Game e);
+        public GameDto ToDto(Game e) =>
+            new GameDto(
+                e.Id,
+                e.Name,
+                e.CategoryId,
+                e.Category?.Name ?? string.Empty,
+                e.StatusId,
+                e.Status?.Name ?? string.Empty,
+                e.CreatedOn,
+                e.ModifiedOn ?? null
+            );
         public partial Game ToEntity(GameCreateDto dto);
         // Update existing target in-place (nulls ignored unless you configure otherwise). :contentReference[oaicite:3]{index=3}
         public partial void MapTo(GameUpdateDto dto, [MappingTarget] Game e);
