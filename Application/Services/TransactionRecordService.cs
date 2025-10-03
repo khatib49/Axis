@@ -14,11 +14,13 @@ namespace Application.Services
         private readonly IBaseRepository<Room> _repoRoom;
         private readonly IBaseRepository<Game> _repoGame;
         private readonly IBaseRepository<Item> _repoItem;
+        private readonly IBaseRepository<TransactionItem> _repoTrxItem;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
 
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
+            IBaseRepository<TransactionItem> repoTrxItem,
             IUnitOfWork uow, DomainMapper mapper)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -26,6 +28,7 @@ namespace Application.Services
             _repoRoom = repoRoom;
             _repoGame = repoGame;
             _repoItem = repoItem;
+            _repoTrxItem = repoTrxItem;
         }
 
         public async Task<TransactionDto?> GetAsync(Guid id, CancellationToken ct = default)
@@ -147,10 +150,7 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-        public async Task<TransactionDto> CreateCoffeeShopOrder(
-    List<OrderItemRequest> itemsRequest,
-    string createdBy,
-    CancellationToken ct)
+        public async Task<TransactionDto> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
         {
             if (itemsRequest is null || itemsRequest.Count == 0)
                 throw new ArgumentException("No items provided.");
@@ -219,14 +219,9 @@ namespace Application.Services
                 var qty = requested[it.Id];
                 trxItems.Add(new TransactionItem
                 {
-                    Id = Guid.NewGuid(),
-                    TransactionId = trx.Id,
+                    TransactionRecordId = Guid.NewGuid(),
                     ItemId = it.Id,
                     Quantity = qty,
-                    UnitPrice = it.Price,
-                    TotalPrice = it.Price * qty,
-                    CreatedBy = createdBy ?? "",
-                    CreatedOn = DateTime.UtcNow
                 });
             }
 
