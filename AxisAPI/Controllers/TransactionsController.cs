@@ -60,6 +60,14 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
+        [Authorize("cashierCoffeeShop")]
+        [HttpPost]
+        public async Task<IActionResult> CreateCoffeeShopOrder(string itemIds, CancellationToken ct)
+        {
+            var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, ct);
+            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        }
 
 
         [HttpDelete("{id:guid}")]

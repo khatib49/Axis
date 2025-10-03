@@ -13,17 +13,19 @@ namespace Application.Services
         private readonly IBaseRepository<Setting> _repoSetting;
         private readonly IBaseRepository<Room> _repoRoom;
         private readonly IBaseRepository<Game> _repoGame;
+        private readonly IBaseRepository<Item> _repoItem;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
 
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
-            IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame,
+            IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IUnitOfWork uow, DomainMapper mapper)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
             _repoSetting = repoSetting;
             _repoRoom = repoRoom;
             _repoGame = repoGame;
+            _repoItem = repoItem;
         }
 
         public async Task<TransactionDto?> GetAsync(Guid id, CancellationToken ct = default)
@@ -135,6 +137,27 @@ namespace Application.Services
                                 CreatedOn: DateTime.UtcNow,
                                 CreatedBy: createdBy ?? string.Empty
                             );
+
+
+            var e = _mapper.ToEntity(entity);
+            e.CreatedBy = createdBy ?? "";
+            e.CreatedOn = DateTime.UtcNow;
+            await _repo.AddAsync(e, ct);
+            await _uow.SaveChangesAsync(ct);
+            return _mapper.ToDto(e);
+        }
+        
+        public async Task<TransactionDto> CreateCoffeeShopOrder(string itemIds, CancellationToken ct)
+        {
+
+            #region Check if the Item quantity Avaliable
+            bool available  = _repoItem.GetByIdAsync(Guid.Parse(itemIds), asNoTracking: true, ct) != null;
+            #endregion
+
+            #region Calculate the Total Price
+
+            #endregion
+
 
 
             var e = _mapper.ToEntity(entity);
