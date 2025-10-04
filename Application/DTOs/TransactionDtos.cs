@@ -2,13 +2,13 @@
 {
     public record TransactionDto(
     Guid Id,
-    Guid RoomId,
+    Guid? RoomId,
     string Room,
-    Guid GameTypeId,
+    Guid? GameTypeId,
     string GameType,
-    Guid GameId,
+    Guid? GameId,
     string Game,
-    Guid GameSettingId,
+    Guid? GameSettingId,
     string GameSetting,
     int Hours,
     decimal TotalPrice,

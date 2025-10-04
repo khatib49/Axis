@@ -3,6 +3,8 @@ using Application.IServices;
 using Application.Mapping;
 using Domain.Entities;
 using Infrastructure.IRepositories;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Application.Services
 {
@@ -25,13 +27,28 @@ namespace Application.Services
 
         public async Task<PaginatedResponse<ItemDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            var list = await _repo.ListAsync(null, asNoTracking: true, ct);
-            var totalCount = list.Count();
+            
+            var query = _repo.QueryableAsync(null, asNoTracking: true);
 
-            var pagedList = list
+         
+            if (pagination.CategoryId.HasValue)
+            {
+                query = query.Where(x => x.CategoryId == pagination.CategoryId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(pagination.search))
+            {
+                query = query.Where(x => x.Name.Contains(pagination.search));
+            }
+
+            
+            var totalCount = await query.CountAsync(ct);
+
+           
+            var pagedList = await query
                 .Skip((pagination.Page - 1) * pagination.PageSize)
                 .Take(pagination.PageSize)
-                .ToList();
+                .ToListAsync(ct);
 
             var result = pagedList.Select(_mapper.ToDto).ToList();
 

@@ -25,5 +25,13 @@ namespace Infrastructure.IRepositories
 
         // ATTACH (when you have detached objects and want to mark state)
         void Attach(T entity);
+
+        //Count 
+
+        Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default);
+
+        //Queryable function
+
+        IQueryable<T> QueryableAsync(Expression<Func<T, bool>>? predicate = null, bool asNoTracking = true);
     }
 }

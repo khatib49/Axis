@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250928094219_LinkRoomAndGameTransactions")]
-    partial class LinkRoomAndGameTransactions
+    [Migration("20251004155522_MakeTransactionFieldsNullable")]
+    partial class MakeTransactionFieldsNullable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -137,6 +137,9 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("timestamp with time zone");
 
@@ -150,11 +153,9 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("StatusId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
 
                     b.HasIndex("StatusId");
 
@@ -424,6 +425,26 @@ namespace Infrastructure.Migrations
                     b.ToTable("Status");
                 });
 
+            modelBuilder.Entity("Domain.Entities.TransactionItem", b =>
+                {
+                    b.Property<Guid>("TransactionRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TransactionRecordId", "ItemId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("TransactionRecordId");
+
+                    b.ToTable("TransactionItems");
+                });
+
             modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -442,13 +463,13 @@ namespace Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
-                    b.Property<Guid>("GameId")
+                    b.Property<Guid?>("GameId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("GameSettingId")
+                    b.Property<Guid?>("GameSettingId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("GameTypeId")
+                    b.Property<Guid?>("GameTypeId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Hours")
@@ -457,7 +478,7 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime?>("ModifiedOn")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("RoomId")
+                    b.Property<Guid?>("RoomId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("StatusId")
@@ -731,11 +752,19 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Game", b =>
                 {
+                    b.HasOne("Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Domain.Entities.Status", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Category");
 
                     b.Navigation("Status");
                 });
@@ -878,6 +907,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Game");
                 });
 
+            modelBuilder.Entity("Domain.Entities.TransactionItem", b =>
+                {
+                    b.HasOne("Domain.Entities.Item", "Item")
+                        .WithMany("TransactionItems")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.TransactionRecord", "TransactionRecord")
+                        .WithMany("TransactionItems")
+                        .HasForeignKey("TransactionRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("TransactionRecord");
+                });
+
             modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>
                 {
                     b.HasOne("Domain.Entities.Card", null)
@@ -887,26 +935,22 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.Game", "Game")
                         .WithMany("Transactions")
                         .HasForeignKey("GameId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Domain.Entities.Setting", "GameSetting")
                         .WithMany()
                         .HasForeignKey("GameSettingId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Domain.Entities.Category", "GameType")
                         .WithMany()
                         .HasForeignKey("GameTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Domain.Entities.Room", "Room")
                         .WithMany("Transactions")
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Domain.Entities.Status", "Status")
                         .WithMany()
@@ -1029,6 +1073,8 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.Item", b =>
                 {
                     b.Navigation("CoffeeShopOrders");
+
+                    b.Navigation("TransactionItems");
                 });
 
             modelBuilder.Entity("Domain.Entities.PassType", b =>
@@ -1039,6 +1085,11 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.Room", b =>
                 {
                     b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>
+                {
+                    b.Navigation("TransactionItems");
                 });
 #pragma warning restore 612, 618
         }

@@ -6,5 +6,6 @@ using System.Threading.Tasks;
 
 namespace Application.DTOs
 {
-    public record BasePaginationRequestDto(int Page = 1, int PageSize = 10);
+    public record BasePaginationRequestDto(int Page = 1, int PageSize = 10 , Guid? CategoryId = null , string? search = null , string? createdBy = null);
+
 }

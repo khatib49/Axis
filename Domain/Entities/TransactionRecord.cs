@@ -3,26 +3,26 @@
 namespace Domain.Entities
 {
     [Table("transactions")]
-
     public class TransactionRecord
     {
         public Guid Id { get; set; }
 
-        // Foreign keys
-        public Guid RoomId { get; set; }
-        public Room Room { get; set; } = default!;
+       
+        public Guid? RoomId { get; set; }
+        public Room? Room { get; set; }  
 
-        public Guid GameTypeId { get; set; }
-        public Category GameType { get; set; } = default!;
+        public Guid? GameTypeId { get; set; }
+        public Category? GameType { get; set; }  
 
-        public Guid GameId { get; set; }
-        public Game Game { get; set; } = default!;
+        public Guid? GameId { get; set; }
+        public Game? Game { get; set; } 
 
-        public Guid GameSettingId { get; set; }
-        public Setting GameSetting { get; set; } = default!;
+        public Guid? GameSettingId { get; set; }
+        public Setting? GameSetting { get; set; }
 
+        // Required fields
         public Guid StatusId { get; set; }
-        public Status Status { get; set; } = default!;
+        public Status Status { get; set; } = default!; 
 
         // Transaction details
         public int Hours { get; set; }
@@ -31,10 +31,8 @@ namespace Domain.Entities
         // Audit fields
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedOn { get; set; }
-        public string CreatedBy { get; set; } = default!;
-
+        public string CreatedBy { get; set; } = default!;  
 
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
-
     }
 }

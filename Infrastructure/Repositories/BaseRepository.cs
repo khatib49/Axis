@@ -20,6 +20,23 @@ namespace Infrastructure.Repositories
             return entity;
         }
 
+        // Add to your repository interface/class
+        public async Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default)
+        {
+            IQueryable<T> q = _db.Set<T>();
+            if (predicate is not null) q = q.Where(predicate);
+            return await q.CountAsync(ct);
+        }
+
+        // Add to repository
+        public IQueryable<T> QueryableAsync(Expression<Func<T, bool>>? predicate = null, bool asNoTracking = true)
+        {
+            IQueryable<T> q = _db.Set<T>();
+            if (asNoTracking) q = q.AsNoTracking();
+            if (predicate is not null) q = q.Where(predicate);
+            return q;
+        }
+
         public async Task<List<T>> ListAsync(Expression<Func<T, bool>>? predicate = null, bool asNoTracking = true, CancellationToken ct = default)
         {
             IQueryable<T> q = _db.Set<T>();

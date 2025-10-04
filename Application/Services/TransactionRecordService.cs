@@ -45,20 +45,31 @@ namespace Application.Services
 
         public async Task<PaginatedResponse<TransactionDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            var list = await _repo.Query()
+            // Start with base query
+            var query = _repo.QueryableAsync()
                         .Include(s => s.Game)
-                        .Include(s=> s.GameType)
-                        .Include(s=> s.GameSetting)
+                        .Include(s => s.GameType)
+                        .Include(s => s.GameSetting)
                         .Include(s => s.Room)
-                        .AsNoTracking()
-                        .ToListAsync(ct);
-            var totalCount = list.Count();
+                        .AsNoTracking();
 
-            var pagedList = list
+            // Apply filters
+            if (!string.IsNullOrWhiteSpace(pagination.createdBy))
+            {
+                query = query.Where(x => x.CreatedBy == pagination.createdBy);
+            }
+
+
+            // Count at database level (before pagination)
+            var totalCount = await query.CountAsync(ct);
+
+            // Paginate at database level
+            var pagedList = await query
                 .Skip((pagination.Page - 1) * pagination.PageSize)
                 .Take(pagination.PageSize)
-                .ToList();
+                .ToListAsync(ct);
 
+            // Map to DTOs
             var result = pagedList.Select(_mapper.ToDto).ToList();
 
             return new PaginatedResponse<TransactionDto>(totalCount, result, pagination.Page, pagination.PageSize);
@@ -150,47 +161,48 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
+
         public async Task<TransactionDto> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
         {
             if (itemsRequest is null || itemsRequest.Count == 0)
                 throw new ArgumentException("No items provided.");
 
-            // Normalize: aggregate duplicates (same ItemId appears multiple times)
+            
             var requested = itemsRequest
                 .GroupBy(x => x.ItemId)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
-            // Validate quantities > 0
+            
             var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
             if (invalidQty.Any())
                 throw new ArgumentException($"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
 
             var ids = requested.Keys.ToList();
 
-            // Load all requested items in one query (AsNoTracking by default is fine)
+            
             var dbItems = await _repoItem.Query()
                 .Where(i => ids.Contains(i.Id))
-                .ToListAsync(ct);
+                .ToListAsync(ct); 
 
-            // Validate missing items
+            
             if (dbItems.Count != ids.Count)
             {
                 var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
                 throw new ArgumentException($"Items not found: {string.Join(", ", missing)}");
             }
 
-            // Validate stock per-item
-            var outOfStock = new List<Guid>();
+            
+            var outOfStock = new List<string>();
             foreach (var it in dbItems)
             {
                 var need = requested[it.Id];
                 if (it.Quantity < need)
-                    outOfStock.Add(it.Id);
+                    outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})"); 
             }
             if (outOfStock.Any())
                 throw new InvalidOperationException($"Insufficient stock for: {string.Join(", ", outOfStock)}");
 
-            // Compute total = sum(UnitPrice * Quantity)
+            // Compute total
             decimal totalPrice = 0m;
             foreach (var it in dbItems)
             {
@@ -202,47 +214,43 @@ namespace Application.Services
             var trx = new TransactionRecord
             {
                 Id = Guid.NewGuid(),
-                RoomId = Guid.Empty, // no room for coffee shop
-                GameTypeId = Guid.Empty, // no game type for coffee shop
-                GameId = Guid.Empty, // no game for coffee shop
-                GameSettingId = Guid.Empty, // no game setting for coffee shop
-                Hours = 0, // no hours for coffee shop
+                RoomId = null,
+                GameTypeId = null,
+                GameId = null,
+                GameSettingId = null,
+                Hours = 0,
                 TotalPrice = totalPrice,
+                StatusId = Guid.Parse("f779b04d-9808-429a-9545-4fd36fa0b1e5"),
                 CreatedBy = createdBy ?? "",
                 CreatedOn = DateTime.UtcNow,
             };
 
-            // Create line items
+            
             var trxItems = new List<TransactionItem>();
             foreach (var it in dbItems)
             {
                 var qty = requested[it.Id];
                 trxItems.Add(new TransactionItem
                 {
-                    TransactionRecordId = Guid.NewGuid(),
+                    
+                    TransactionRecordId = trx.Id, 
                     ItemId = it.Id,
                     Quantity = qty,
                 });
+
+                
+                it.Quantity -= qty;
             }
 
-            // Persist transaction + line items
-            await _repo.AddAsync(trx, ct);                 // _repo : IBaseRepository<TransactionRecord>
-            await _repoTrxItem.AddRangeAsync(trxItems, ct); // use your repo for TransactionItem
+            
+            await _repo.AddAsync(trx, ct);
+            await _repoTrxItem.AddRangeAsync(trxItems, ct);
 
-            // Decrement stock per item
-            foreach (var it in dbItems)
-            {
-                it.Quantity -= requested[it.Id];
-                _repoItem.Update(it); // safe even if it came AsNoTracking
-            }
-
-            // Save atomically
+           
             await _uow.SaveChangesAsync(ct);
 
-            // Map back to DTO (include line items if your mapper supports it)
             return _mapper.ToDto(trx);
         }
-
 
         public async Task<bool> UpdateAsync(Guid id, TransactionUpdateDto dto, CancellationToken ct = default)
         {

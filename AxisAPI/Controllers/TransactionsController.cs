@@ -60,7 +60,7 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [Authorize("cashierCoffeeShop")]
+        [Route("CreateCoffeeShopOrder")]
         [HttpPost]
         public async Task<IActionResult> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, CancellationToken ct)
         {
