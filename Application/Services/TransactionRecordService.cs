@@ -180,7 +180,7 @@ namespace Application.Services
             var ids = requested.Keys.ToList();
 
             
-            var dbItems = await _repoItem.Query()
+            var dbItems = await _repoItem.Query(false)
                 .Where(i => ids.Contains(i.Id))
                 .ToListAsync(ct); 
 
