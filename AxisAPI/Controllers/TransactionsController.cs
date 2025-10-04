@@ -51,7 +51,7 @@ namespace AxisAPI.Controllers
         }
 
 
-        [Authorize("cashier")]
+        
         [HttpPost("CreateGameSession")]
         public async Task<IActionResult> CreateGameSession(Guid gameId, Guid gameSettingId, int hours, Guid status, CancellationToken ct)
         {

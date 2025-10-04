@@ -916,22 +916,6 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsController",
-    "Method": "Create",
-    "RelativePath": "api/transactions",
-    "HttpMethod": "POST",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "dto",
-        "Type": "Application.DTOs.TransactionCreateDto",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "AxisAPI.Controllers.TransactionsController",
     "Method": "Get",
     "RelativePath": "api/transactions/{id}",
     "HttpMethod": "GET",
@@ -979,6 +963,53 @@
         "Name": "id",
         "Type": "System.Guid",
         "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "Create",
+    "RelativePath": "api/transactions/CreateGame",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "Application.DTOs.TransactionCreateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "CreateGameSession",
+    "RelativePath": "api/transactions/CreateGameSession",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "gameId",
+        "Type": "System.Guid",
+        "IsRequired": false
+      },
+      {
+        "Name": "gameSettingId",
+        "Type": "System.Guid",
+        "IsRequired": false
+      },
+      {
+        "Name": "hours",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "status",
+        "Type": "System.Guid",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
