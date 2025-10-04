@@ -31,7 +31,7 @@
     string CreatedBy
         );
 
-
+    public record OrderItemRequest(Guid ItemId, int Quantity);
     public record TransactionUpdateDto(Guid RoomId,
     Guid GameTypeId,
     Guid GameId,

@@ -27,6 +27,7 @@ namespace Infrastructure.Persistence
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<Status> Status => Set<Status>();
 
+        public DbSet<TransactionItem> TransactionItems => Set<TransactionItem>();
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
@@ -146,6 +147,30 @@ namespace Infrastructure.Persistence
               .WithMany()
               .HasForeignKey(x => x.StatusId)
               .OnDelete(DeleteBehavior.Restrict);
+
+
+            b.Entity<TransactionItem>(e =>
+            {
+                
+                e.HasKey(ti => new { ti.TransactionRecordId, ti.ItemId });
+
+                
+                e.HasOne(ti => ti.TransactionRecord)
+                    .WithMany(tr => tr.TransactionItems)
+                    .HasForeignKey(ti => ti.TransactionRecordId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(ti => ti.Item)
+                    .WithMany(i => i.TransactionItems)
+                    .HasForeignKey(ti => ti.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                
+                e.HasIndex(ti => ti.ItemId);
+                e.HasIndex(ti => ti.TransactionRecordId);
+            });
+
+
         }
     }
 }
