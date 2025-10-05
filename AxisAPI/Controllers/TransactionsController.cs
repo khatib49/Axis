@@ -27,6 +27,14 @@ namespace AxisAPI.Controllers
             return Ok(item);
         }
 
+        [HttpGet("{id:guid}/details")]
+        public async Task<IActionResult> GetWithItems(Guid id, CancellationToken ct)
+        {
+            var item = await _transactionService.GetWithItemsAsync(id, ct);
+            if (item is null) return NotFound();
+            return Ok(item);
+        }
+
         [HttpGet]
         public async Task<IActionResult> List([FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
         {

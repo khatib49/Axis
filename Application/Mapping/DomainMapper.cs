@@ -2,6 +2,7 @@
 using Domain.Entities;
 using Domain.Identity;
 using Riok.Mapperly.Abstractions;
+using System.Linq;
 
 namespace Application.Mapping
 {
@@ -75,7 +76,26 @@ namespace Application.Mapping
                 e.StatusId,
                 e.CreatedOn,
                 e.ModifiedOn,
-                e.CreatedBy);
+                e.CreatedBy,
+                e.TransactionItems.Select(ti => new TransactionItemDto(
+                    ti.ItemId,
+                    ti.Item.Name,
+                    ti.Quantity,
+                    ti.Item.Price,
+                    ti.Item.Type,
+                    ti.Item.CoffeeShopOrders.Select(co => new CoffeeShopOrderDto(
+                        co.Id,
+                        co.UserId,
+                        co.CardId,
+                        co.ItemId,
+                        co.Quantity,
+                        co.Price,
+                        co.Timestamp
+                    )).ToList()
+                )).ToList()
+            );
+
+
         public partial TransactionRecord ToEntity(TransactionCreateDto dto);
         public partial void MapTo(TransactionUpdateDto dto, [MappingTarget] TransactionRecord e);
 
@@ -118,7 +138,16 @@ namespace Application.Mapping
         public partial void MapTo(ItemUpdateDto dto, [MappingTarget] Item e);
 
         // ---------- CoffeeShopOrder ----------
-        public partial CoffeeShopOrderDto ToDto(CoffeeShopOrder e);
+        public CoffeeShopOrderDto ToDto(CoffeeShopOrder e) =>
+            new CoffeeShopOrderDto(
+                e.Id,
+                e.UserId,
+                e.CardId,
+                e.ItemId,
+                e.Quantity,
+                e.Price,
+                e.Timestamp
+            );
         public partial CoffeeShopOrder ToEntity(CoffeeShopOrderCreateDto dto);
         public partial void MapTo(CoffeeShopOrderUpdateDto dto, [MappingTarget] CoffeeShopOrder e);
 

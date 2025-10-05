@@ -1149,6 +1149,22 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "GetWithItems",
+    "RelativePath": "api/transactions/{id}/details",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
     "Method": "CreateCoffeeShopOrder",
     "RelativePath": "api/transactions/CreateCoffeeShopOrder",
     "HttpMethod": "POST",

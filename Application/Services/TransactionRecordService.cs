@@ -42,6 +42,57 @@ namespace Application.Services
                     .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
+        public async Task<TransactionDto?> GetWithItemsAsync(Guid id, CancellationToken ct = default)
+        {
+            var e = await _repo.Query()
+                .Include(s => s.Game)
+                .Include(s => s.GameType)
+                .Include(s => s.GameSetting)
+                .Include(s => s.Room)
+                .Include(s => s.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                        .ThenInclude(i => i.CoffeeShopOrders)
+                            .ThenInclude(co => co.User) // if you want user name
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+            if (e is null) return null;
+
+            return new TransactionDto(
+                e.Id,
+                e.RoomId,
+                e.Room?.Name ?? string.Empty,
+                e.GameTypeId,
+                e.GameType?.Name ?? string.Empty,
+                e.GameId,
+                e.Game?.Name ?? string.Empty,
+                e.GameSettingId,
+                e.GameSetting?.Name ?? string.Empty,
+                e.Hours,
+                e.TotalPrice,
+                e.StatusId,
+                e.CreatedOn,
+                e.ModifiedOn,
+                e.CreatedBy,
+                e.TransactionItems.Select(ti => new TransactionItemDto(
+                    ti.ItemId,
+                    ti.Item.Name,
+                    ti.Quantity,
+                    ti.Item.Price,
+                    ti.Item.Type,
+                    ti.Item.CoffeeShopOrders.Select(co => new CoffeeShopOrderDto(
+                        co.Id,
+                        co.UserId,
+                        co.CardId,
+                        co.ItemId,
+                        co.Quantity,
+                        co.Price,
+                        co.Timestamp
+                    )).ToList()
+                )).ToList()
+            );
+        }
+
 
         public async Task<PaginatedResponse<TransactionDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
