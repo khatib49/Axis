@@ -13,10 +13,12 @@ namespace Application.Services
         private readonly IBaseRepository<Item> _repo;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
+        private readonly IImageStorageService _imageStorage;
 
-        public ItemService(IBaseRepository<Item> repo, IUnitOfWork uow, DomainMapper mapper)
+        public ItemService(IBaseRepository<Item> repo, IUnitOfWork uow, DomainMapper mapper, IImageStorageService imageStorage)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
+            _imageStorage = imageStorage;
         }
 
         public async Task<ItemDto?> GetAsync(int id, CancellationToken ct = default)
@@ -58,6 +60,10 @@ namespace Application.Services
         public async Task<ItemDto> CreateAsync(ItemCreateDto dto, CancellationToken ct = default)
         {
             var e = _mapper.ToEntity(dto);
+            if (dto.Image != null)
+            {
+                e.ImagePath = await _imageStorage.SaveImageAsync(dto.Image, ct);
+            }
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
             return _mapper.ToDto(e);
@@ -69,6 +75,10 @@ namespace Application.Services
             if (e is null) return false;
 
             _mapper.MapTo(dto, e); // updates only non-null fields
+            if (dto.Image != null)
+            {
+                e.ImagePath = await _imageStorage.SaveImageAsync(dto.Image, ct);
+            }
             await _uow.SaveChangesAsync(ct);
             return true;
         }
