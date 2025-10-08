@@ -11,79 +11,79 @@ namespace Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "RoomId",
                 table: "transactions",
                 type: "uuid",
                 nullable: true,
-                oldClrType: typeof(Guid),
+                oldClrType: typeof(int),
                 oldType: "uuid");
 
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "GameTypeId",
                 table: "transactions",
                 type: "uuid",
                 nullable: true,
-                oldClrType: typeof(Guid),
+                oldClrType: typeof(int),
                 oldType: "uuid");
 
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "GameSettingId",
                 table: "transactions",
                 type: "uuid",
                 nullable: true,
-                oldClrType: typeof(Guid),
+                oldClrType: typeof(int),
                 oldType: "uuid");
 
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "GameId",
                 table: "transactions",
                 type: "uuid",
                 nullable: true,
-                oldClrType: typeof(Guid),
+                oldClrType: typeof(int),
                 oldType: "uuid");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "RoomId",
                 table: "transactions",
                 type: "uuid",
                 nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"),
-                oldClrType: typeof(Guid),
+                defaultValue: 1,
+                oldClrType: typeof(int),
                 oldType: "uuid",
                 oldNullable: true);
 
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "GameTypeId",
                 table: "transactions",
                 type: "uuid",
                 nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"),
-                oldClrType: typeof(Guid),
+                defaultValue: 1,
+                oldClrType: typeof(int),
                 oldType: "uuid",
                 oldNullable: true);
 
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "GameSettingId",
                 table: "transactions",
                 type: "uuid",
                 nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"),
-                oldClrType: typeof(Guid),
+                defaultValue: 1,
+                oldClrType: typeof(int),
                 oldType: "uuid",
                 oldNullable: true);
 
-            migrationBuilder.AlterColumn<Guid>(
+            migrationBuilder.AlterColumn<int>(
                 name: "GameId",
                 table: "transactions",
                 type: "uuid",
                 nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"),
-                oldClrType: typeof(Guid),
+                defaultValue: 1,
+                oldClrType: typeof(int),
                 oldType: "uuid",
                 oldNullable: true);
         }

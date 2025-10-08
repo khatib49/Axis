@@ -17,8 +17,8 @@ namespace AxisAPI.Controllers
             _categoryService = categoryService;
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var item = await _categoryService.GetAsync(id, ct);
             if (item is null) return NotFound();
@@ -39,8 +39,8 @@ namespace AxisAPI.Controllers
             return Ok(items);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, CategoryUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, CategoryUpdateDto dto, CancellationToken ct)
         {
             var success = await _categoryService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
@@ -54,8 +54,8 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _categoryService.DeleteAsync(id, ct);
             if (!success) return NotFound();

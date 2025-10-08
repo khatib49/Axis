@@ -37,7 +37,6 @@ namespace Application.Services
 
             var user = new AppUser
             {
-                Id = Guid.NewGuid(),
                 Email = req.Email,
                 UserName = req.Email,
                 DisplayName = req.DisplayName

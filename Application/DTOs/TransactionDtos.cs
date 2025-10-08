@@ -1,18 +1,18 @@
 ﻿namespace Application.DTOs
 {
     public record TransactionDto(
-        Guid Id,
-        Guid? RoomId,
+        int Id,
+        int? RoomId,
         string Room,
-        Guid? GameTypeId,
+        int? GameTypeId,
         string GameType,
-        Guid? GameId,
+        int? GameId,
         string Game,
-        Guid? GameSettingId,
+        int? GameSettingId,
         string GameSetting,
         int Hours,
         decimal TotalPrice,
-        Guid StatusId,
+        int StatusId,
         DateTime CreatedOn,
         DateTime? ModifiedOn,
         string CreatedBy,
@@ -21,28 +21,28 @@
 
 
     public record TransactionCreateDto(
-        Guid RoomId,
-    Guid GameTypeId,
-    Guid GameId,
-    Guid GameSettingId,
+        int RoomId,
+    int GameTypeId,
+    int GameId,
+    int GameSettingId,
     int Hours,
     decimal TotalPrice,
-    Guid StatusId,
+    int StatusId,
     DateTime CreatedOn,
     string CreatedBy
         );
 
-    public record OrderItemRequest(Guid ItemId, int Quantity);
-    public record TransactionUpdateDto(Guid RoomId,
-    Guid GameTypeId,
-    Guid GameId,
-    Guid GameSettingId,
+    public record OrderItemRequest(int ItemId, int Quantity);
+    public record TransactionUpdateDto(int RoomId,
+    int GameTypeId,
+    int GameId,
+    int GameSettingId,
     int Hours,
     decimal TotalPrice,
-    Guid StatusId);
+    int StatusId);
 
     public record TransactionItemDto(
-    Guid ItemId,
+    int ItemId,
     string ItemName,
     int Quantity,
     decimal Price,

@@ -15,8 +15,8 @@ namespace AxisAPI.Controllers
         {
             _gameSessionService = gameSessionService;
         }
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var room = await _gameSessionService.GetAsync(id, ct);
             if (room is null) return NotFound();
@@ -30,8 +30,8 @@ namespace AxisAPI.Controllers
             return Ok(rooms);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, GameSessionUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, GameSessionUpdateDto dto, CancellationToken ct)
         {
             var success = await _gameSessionService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
@@ -45,8 +45,8 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _gameSessionService.DeleteAsync(id, ct);
             if (!success) return NotFound();

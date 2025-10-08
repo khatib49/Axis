@@ -5,21 +5,21 @@ namespace Domain.Entities
 {
     public class GameSession
     {
-        public Guid Id { get; set; }
+        public int Id { get; set; }
 
-        public Guid UserId { get; set; }
+        public int UserId { get; set; }
         public AppUser User { get; set; } = default!;
 
-        public Guid CardId { get; set; }
+        public int CardId { get; set; }
         public Card Card { get; set; } = default!;
 
-        public Guid GameId { get; set; }
+        public int GameId { get; set; }
         public Game Game { get; set; } = default!;
 
-        public Guid RoomId { get; set; }
+        public int RoomId { get; set; }
         public Room Room { get; set; } = default!;
 
-        public Guid PassTypeId { get; set; }
+        public int PassTypeId { get; set; }
         public PassType PassType { get; set; } = default!;
 
         public DateTime StartTime { get; set; } = DateTime.UtcNow;

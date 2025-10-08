@@ -16,8 +16,8 @@ namespace AxisAPI.Controllers
             _passTypeService = passTypeService;
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var passType = await _passTypeService.GetAsync(id, ct);
             if (passType is null) return NotFound();
@@ -31,8 +31,8 @@ namespace AxisAPI.Controllers
             return Ok(rooms);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, PassTypeUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, PassTypeUpdateDto dto, CancellationToken ct)
         {
             var success = await _passTypeService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
@@ -46,8 +46,8 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _passTypeService.DeleteAsync(id, ct);
             if (!success) return NotFound();

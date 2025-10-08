@@ -19,16 +19,16 @@ namespace AxisAPI.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var item = await _transactionService.GetAsync(id, ct);
             if (item is null) return NotFound();
             return Ok(item);
         }
 
-        [HttpGet("{id:guid}/details")]
-        public async Task<IActionResult> GetWithItems(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}/details")]
+        public async Task<IActionResult> GetWithItems(int id, CancellationToken ct)
         {
             var item = await _transactionService.GetWithItemsAsync(id, ct);
             if (item is null) return NotFound();
@@ -42,8 +42,8 @@ namespace AxisAPI.Controllers
             return Ok(categories);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, TransactionUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, TransactionUpdateDto dto, CancellationToken ct)
         {
             var success = await _transactionService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
@@ -61,7 +61,7 @@ namespace AxisAPI.Controllers
 
         
         [HttpPost("CreateGameSession")]
-        public async Task<IActionResult> CreateGameSession(Guid gameId, Guid gameSettingId, int hours, Guid status, CancellationToken ct)
+        public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, ct);
@@ -78,8 +78,8 @@ namespace AxisAPI.Controllers
         }
 
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _transactionService.DeleteAsync(id, ct);
             if (!success) return NotFound();

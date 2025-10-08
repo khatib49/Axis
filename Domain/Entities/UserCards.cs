@@ -4,12 +4,12 @@ namespace Domain.Entities
 {
     public class UserCard
     {
-        public Guid Id { get; set; }
+        public int Id { get; set; }
 
-        public Guid UserId { get; set; }
+        public int UserId { get; set; }
         public AppUser User { get; set; } = default!;
 
-        public Guid CardId { get; set; }
+        public int CardId { get; set; }
         public Card Card { get; set; } = default!;
     }
 }

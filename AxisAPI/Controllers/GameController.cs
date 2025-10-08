@@ -16,8 +16,8 @@ namespace AxisAPI.Controllers
             _gameService = gameService;
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var game = await _gameService.GetAsync(id, ct);
             if (game is null) return NotFound();
@@ -31,8 +31,8 @@ namespace AxisAPI.Controllers
             return Ok(games);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, GameUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, GameUpdateDto dto, CancellationToken ct)
         {
             var success = await _gameService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
@@ -46,8 +46,8 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _gameService.DeleteAsync(id, ct);
             if (!success) return NotFound();

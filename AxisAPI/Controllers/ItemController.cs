@@ -16,16 +16,16 @@ namespace AxisAPI.Controllers
             _itemService = itemService;
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var item = await _itemService.GetAsync(id, ct);
             if (item is null) return NotFound();
             return Ok(item);
         }
 
-        [HttpGet("category/{categoryId:guid}")]
-        public async Task<IActionResult> GetItemsByCategoryId(Guid categoryId, [FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
+        [HttpGet("category/{categoryId:int}")]
+        public async Task<IActionResult> GetItemsByCategoryId(int categoryId, [FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
         {
             var items = await _itemService.GetByCategoryIdAsync(categoryId, pagination, ct);
             return Ok(items);
@@ -38,8 +38,8 @@ namespace AxisAPI.Controllers
             return Ok(items);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, ItemUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, ItemUpdateDto dto, CancellationToken ct)
         {
             var success = await _itemService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
@@ -53,8 +53,8 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _itemService.DeleteAsync(id, ct);
             if (!success) return NotFound();

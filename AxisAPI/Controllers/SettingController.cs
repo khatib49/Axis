@@ -18,8 +18,8 @@ namespace AxisAPI.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var setting = await _settingService.GetAsync(id, ct);
             if (setting is null) return NotFound();
@@ -34,8 +34,8 @@ namespace AxisAPI.Controllers
         }
 
         [Authorize]
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, SettingUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, SettingUpdateDto dto, CancellationToken ct)
         {
             var updatedBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var success = await _settingService.UpdateAsync(id, dto, updatedBy, ct);
@@ -51,8 +51,8 @@ namespace AxisAPI.Controllers
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _settingService.DeleteAsync(id, ct);
             if (!success) return NotFound();

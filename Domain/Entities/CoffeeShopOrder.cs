@@ -5,15 +5,15 @@ namespace Domain.Entities
 {
     public class CoffeeShopOrder
     {
-        public Guid Id { get; set; }
+        public int Id { get; set; }
 
-        public Guid UserId { get; set; }
+        public int UserId { get; set; }
         public AppUser User { get; set; } = default!;
 
-        public Guid CardId { get; set; }
+        public int CardId { get; set; }
         public Card Card { get; set; } = default!;
 
-        public Guid ItemId { get; set; }
+        public int ItemId { get; set; }
         public Item Item { get; set; } = default!;
 
         public int Quantity { get; set; }

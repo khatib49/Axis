@@ -2,7 +2,7 @@
 
 namespace Domain.Identity
 {
-    public class AppUser : IdentityUser<Guid>
+    public class AppUser : IdentityUser<int>
     {
         public string? DisplayName { get; set; }
     }

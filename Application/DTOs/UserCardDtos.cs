@@ -1,6 +1,6 @@
 ﻿namespace Application.DTOs
 {
-    public record UserCardCreateDto(Guid UserId,Guid CardId);
-    public record UserCardUpdateDto(Guid UserId,Guid CardId);
-    public record UserCardDto(Guid Id,Guid UserId,Guid CardId);
+    public record UserCardCreateDto(int UserId,int CardId);
+    public record UserCardUpdateDto(int UserId,int CardId);
+    public record UserCardDto(int Id,int UserId,int CardId);
 }

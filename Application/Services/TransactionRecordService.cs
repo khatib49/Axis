@@ -31,7 +31,7 @@ namespace Application.Services
             _repoTrxItem = repoTrxItem;
         }
 
-        public async Task<TransactionDto?> GetAsync(Guid id, CancellationToken ct = default)
+        public async Task<TransactionDto?> GetAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()
                     .Include(s => s.Game)
@@ -42,7 +42,7 @@ namespace Application.Services
                     .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
-        public async Task<TransactionDto?> GetWithItemsAsync(Guid id, CancellationToken ct = default)
+        public async Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()
                 .Include(s => s.Game)
@@ -137,7 +137,7 @@ namespace Application.Services
         }
 
 
-        public async Task<TransactionDto> CreateGameSession(Guid gameId, Guid gameSettingId, int hours, Guid statusid, string createdBy, CancellationToken ct = default)
+        public async Task<TransactionDto> CreateGameSession(int gameId, int gameSettingId, int hours, int statusid, string createdBy, CancellationToken ct = default)
         {
 
             #region Check if the Room Available
@@ -264,14 +264,13 @@ namespace Application.Services
             // Create transaction
             var trx = new TransactionRecord
             {
-                Id = Guid.NewGuid(),
                 RoomId = null,
                 GameTypeId = null,
                 GameId = null,
                 GameSettingId = null,
                 Hours = 0,
                 TotalPrice = totalPrice,
-                StatusId = Guid.Parse("f779b04d-9808-429a-9545-4fd36fa0b1e5"),
+                StatusId = int.Parse("f779b04d-9808-429a-9545-4fd36fa0b1e5"),
                 CreatedBy = createdBy ?? "",
                 CreatedOn = DateTime.UtcNow,
             };
@@ -303,7 +302,7 @@ namespace Application.Services
             return _mapper.ToDto(trx);
         }
 
-        public async Task<bool> UpdateAsync(Guid id, TransactionUpdateDto dto, CancellationToken ct = default)
+        public async Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
@@ -313,7 +312,7 @@ namespace Application.Services
             return true;
         }
 
-        public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;

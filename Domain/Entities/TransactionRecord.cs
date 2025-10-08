@@ -5,23 +5,23 @@ namespace Domain.Entities
     [Table("transactions")]
     public class TransactionRecord
     {
-        public Guid Id { get; set; }
+        public int Id { get; set; }
 
        
-        public Guid? RoomId { get; set; }
+        public int? RoomId { get; set; }
         public Room? Room { get; set; }  
 
-        public Guid? GameTypeId { get; set; }
+        public int? GameTypeId { get; set; }
         public Category? GameType { get; set; }  
 
-        public Guid? GameId { get; set; }
+        public int? GameId { get; set; }
         public Game? Game { get; set; } 
 
-        public Guid? GameSettingId { get; set; }
+        public int? GameSettingId { get; set; }
         public Setting? GameSetting { get; set; }
 
         // Required fields
-        public Guid StatusId { get; set; }
+        public int StatusId { get; set; }
         public Status Status { get; set; } = default!; 
 
         // Transaction details

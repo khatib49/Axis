@@ -5,7 +5,7 @@ namespace Infrastructure.IRepositories
     public interface IBaseRepository<T> where T : class
     {
         // GET
-        Task<T?> GetByIdAsync(Guid id, bool asNoTracking = true, CancellationToken ct = default);
+        Task<T?> GetByIdAsync(int id, bool asNoTracking = true, CancellationToken ct = default);
         Task<List<T>> ListAsync(Expression<Func<T, bool>>? predicate = null, bool asNoTracking = true, CancellationToken ct = default);
 
         // For advanced scenarios (paging, includes, projections)

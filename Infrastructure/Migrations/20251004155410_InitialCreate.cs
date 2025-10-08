@@ -16,7 +16,7 @@ namespace Infrastructure.Migrations
                 name: "AspNetRoles",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     NormalizedName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     ConcurrencyStamp = table.Column<string>(type: "text", nullable: true)
@@ -30,7 +30,7 @@ namespace Infrastructure.Migrations
                 name: "AspNetUsers",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     DisplayName = table.Column<string>(type: "text", nullable: true),
                     UserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -56,7 +56,7 @@ namespace Infrastructure.Migrations
                 name: "Cards",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     CardName = table.Column<string>(type: "text", nullable: false),
                     CardType = table.Column<string>(type: "text", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
@@ -72,7 +72,7 @@ namespace Infrastructure.Migrations
                 name: "Categories",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Type = table.Column<string>(type: "text", nullable: false)
                 },
@@ -85,7 +85,7 @@ namespace Infrastructure.Migrations
                 name: "Expenses",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Category = table.Column<string>(type: "text", nullable: false),
                     Amount = table.Column<decimal>(type: "numeric", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: true),
@@ -100,7 +100,7 @@ namespace Infrastructure.Migrations
                 name: "Status",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
@@ -114,7 +114,7 @@ namespace Infrastructure.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    RoleId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RoleId = table.Column<int>(type: "uuid", nullable: false),
                     ClaimType = table.Column<string>(type: "text", nullable: true),
                     ClaimValue = table.Column<string>(type: "text", nullable: true)
                 },
@@ -135,7 +135,7 @@ namespace Infrastructure.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
                     ClaimType = table.Column<string>(type: "text", nullable: true),
                     ClaimValue = table.Column<string>(type: "text", nullable: true)
                 },
@@ -157,7 +157,7 @@ namespace Infrastructure.Migrations
                     LoginProvider = table.Column<string>(type: "text", nullable: false),
                     ProviderKey = table.Column<string>(type: "text", nullable: false),
                     ProviderDisplayName = table.Column<string>(type: "text", nullable: true),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                    UserId = table.Column<int>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -174,8 +174,8 @@ namespace Infrastructure.Migrations
                 name: "AspNetUserRoles",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RoleId = table.Column<Guid>(type: "uuid", nullable: false)
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
+                    RoleId = table.Column<int>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -198,7 +198,7 @@ namespace Infrastructure.Migrations
                 name: "AspNetUserTokens",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
                     LoginProvider = table.Column<string>(type: "text", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Value = table.Column<string>(type: "text", nullable: true)
@@ -218,8 +218,8 @@ namespace Infrastructure.Migrations
                 name: "Notifications",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
                     Title = table.Column<string>(type: "text", nullable: false),
                     Body = table.Column<string>(type: "text", nullable: false),
                     Type = table.Column<string>(type: "text", nullable: false),
@@ -241,9 +241,9 @@ namespace Infrastructure.Migrations
                 name: "UserCards",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CardId = table.Column<Guid>(type: "uuid", nullable: false)
+                    Id = table.Column<int>(type: "uuid", nullable: false),
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
+                    CardId = table.Column<int>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -266,9 +266,9 @@ namespace Infrastructure.Migrations
                 name: "Rooms",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
-                    CategoryId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CategoryId = table.Column<int>(type: "uuid", nullable: true),
                     Sets = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
@@ -285,10 +285,10 @@ namespace Infrastructure.Migrations
                 name: "Games",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
-                    CategoryId = table.Column<Guid>(type: "uuid", nullable: false),
-                    StatusId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CategoryId = table.Column<int>(type: "uuid", nullable: false),
+                    StatusId = table.Column<int>(type: "uuid", nullable: false),
                     CreatedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     ModifiedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
@@ -313,14 +313,14 @@ namespace Infrastructure.Migrations
                 name: "Items",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Quantity = table.Column<int>(type: "integer", nullable: false),
                     Price = table.Column<decimal>(type: "numeric", nullable: false),
                     Type = table.Column<string>(type: "text", nullable: false),
-                    CategoryId = table.Column<Guid>(type: "uuid", nullable: false),
-                    GameId = table.Column<Guid>(type: "uuid", nullable: true),
-                    StatusId = table.Column<Guid>(type: "uuid", nullable: false)
+                    CategoryId = table.Column<int>(type: "uuid", nullable: false),
+                    GameId = table.Column<int>(type: "uuid", nullable: true),
+                    StatusId = table.Column<int>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -349,11 +349,11 @@ namespace Infrastructure.Migrations
                 name: "PassTypes",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     DurationInMinutes = table.Column<int>(type: "integer", nullable: false),
                     Price = table.Column<decimal>(type: "numeric", nullable: false),
-                    GameId = table.Column<Guid>(type: "uuid", nullable: false)
+                    GameId = table.Column<int>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -370,7 +370,7 @@ namespace Infrastructure.Migrations
                 name: "Settings",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Type = table.Column<string>(type: "text", nullable: false),
                     Hours = table.Column<decimal>(type: "numeric", nullable: false),
@@ -379,7 +379,7 @@ namespace Infrastructure.Migrations
                     ModifiedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedBy = table.Column<string>(type: "text", nullable: false),
                     ModifiedBy = table.Column<string>(type: "text", nullable: true),
-                    GameId = table.Column<Guid>(type: "uuid", nullable: false)
+                    GameId = table.Column<int>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -396,10 +396,10 @@ namespace Infrastructure.Migrations
                 name: "CoffeeShopOrders",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CardId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
+                    CardId = table.Column<int>(type: "uuid", nullable: false),
+                    ItemId = table.Column<int>(type: "uuid", nullable: false),
                     Quantity = table.Column<int>(type: "integer", nullable: false),
                     Price = table.Column<decimal>(type: "numeric", nullable: false),
                     Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -431,12 +431,12 @@ namespace Infrastructure.Migrations
                 name: "GameSessions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CardId = table.Column<Guid>(type: "uuid", nullable: false),
-                    GameId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RoomId = table.Column<Guid>(type: "uuid", nullable: false),
-                    PassTypeId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
+                    CardId = table.Column<int>(type: "uuid", nullable: false),
+                    GameId = table.Column<int>(type: "uuid", nullable: false),
+                    RoomId = table.Column<int>(type: "uuid", nullable: false),
+                    PassTypeId = table.Column<int>(type: "uuid", nullable: false),
                     StartTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     EndTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     IsOpenTime = table.Column<bool>(type: "boolean", nullable: false),
@@ -481,18 +481,18 @@ namespace Infrastructure.Migrations
                 name: "transactions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    RoomId = table.Column<Guid>(type: "uuid", nullable: false),
-                    GameTypeId = table.Column<Guid>(type: "uuid", nullable: false),
-                    GameId = table.Column<Guid>(type: "uuid", nullable: false),
-                    GameSettingId = table.Column<Guid>(type: "uuid", nullable: false),
-                    StatusId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
+                    RoomId = table.Column<int>(type: "uuid", nullable: false),
+                    GameTypeId = table.Column<int>(type: "uuid", nullable: false),
+                    GameId = table.Column<int>(type: "uuid", nullable: false),
+                    GameSettingId = table.Column<int>(type: "uuid", nullable: false),
+                    StatusId = table.Column<int>(type: "uuid", nullable: false),
                     Hours = table.Column<int>(type: "integer", nullable: false),
                     TotalPrice = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     CreatedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()"),
                     ModifiedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedBy = table.Column<string>(type: "text", nullable: false),
-                    CardId = table.Column<Guid>(type: "uuid", nullable: true)
+                    CardId = table.Column<int>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -538,10 +538,10 @@ namespace Infrastructure.Migrations
                 name: "Receipts",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TransactionId = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CardId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "uuid", nullable: false),
+                    TransactionId = table.Column<int>(type: "uuid", nullable: false),
+                    UserId = table.Column<int>(type: "uuid", nullable: false),
+                    CardId = table.Column<int>(type: "uuid", nullable: false),
                     GeneratedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Content = table.Column<string>(type: "text", nullable: false)
                 },
@@ -572,8 +572,8 @@ namespace Infrastructure.Migrations
                 name: "TransactionItems",
                 columns: table => new
                 {
-                    TransactionRecordId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TransactionRecordId = table.Column<int>(type: "uuid", nullable: false),
+                    ItemId = table.Column<int>(type: "uuid", nullable: false),
                     Quantity = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>

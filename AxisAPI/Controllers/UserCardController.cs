@@ -17,8 +17,8 @@ namespace AxisAPI.Controllers
             _userCardService = userCardService;
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var userCard = await _userCardService.GetAsync(id, ct);
             if (userCard is null) return NotFound();
@@ -39,16 +39,16 @@ namespace AxisAPI.Controllers
             return Ok(usersCards);
         }
         
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, UserCardUpdateDto dto, CancellationToken ct)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, UserCardUpdateDto dto, CancellationToken ct)
         {
             var success = await _userCardService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
             return NoContent();
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _userCardService.DeleteAsync(id, ct);
             if (!success) return NotFound();

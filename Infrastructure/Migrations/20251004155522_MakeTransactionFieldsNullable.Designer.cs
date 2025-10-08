@@ -27,7 +27,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Card", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -55,7 +55,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Category", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -74,14 +74,14 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.CoffeeShopOrder", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CardId")
+                    b.Property<int>("CardId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ItemId")
+                    b.Property<int>("ItemId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Price")
@@ -93,7 +93,7 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -109,7 +109,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Expense", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -133,11 +133,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Game", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CategoryId")
+                    b.Property<int>("CategoryId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedOn")
@@ -150,7 +150,7 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("StatusId")
+                    b.Property<int>("StatusId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -164,26 +164,26 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.GameSession", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CardId")
+                    b.Property<int>("CardId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("GameId")
+                    b.Property<int>("GameId")
                         .HasColumnType("uuid");
 
                     b.Property<bool>("IsOpenTime")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("PassTypeId")
+                    b.Property<int>("PassTypeId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("RoomId")
+                    b.Property<int>("RoomId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("StartTime")
@@ -193,7 +193,7 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -213,14 +213,14 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Item", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CategoryId")
+                    b.Property<int>("CategoryId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("GameId")
+                    b.Property<int?>("GameId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
@@ -233,7 +233,7 @@ namespace Infrastructure.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("StatusId")
+                    b.Property<int>("StatusId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Type")
@@ -253,7 +253,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Notification", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -275,7 +275,7 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -287,14 +287,14 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.PassType", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("DurationInMinutes")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("GameId")
+                    b.Property<int>("GameId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
@@ -313,11 +313,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Receipt", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CardId")
+                    b.Property<int>("CardId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Content")
@@ -327,10 +327,10 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("GeneratedOn")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("TransactionId")
+                    b.Property<int>("TransactionId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -346,11 +346,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Room", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CategoryId")
+                    b.Property<int?>("CategoryId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
@@ -369,7 +369,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Setting", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -380,7 +380,7 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("GameId")
+                    b.Property<int>("GameId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Hours")
@@ -412,7 +412,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Status", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -427,10 +427,10 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.TransactionItem", b =>
                 {
-                    b.Property<Guid>("TransactionRecordId")
+                    b.Property<int>("TransactionRecordId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ItemId")
+                    b.Property<int>("ItemId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Quantity")
@@ -447,11 +447,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CardId")
+                    b.Property<int?>("CardId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("CreatedBy")
@@ -463,13 +463,13 @@ namespace Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
-                    b.Property<Guid?>("GameId")
+                    b.Property<int?>("GameId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("GameSettingId")
+                    b.Property<int?>("GameSettingId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("GameTypeId")
+                    b.Property<int?>("GameTypeId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Hours")
@@ -478,10 +478,10 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime?>("ModifiedOn")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("RoomId")
+                    b.Property<int?>("RoomId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("StatusId")
+                    b.Property<int>("StatusId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("TotalPrice")
@@ -506,14 +506,14 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.UserCard", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CardId")
+                    b.Property<int>("CardId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -527,7 +527,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Identity.AppRole", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -554,7 +554,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Identity.AppUser", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
@@ -620,7 +620,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.int>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -634,7 +634,7 @@ namespace Infrastructure.Migrations
                     b.Property<string>("ClaimValue")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("RoleId")
+                    b.Property<int>("RoleId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -644,7 +644,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetRoleClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.int>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -658,7 +658,7 @@ namespace Infrastructure.Migrations
                     b.Property<string>("ClaimValue")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -668,7 +668,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetUserClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.int>", b =>
                 {
                     b.Property<string>("LoginProvider")
                         .HasColumnType("text");
@@ -679,7 +679,7 @@ namespace Infrastructure.Migrations
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("LoginProvider", "ProviderKey");
@@ -689,12 +689,12 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetUserLogins", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.int>", b =>
                 {
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("RoleId")
+                    b.Property<int>("RoleId")
                         .HasColumnType("uuid");
 
                     b.HasKey("UserId", "RoleId");
@@ -704,9 +704,9 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetUserRoles", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.int>", b =>
                 {
-                    b.Property<Guid>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("LoginProvider")
@@ -988,7 +988,7 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.int>", b =>
                 {
                     b.HasOne("Domain.Identity.AppRole", null)
                         .WithMany()
@@ -997,7 +997,7 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.int>", b =>
                 {
                     b.HasOne("Domain.Identity.AppUser", null)
                         .WithMany()
@@ -1006,7 +1006,7 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.int>", b =>
                 {
                     b.HasOne("Domain.Identity.AppUser", null)
                         .WithMany()
@@ -1015,7 +1015,7 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.int>", b =>
                 {
                     b.HasOne("Domain.Identity.AppRole", null)
                         .WithMany()
@@ -1030,7 +1030,7 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.int>", b =>
                 {
                     b.HasOne("Domain.Identity.AppUser", null)
                         .WithMany()

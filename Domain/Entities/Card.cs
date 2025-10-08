@@ -5,7 +5,7 @@ namespace Domain.Entities
 {
     public class Card
     {
-        public Guid Id { get; set; }
+        public int Id { get; set; }
         public string CardName { get; set; } = default!;
         public string CardType { get; set; } = default!;
         public bool IsActive { get; set; } = true;

@@ -42,11 +42,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // EF Core + PostgreSQL
-builder.Services.AddDbContext<ApplicationDbContext>(opt =>
-{
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
-    //opt.UseSnakeCaseNamingConvention(); // works now because we installed the naming conventions package
-});
+//builder.Services.AddDbContext<ApplicationDbContext>(opt =>
+//{
+//    opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
+//    //opt.UseSnakeCaseNamingConvention(); // works now because we installed the naming conventions package
+//});
 
 // Identity
 builder.Services

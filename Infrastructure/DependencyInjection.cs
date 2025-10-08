@@ -11,10 +11,12 @@ namespace Infrastructure
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration cfg)
         {
+            var conn = cfg.GetConnectionString("Postgres");
+
             services.AddDbContext<ApplicationDbContext>(opt =>
             {
-                opt.UseNpgsql(cfg.GetConnectionString("Postgres"));
-                // opt.UseSnakeCaseNamingConvention(); // if you enabled EFCore.NamingConventions in API
+                opt.UseNpgsql(conn, b => b.MigrationsAssembly("Infrastructure"));
+                // opt.UseSnakeCaseNamingConvention();
             });
 
             services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));

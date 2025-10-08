@@ -18,7 +18,7 @@ namespace Application.Services
             _repo = repo; _uow = uow; _mapper = mapper;
         }
 
-        public async Task<GameDto?> GetAsync(Guid id, CancellationToken ct = default)
+        public async Task<GameDto?> GetAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()
                     .Include(s => s.Category)
@@ -57,7 +57,7 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-        public async Task<bool> UpdateAsync(Guid id, GameUpdateDto dto, CancellationToken ct = default)
+        public async Task<bool> UpdateAsync(int id, GameUpdateDto dto, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
@@ -67,7 +67,7 @@ namespace Application.Services
             return true;
         }
 
-        public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;

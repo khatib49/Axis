@@ -18,7 +18,7 @@ namespace Application.Services
         {
             _repo = repo; _uow = uow; _mapper = mapper; _userManager = userManager;
         }
-        public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
@@ -28,7 +28,7 @@ namespace Application.Services
             return true;
         }
 
-        public async Task<UserDto?> GetAsync(Guid id, CancellationToken ct = default)
+        public async Task<UserDto?> GetAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
             if (e is null) return null;
@@ -57,7 +57,7 @@ namespace Application.Services
 
             return new PaginatedResponse<UserDto>(totalCount, result, pagination.Page, pagination.PageSize);
         }
-        public async Task<bool> UpdateAsync(Guid Id, UserUpdateDto request, CancellationToken ct = default)
+        public async Task<bool> UpdateAsync(int Id, UserUpdateDto request, CancellationToken ct = default)
         {
             var user = await _userManager.FindByIdAsync(Id.ToString());
             if (user == null)

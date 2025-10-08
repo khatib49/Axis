@@ -19,7 +19,7 @@ namespace Application.Services
             _repo = repo; _uow = uow; _mapper = mapper;
         }
 
-        public async Task<ItemDto?> GetAsync(Guid id, CancellationToken ct = default)
+        public async Task<ItemDto?> GetAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
             return e is null ? null : _mapper.ToDto(e);
@@ -63,7 +63,7 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-        public async Task<bool> UpdateAsync(Guid id, ItemUpdateDto dto, CancellationToken ct = default)
+        public async Task<bool> UpdateAsync(int id, ItemUpdateDto dto, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
@@ -73,7 +73,7 @@ namespace Application.Services
             return true;
         }
 
-        public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
             if (e is null) return false;
@@ -83,7 +83,7 @@ namespace Application.Services
             return true;
         }
 
-        public async Task<PaginatedResponse<ItemDto>> GetByCategoryIdAsync(Guid id, BasePaginationRequestDto pagination, CancellationToken ct = default)
+        public async Task<PaginatedResponse<ItemDto>> GetByCategoryIdAsync(int id, BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
             var list = await _repo.ListAsync(i => i.CategoryId == id, asNoTracking: true, ct);
             var totalCount = list.Count();

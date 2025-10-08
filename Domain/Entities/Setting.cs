@@ -5,7 +5,7 @@ namespace Domain.Entities
 {
     public class Setting
     {
-        public Guid Id { get; set; }
+        public int Id { get; set; }
         public string Name { get; set; } = default!;
         public string Type { get; set; } = default!;
 
@@ -18,7 +18,7 @@ namespace Domain.Entities
         public string? ModifiedBy { get; set; } = null;
 
 
-        public Guid GameId { get; set; }
+        public int GameId { get; set; }
         public Game Game { get; set; } = default!;
     }
 }

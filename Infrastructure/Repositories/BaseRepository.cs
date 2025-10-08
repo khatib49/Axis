@@ -11,7 +11,7 @@ namespace Infrastructure.Repositories
 
         public BaseRepository(ApplicationDbContext db) => _db = db;
 
-        public async Task<T?> GetByIdAsync(Guid id, bool asNoTracking = true, CancellationToken ct = default)
+        public async Task<T?> GetByIdAsync(int id, bool asNoTracking = true, CancellationToken ct = default)
         {
             var set = _db.Set<T>();
             if (!asNoTracking) return await set.FindAsync([id], ct);
