@@ -270,7 +270,7 @@ namespace Application.Services
                 GameSettingId = null,
                 Hours = 0,
                 TotalPrice = totalPrice,
-                StatusId = int.Parse("f779b04d-9808-429a-9545-4fd36fa0b1e5"),
+                StatusId = 6,
                 CreatedBy = createdBy ?? "",
                 CreatedOn = DateTime.UtcNow,
             };
