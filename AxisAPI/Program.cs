@@ -1,14 +1,15 @@
-﻿using System.Text;
-using Microsoft.AspNetCore.Identity;
+﻿using Application;
+using Application.Services;
+using AxisAPI.Utils;
+using Domain.Identity;
+using Infrastructure;
+using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-
-using Domain.Identity;
-using Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
-using Application;
-using Infrastructure;
+using System.Text;
 
 
 
@@ -17,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration); // DbContext + repos
 builder.Services.AddApplication();                         // <-- registers IAuthService & IGameService
+builder.Services.AddScoped<IImageStorageService, LocalImageStorageService>();
 
 
 
@@ -99,6 +101,9 @@ builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
 
 var app = builder.Build();
 
+app.UseStaticFiles();
+
+
 // 🔧 Serve Swagger ALWAYS (dev & prod)
 // (Move these OUTSIDE any if (app.Environment.IsDevelopment()) block)
 app.UseSwagger();
@@ -114,6 +119,7 @@ app.UseAuthorization();
 
 app.UseCors("CorsPolicy");
 app.MapControllers();
+
 
 // Auto-create/upgrade the DB schema on boot (creates DB *schema* if DB exists)
 //using (var scope = app.Services.CreateScope())
