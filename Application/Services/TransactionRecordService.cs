@@ -164,10 +164,10 @@ namespace Application.Services
                 .Where(s => s.RoomId == room.Id && s.StatusId == statusid) // status id should be equal to ongoing status
                 .CountAsync(ct);
 
-            if (ongoingTrnx >= room.Sets)
-            {
-                throw new InvalidOperationException("No available room for the selected game type.");
-            }
+            //if (ongoingTrnx >= room.Sets)
+            //{
+            //    throw new InvalidOperationException("No available room for the selected game type.");
+            //} TBD
             #endregion
             Setting? settingDto = await  _repoSetting.Query()
                 .AsNoTracking()

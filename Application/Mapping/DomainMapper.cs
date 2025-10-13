@@ -2,6 +2,7 @@
 using Domain.Entities;
 using Domain.Identity;
 using Riok.Mapperly.Abstractions;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Application.Mapping
@@ -38,8 +39,8 @@ namespace Application.Mapping
                 e.Id,
                 e.Name,
                 e.CategoryId,
-                e.Category?.Name ?? string.Empty, // ✅ category name like settings
-                e.Sets
+                e.Category?.Name ?? string.Empty,
+                e.Sets?.Count ?? 0
             );
         public partial Room ToEntity(RoomCreateDto dto);
         public partial void MapTo(RoomUpdateDto dto, [MappingTarget] Room e);
