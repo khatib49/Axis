@@ -12,5 +12,11 @@ namespace Application.IServices
         Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default);
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
         Task<TransactionDto> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct);
+
+        Task<PaginatedResponse<ItemTransactionLineDto>> GetItemTransactionsWithDetailsAsync(
+            TransactionsFilterDto f, CancellationToken ct = default);
+
+        Task<PaginatedResponse<GameTransactionDetailsDto>> GetGameTransactionsWithDetailsAsync(
+            TransactionsFilterDto f, CancellationToken ct = default);
     }
 }
