@@ -22,6 +22,9 @@ namespace Application.Services
             if (f.CreatedBy is { Count: > 0 })
                 q = q.Where(t => f.CreatedBy!.Contains(t.CreatedBy));
 
+
+                q = q.Where(t => t.Game == null);
+
             // -------- Item/Category filters & search --------
             if (f.CategoryIds is { Count: > 0 })
                 q = q.Where(t => t.TransactionItems.Any(ti =>
