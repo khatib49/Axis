@@ -227,8 +227,18 @@ namespace Application.Services
             }
 
 
-            var totalPrice = setting.Price * hours / setting.Hours;
+            decimal totalPrice = 0.0M;
 
+            if (setting.IsOpenHour)
+            {
+                totalPrice = setting.Price;
+            }
+            else
+            {
+                totalPrice = setting.Price * hours / setting.Hours;
+            }
+
+            
             // 6) Create DTO -> Entity
             var createDto = new TransactionCreateDto(
                 RoomId: room.Id,
@@ -244,6 +254,8 @@ namespace Application.Services
             );
 
             var e = _mapper.ToEntity(createDto);
+            if (e.SetId == 0)
+                e.SetId = null;
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
 
