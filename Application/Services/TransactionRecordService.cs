@@ -31,6 +31,47 @@ namespace Application.Services
             _repoTrxItem = repoTrxItem;
         }
 
+        public async Task<RoomSetsAvailabilityDto?> GetRoomSetsAvailability(int roomId, int ongoingStatusId = 1, CancellationToken ct = default)
+        {
+            // Load room with its sets
+            var room = await _repoRoom.Query()
+                .Include(r => r.Sets)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == roomId, ct);
+
+            if (room is null) return null; // caller returns 404
+
+            // Which sets are currently "busy" (there exists an ongoing transaction using them)
+            var busySetIds = await _repo.Query()
+                .AsNoTracking()
+                .Where(t => t.RoomId == roomId
+                         && t.Set != null
+                         && t.StatusId == ongoingStatusId)
+                .Select(t => t.SetId!.Value)
+                .Distinct()
+                .ToListAsync(ct);
+
+            var available = new List<SetDto>();
+            var unavailable = new List<SetDto>();
+
+            foreach (var rs in room.Sets)
+            {
+                var dto = new SetDto { Id = rs.Id, Name = rs.Name };
+                if (busySetIds.Contains(rs.Id))
+                    unavailable.Add(dto);
+                else
+                    available.Add(dto);
+            }
+
+            return new RoomSetsAvailabilityDto
+            {
+                RoomId = roomId,
+                Available = available.OrderBy(x => x.Name).ToList(),
+                Unavailable = unavailable.OrderBy(x => x.Name).ToList()
+            };
+        }
+
+
         public async Task<TransactionDto?> GetAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()

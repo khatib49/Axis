@@ -4,6 +4,7 @@ namespace Application.IServices
 {
     public interface ITransactionRecordService
     {
+        Task<RoomSetsAvailabilityDto?> GetRoomSetsAvailability( int roomId, int ongoingStatusId = 1, CancellationToken ct = default);
         Task<TransactionDto?> GetAsync(int id, CancellationToken ct = default);
         Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default);
         Task<PaginatedResponse<TransactionDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default);
