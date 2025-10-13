@@ -220,7 +220,7 @@ namespace Application.Services
                 .FirstOrDefaultAsync(ct)
                 ?? throw new ArgumentException("Invalid game setting ID");
 
-            if(setting.IsOpenHour)
+            if(!setting.IsOpenHour)
             {
                 if (setting.Hours <= 0)
                     throw new InvalidOperationException("Configured Hours must be > 0 for price calculation.");
