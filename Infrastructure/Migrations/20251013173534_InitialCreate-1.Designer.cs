@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251008180517_MigrateFromGUIDToId")]
-    partial class MigrateFromGUIDToId
+    [Migration("20251013173534_InitialCreate-1")]
+    partial class InitialCreate1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -237,6 +237,9 @@ namespace Infrastructure.Migrations
                     b.Property<int?>("GameId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ImagePath")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -409,6 +412,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<decimal>("Hours")
                         .HasColumnType("numeric");
+
+                    b.Property<bool>("IsOffer")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("text");

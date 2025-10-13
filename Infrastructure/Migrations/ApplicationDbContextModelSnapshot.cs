@@ -234,6 +234,9 @@ namespace Infrastructure.Migrations
                     b.Property<int?>("GameId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ImagePath")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -406,6 +409,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<decimal>("Hours")
                         .HasColumnType("numeric");
+
+                    b.Property<bool>("IsOffer")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("text");

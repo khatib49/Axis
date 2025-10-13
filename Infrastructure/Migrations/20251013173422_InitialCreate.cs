@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class MigrateFromGUIDToId : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -331,7 +331,8 @@ namespace Infrastructure.Migrations
                     Type = table.Column<string>(type: "text", nullable: false),
                     CategoryId = table.Column<int>(type: "integer", nullable: false),
                     GameId = table.Column<int>(type: "integer", nullable: true),
-                    StatusId = table.Column<int>(type: "integer", nullable: false)
+                    StatusId = table.Column<int>(type: "integer", nullable: false),
+                    ImagePath = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {

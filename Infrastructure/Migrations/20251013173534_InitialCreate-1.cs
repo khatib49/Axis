@@ -5,24 +5,25 @@
 namespace Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddItemImagePath : Migration
+    public partial class InitialCreate1 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "ImagePath",
-                table: "Items",
-                type: "text",
-                nullable: true);
+            migrationBuilder.AddColumn<bool>(
+                name: "IsOffer",
+                table: "Settings",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "ImagePath",
-                table: "Items");
+                name: "IsOffer",
+                table: "Settings");
         }
     }
 }

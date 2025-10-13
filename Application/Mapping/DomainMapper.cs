@@ -117,7 +117,8 @@ namespace Application.Mapping
             e.CreatedOn,
             e.ModifiedOn,
             e.CreatedBy,
-            e.ModifiedBy
+            e.ModifiedBy,
+            e.IsOffer
           
         );
 

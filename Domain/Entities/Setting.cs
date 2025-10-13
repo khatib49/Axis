@@ -20,5 +20,9 @@ namespace Domain.Entities
 
         public int GameId { get; set; }
         public Game Game { get; set; } = default!;
+        public bool IsOffer { get; set; } = false;
+
+
+
     }
 }
