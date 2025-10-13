@@ -10,10 +10,28 @@ namespace AxisAPI.Controllers
     public class RoomController : ControllerBase
     {
         private readonly IRoomService _roomService;
+        private readonly ITransactionRecordService _itransactionRecordService;
 
-        public RoomController(IRoomService roomService)
+        public RoomController(IRoomService roomService, ITransactionRecordService itransactionRecordService)
         {
             _roomService = roomService;
+            _itransactionRecordService = itransactionRecordService;
+        }
+
+
+        /// <summary>
+        /// Get available and unavailable sets for a room.
+        /// ongoingStatusId: the StatusId considered "in use" (defaults to 1).
+        /// </summary>
+        [HttpGet("{roomId:int}/sets/availability")]
+        public async Task<ActionResult<RoomSetsAvailabilityDto>> GetRoomSetsAvailability(
+            int roomId,
+            [FromQuery] int ongoingStatusId = 1,
+            CancellationToken ct = default)
+        {
+            var result = await _itransactionRecordService.GetRoomSetsAvailability(roomId, ongoingStatusId, ct);
+            if (result is null) return NotFound($"Room {roomId} not found.");
+            return Ok(result);
         }
 
         [HttpGet("{id:int}")]
