@@ -216,12 +216,16 @@ namespace Application.Services
             // 5) Price calc from Setting
             var setting = await _repoSetting.Query().AsNoTracking()
                 .Where(s => s.Id == gameSettingId)
-                .Select(s => new { s.Hours, s.Price })
+                .Select(s => new { s.Hours, s.Price, s.IsOpenHour })
                 .FirstOrDefaultAsync(ct)
                 ?? throw new ArgumentException("Invalid game setting ID");
 
-            if (setting.Hours <= 0)
-                throw new InvalidOperationException("Configured Hours must be > 0 for price calculation.");
+            if(setting.IsOpenHour)
+            {
+                if (setting.Hours <= 0)
+                    throw new InvalidOperationException("Configured Hours must be > 0 for price calculation.");
+            }
+
 
             var totalPrice = setting.Price * hours / setting.Hours;
 

@@ -10,9 +10,9 @@
 
     public record SettingDto(
         int Id, string Name, string Type, int GameId, string GameName,decimal Hours, decimal Price, DateTime CreatedOn, DateTime? ModifiedOn,
-        string CreatedBy, string? ModifiedBy , bool IsOffer
+        string CreatedBy, string? ModifiedBy , bool IsOffer, bool IsOpenHour
        );
 
-    public record SettingCreateDto(string Name, string Type, int GameId, decimal Hours, decimal Price , bool IsOffer);
-    public record SettingUpdateDto(string? Name, string? Type, int? GameId, decimal Hours, decimal Price , bool IsOffer);
+    public record SettingCreateDto(string Name, string Type, int GameId, decimal Hours, decimal Price , bool IsOffer, bool IsOpenHour);
+    public record SettingUpdateDto(string? Name, string? Type, int? GameId, decimal Hours, decimal Price , bool IsOffer, bool IsOpenHour);
 }

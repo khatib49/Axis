@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class Setting
     {
@@ -21,6 +18,7 @@ namespace Domain.Entities
         public int GameId { get; set; }
         public Game Game { get; set; } = default!;
         public bool IsOffer { get; set; } = false;
+        public bool IsOpenHour { get; set; } = false;
 
 
 

@@ -122,8 +122,8 @@ namespace Application.Mapping
             e.ModifiedOn,
             e.CreatedBy,
             e.ModifiedBy,
-            e.IsOffer
-          
+            e.IsOffer,
+            e.IsOpenHour
         );
 
         public partial Setting ToEntity(SettingCreateDto dto);
