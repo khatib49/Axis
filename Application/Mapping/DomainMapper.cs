@@ -93,7 +93,9 @@ namespace Application.Mapping
                         co.Price,
                         co.Timestamp
                     )).ToList()
-                )).ToList()
+                )).ToList(),
+                e.SetId,
+                e.Set?.Name ?? string.Empty
             );
 
 

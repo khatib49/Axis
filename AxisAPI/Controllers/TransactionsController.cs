@@ -61,10 +61,10 @@ namespace AxisAPI.Controllers
 
         
         [HttpPost("CreateGameSession")]
-        public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status, CancellationToken ct)
+        public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status,int setId, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, ct);
+            var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, setId,ct);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
