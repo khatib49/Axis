@@ -14,4 +14,16 @@
         public int AvailableCount => Available.Count;
         public int UnavailableCount => Unavailable.Count;
     }
+    public record RoomSetDto(int Id, int RoomId, string RoomName, string Name);
+
+    public record RoomSetCreateDto(int RoomId, string Name);
+
+    public record RoomSetUpdateDto(int? RoomId, string? Name);
+
+    public record RoomSetListFilterDto(
+        int Page = 1,
+        int PageSize = 20,
+        int? RoomId = null,
+        string? Search = null
+    );
 }
