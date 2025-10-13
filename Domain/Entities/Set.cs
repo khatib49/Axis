@@ -8,8 +8,7 @@
 
         // Examples: "A", "B", "C" or "Table 1", "Table 2"
         public string Name { get; set; } = default!;
-
-        public ICollection<TransactionSet> TransactionSets { get; set; } = new List<TransactionSet>();
+        public ICollection<TransactionRecord> Transactions { get; set; } = new List<TransactionRecord>();
 
     }
 }

@@ -30,7 +30,6 @@ namespace Infrastructure.Persistence
         public DbSet<TransactionItem> TransactionItems => Set<TransactionItem>();
 
         public DbSet<Set> Sets => Set<Set>();
-        public DbSet<TransactionSet> TransactionSets => Set<TransactionSet>();
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
@@ -107,6 +106,11 @@ namespace Infrastructure.Persistence
                     .WithMany()
                     .HasForeignKey(x => x.StatusId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.Set)
+                    .WithMany(rs => rs.Transactions)
+                    .HasForeignKey(x => x.SetId)
+                    .OnDelete(DeleteBehavior.SetNull); // safe
             });
 
 
@@ -190,26 +194,6 @@ namespace Infrastructure.Persistence
 
                 // Each room cannot have duplicate set names (A, B, ...).
                 e.HasIndex(x => new { x.RoomId, x.Name }).IsUnique();
-            });
-
-            // --- TransactionSet (composite key like TransactionItem) ---
-            b.Entity<TransactionSet>(e =>
-            {
-                e.ToTable("transaction_sets");
-                e.HasKey(ts => new { ts.TransactionRecordId, ts.RoomSetId });
-
-                e.HasOne(ts => ts.TransactionRecord)
-                    .WithMany(tr => tr.TransactionSets)
-                    .HasForeignKey(ts => ts.TransactionRecordId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                e.HasOne(ts => ts.Set)
-                    .WithMany(rs => rs.TransactionSets)
-                    .HasForeignKey(ts => ts.RoomSetId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                e.HasIndex(ts => ts.TransactionRecordId);
-                e.HasIndex(ts => ts.RoomSetId);
             });
 
             // Existing TransactionItem config stays as-is…

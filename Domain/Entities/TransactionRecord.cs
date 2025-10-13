@@ -33,7 +33,9 @@ namespace Domain.Entities
         public DateTime? ModifiedOn { get; set; }
         public string CreatedBy { get; set; } = default!;
 
+        public int? SetId { get; set; }
+        public Set? Set { get; set; } // NEW RELATION
+
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
-        public ICollection<TransactionSet> TransactionSets { get; set; } = new List<TransactionSet>();
     }
 }

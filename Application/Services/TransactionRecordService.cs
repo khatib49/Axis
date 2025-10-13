@@ -137,7 +137,7 @@ namespace Application.Services
         }
 
 
-        public async Task<TransactionDto> CreateGameSession(int gameId, int gameSettingId, int hours, int statusid, string createdBy, CancellationToken ct = default)
+        public async Task<TransactionDto> CreateGameSession(int gameId, int gameSettingId, int hours, int statusid, string createdBy, int setId, CancellationToken ct = default)
         {
 
             #region Check if the Room Available
@@ -167,7 +167,27 @@ namespace Application.Services
             //if (ongoingTrnx >= room.Sets)
             //{
             //    throw new InvalidOperationException("No available room for the selected game type.");
-            //} TBD
+            //}
+
+            #region Check if the set is available
+            // check if the set is valid for the room and if it is avaialable by checking status of trnx if it is ongoing 
+            var set = room.Sets.FirstOrDefault(s => s.Id == setId);
+            if (set == null)
+            {
+                throw new ArgumentException("Invalid set ID for the selected room.");
+            }
+
+            var setOngoingTrnx = await _repo.Query()
+                .AsNoTracking()
+                .Where(s => s.RoomId == room.Id && s.StatusId == statusid && s.SetId == setId) // status id should be equal to ongoing status
+                .CountAsync(ct);
+            if (setOngoingTrnx > 0)
+            {
+                throw new InvalidOperationException("The selected set is currently in use. Please choose a different set.");
+            }
+
+            #endregion
+
             #endregion
             Setting? settingDto = await  _repoSetting.Query()
                 .AsNoTracking()
