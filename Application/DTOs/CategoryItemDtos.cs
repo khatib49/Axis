@@ -39,7 +39,52 @@
         public string? ImagePath { get; set; }
     }
 
-    // One row per TransactionRecord (game transaction)
+
+    // Reusable item shape inside a transaction
+    public class TransactionItemMiniDto
+    {
+        public int ItemId { get; set; }
+        public string ItemName { get; set; } = string.Empty;
+
+        public int CategoryId { get; set; }
+        public string? CategoryName { get; set; }
+
+        public string ItemType { get; set; } = string.Empty;
+
+        public int Quantity { get; set; }          // ordered qty
+        public decimal UnitPrice { get; set; }
+        public decimal LineTotal { get; set; }
+
+        public string? ImagePath { get; set; }
+    }
+    /// <summary>
+    /// One row per TransactionRecord, focused on items (replaces the flat ItemTransactionLineDto).
+    /// </summary>
+    public class ItemTransactionDto
+    {
+        // Transaction
+        public int TransactionId { get; set; }
+        public DateTime CreatedOn { get; set; }
+        public int StatusId { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
+
+        // Optional room / set (use if you store set on transactions)
+        public int? RoomId { get; set; }
+        public string? RoomName { get; set; }
+        public int? SetId { get; set; }
+        public string? SetName { get; set; }
+
+        // Totals
+        public int Hours { get; set; }
+        public decimal TotalPrice { get; set; }
+
+        // Items inside this transaction
+        public List<TransactionItemMiniDto> Items { get; set; } = new();
+    }
+
+    /// <summary>
+    /// One row per TransactionRecord (game transaction) with its items included.
+    /// </summary>
     public class GameTransactionDetailsDto
     {
         public int TransactionId { get; set; }
@@ -50,11 +95,16 @@
         public int? RoomId { get; set; }
         public string? RoomName { get; set; }
 
+        // Optional set on the room (if applicable)
+        public int? SetId { get; set; }
+        public string? SetName { get; set; }
+
         public int? GameTypeId { get; set; }
         public string? GameTypeName { get; set; }
 
         public int? GameId { get; set; }
         public string GameName { get; set; } = string.Empty;
+
         public int? GameCategoryId { get; set; }
         public string? GameCategoryName { get; set; }
 
@@ -63,6 +113,9 @@
 
         public int Hours { get; set; }
         public decimal TotalPrice { get; set; }
+
+        // Items inside this game transaction
+        public List<TransactionItemMiniDto> Items { get; set; } = new();
     }
 
 }

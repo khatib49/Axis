@@ -14,7 +14,7 @@ namespace Application.IServices
 
         Task<TransactionDto> CreateGameSession(int gameId, int gameSettingId, int hours, int statusId, string createdBy, int roomSetId, CancellationToken ct = default);
 
-        Task<PaginatedResponse<ItemTransactionLineDto>> GetItemTransactionsWithDetailsAsync(
+        Task<PaginatedResponse<ItemTransactionDto>> GetItemTransactionsWithDetailsAsync(
             TransactionsFilterDto f, CancellationToken ct = default);
 
         Task<PaginatedResponse<GameTransactionDetailsDto>> GetGameTransactionsWithDetailsAsync(
