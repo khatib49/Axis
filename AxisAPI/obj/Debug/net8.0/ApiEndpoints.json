@@ -1282,6 +1282,11 @@
         "Name": "status",
         "Type": "System.Int32",
         "IsRequired": false
+      },
+      {
+        "Name": "setId",
+        "Type": "System.Int32",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
