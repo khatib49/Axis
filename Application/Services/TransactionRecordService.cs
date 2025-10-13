@@ -295,6 +295,7 @@ namespace Application.Services
             // Create transaction
             var trx = new TransactionRecord
             {
+                
                 RoomId = null,
                 SetId = null,
                 GameTypeId = null,
@@ -314,8 +315,8 @@ namespace Application.Services
                 var qty = requested[it.Id];
                 trxItems.Add(new TransactionItem
                 {
+                    TransactionRecord = trx,
                     
-                    TransactionRecordId = trx.Id, 
                     ItemId = it.Id,
                     Quantity = qty,
                 });
