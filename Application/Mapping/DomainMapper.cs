@@ -40,7 +40,8 @@ namespace Application.Mapping
                 e.Name,
                 e.CategoryId,
                 e.Category?.Name ?? string.Empty,
-                e.Sets?.Count ?? 0
+                e.Sets?.Count ?? 0,
+                e.IsOpenSet
             );
         public partial Room ToEntity(RoomCreateDto dto);
         public partial void MapTo(RoomUpdateDto dto, [MappingTarget] Room e);

@@ -200,15 +200,18 @@ namespace Application.Services
                 .FirstOrDefaultAsync(s => s.CategoryId == game.CategoryId, ct)
                 ?? throw new InvalidOperationException("No available room for the selected game type.");
 
-            // 3) Validate the chosen RoomSet belongs to this room
-            var set = room.Sets.FirstOrDefault(s => s.Id == roomSetId)
-                ?? throw new ArgumentException("Invalid set ID for the selected room.");
+            if(!room.IsOpenSet)
+            {
+                // 3) Validate the chosen RoomSet belongs to this room
+                var set = room.Sets.FirstOrDefault(s => s.Id == roomSetId)
+                    ?? throw new ArgumentException("Invalid set ID for the selected room.");
 
-            // 4) Ensure this set is not already in use for an ongoing transaction
-            var isSetInUse = await _repo.Query().AsNoTracking()
-                .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
-            if (isSetInUse)
-                throw new InvalidOperationException("The selected set is currently in use. Please choose a different set.");
+                // 4) Ensure this set is not already in use for an ongoing transaction
+                var isSetInUse = await _repo.Query().AsNoTracking()
+                    .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
+                if (isSetInUse)
+                    throw new InvalidOperationException("The selected set is currently in use. Please choose a different set.");
+            }
 
             // 5) Price calc from Setting
             var setting = await _repoSetting.Query().AsNoTracking()
