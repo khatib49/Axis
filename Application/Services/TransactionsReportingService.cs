@@ -88,7 +88,6 @@ namespace Application.Services
             return new PaginatedResponse<ItemTransactionDto>(total, data, page, size);
         }
 
-
         public async Task<PaginatedResponse<GameTransactionDetailsDto>> GetGameTransactionsWithDetailsAsync(
     TransactionsFilterDto f, CancellationToken ct = default)
         {
@@ -103,6 +102,9 @@ namespace Application.Services
 
             if (f.CreatedBy is { Count: > 0 })
                 q = q.Where(t => f.CreatedBy!.Contains(t.CreatedBy));
+
+            // ensure only game transactions
+            q = q.Where(t => t.GameId != null);
 
             // -------- Game category filter --------
             if (f.CategoryIds is { Count: > 0 })
@@ -125,7 +127,7 @@ namespace Application.Services
             var page = Math.Max(1, f.Page);
             var size = Math.Max(1, f.PageSize);
 
-            // -------- Project to DTO with nested items --------
+            // -------- Project to DTO (NO items) --------
             var data = await q
                 .OrderByDescending(t => t.CreatedOn)
                 .Skip((page - 1) * size)
@@ -161,27 +163,14 @@ namespace Application.Services
                     Hours = t.Hours,
                     TotalPrice = t.TotalPrice,
 
-                    Items = t.TransactionItems.Select(ti => new TransactionItemMiniDto
-                    {
-                        ItemId = ti.ItemId,
-                        ItemName = ti.Item != null ? ti.Item.Name : string.Empty,
-
-                        CategoryId = ti.Item != null ? ti.Item.CategoryId : 0,
-                        CategoryName = (ti.Item != null && ti.Item.Category != null)
-                                        ? ti.Item.Category.Name
-                                        : null,
-
-                        ItemType = ti.Item != null ? ti.Item.Type : string.Empty,
-                        Quantity = ti.Quantity,
-                        UnitPrice = ti.Item != null ? ti.Item.Price : 0m,
-                        LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity,
-                        ImagePath = ti.Item != null ? ti.Item.ImagePath : null
-                    }).ToList()
+                    // Explicitly omit items (if your serializer ignores nulls):
+                    // Items = null
                 })
                 .ToListAsync(ct);
 
             return new PaginatedResponse<GameTransactionDetailsDto>(total, data, page, size);
         }
+
 
 
 
