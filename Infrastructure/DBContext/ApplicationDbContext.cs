@@ -28,6 +28,9 @@ namespace Infrastructure.Persistence
         public DbSet<Status> Status => Set<Status>();
 
         public DbSet<TransactionItem> TransactionItems => Set<TransactionItem>();
+
+        public DbSet<Set> Sets => Set<Set>();
+        public DbSet<TransactionSet> TransactionSets => Set<TransactionSet>();
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
@@ -170,7 +173,63 @@ namespace Infrastructure.Persistence
                 e.HasIndex(ti => ti.TransactionRecordId);
             });
 
+            // --- RoomSet ---
+            b.Entity<Set>(e =>
+            {
+                e.ToTable("Sets");
+                e.HasKey(x => x.Id);
 
+                e.Property(x => x.Name)
+                    .IsRequired()
+                    .HasMaxLength(64);
+
+                e.HasOne(x => x.Room)
+                    .WithMany(r => r.Sets)
+                    .HasForeignKey(x => x.RoomId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Each room cannot have duplicate set names (A, B, ...).
+                e.HasIndex(x => new { x.RoomId, x.Name }).IsUnique();
+            });
+
+            // --- TransactionSet (composite key like TransactionItem) ---
+            b.Entity<TransactionSet>(e =>
+            {
+                e.ToTable("transaction_sets");
+                e.HasKey(ts => new { ts.TransactionRecordId, ts.RoomSetId });
+
+                e.HasOne(ts => ts.TransactionRecord)
+                    .WithMany(tr => tr.TransactionSets)
+                    .HasForeignKey(ts => ts.TransactionRecordId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(ts => ts.Set)
+                    .WithMany(rs => rs.TransactionSets)
+                    .HasForeignKey(ts => ts.RoomSetId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(ts => ts.TransactionRecordId);
+                e.HasIndex(ts => ts.RoomSetId);
+            });
+
+            // Existing TransactionItem config stays as-is…
+            b.Entity<TransactionItem>(e =>
+            {
+                e.HasKey(ti => new { ti.TransactionRecordId, ti.ItemId });
+
+                e.HasOne(ti => ti.TransactionRecord)
+                    .WithMany(tr => tr.TransactionItems)
+                    .HasForeignKey(ti => ti.TransactionRecordId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(ti => ti.Item)
+                    .WithMany(i => i.TransactionItems)
+                    .HasForeignKey(ti => ti.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(ti => ti.ItemId);
+                e.HasIndex(ti => ti.TransactionRecordId);
+            });
         }
     }
 }
