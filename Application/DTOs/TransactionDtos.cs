@@ -16,11 +16,14 @@
         DateTime CreatedOn,
         DateTime? ModifiedOn,
         string CreatedBy,
-        List<TransactionItemDto> Items
+        List<TransactionItemDto> Items,
+        int? SetId,
+        string Set
     );
 
 
     public record TransactionCreateDto(
+        int SetId,
         int RoomId,
     int GameTypeId,
     int GameId,
@@ -39,7 +42,9 @@
     int GameSettingId,
     int Hours,
     decimal TotalPrice,
-    int StatusId);
+    int StatusId,
+        int SetId
+        );
 
     public record TransactionItemDto(
     int ItemId,

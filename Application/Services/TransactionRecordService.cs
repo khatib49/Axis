@@ -38,17 +38,21 @@ namespace Application.Services
                     .Include(s => s.GameType)
                     .Include(s => s.GameSetting)
                     .Include(s => s.Room)
+                    .Include(s => s.Status)
+                    .Include(s => s.Set) // Include Set
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
-        public async Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default)
+        public async Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default)    
         {
             var e = await _repo.Query()
                 .Include(s => s.Game)
                 .Include(s => s.GameType)
                 .Include(s => s.GameSetting)
                 .Include(s => s.Room)
+                .Include(s => s.Status)
+                .Include(s => s.Set) // Include Set
                 .Include(s => s.TransactionItems)
                     .ThenInclude(ti => ti.Item)
                         .ThenInclude(i => i.CoffeeShopOrders)
@@ -89,7 +93,9 @@ namespace Application.Services
                         co.Price,
                         co.Timestamp
                     )).ToList()
-                )).ToList()
+                )).ToList(),
+                e.SetId,
+                e.Set?.Name ?? string.Empty
             );
         }
 
@@ -102,6 +108,8 @@ namespace Application.Services
                         .Include(s => s.GameType)
                         .Include(s => s.GameSetting)
                         .Include(s => s.Room)
+                        .Include(s => s.Status)
+                        .Include(s => s.Set) // Include Set
                         .AsNoTracking();
 
             // Apply filters
@@ -136,99 +144,61 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-
-        public async Task<TransactionDto> CreateGameSession(int gameId, int gameSettingId, int hours, int statusid, string createdBy, int setId, CancellationToken ct = default)
+        public async Task<TransactionDto> CreateGameSession( int gameId, int gameSettingId, int hours, int statusId, 
+            string createdBy, int roomSetId, CancellationToken ct = default)
         {
+            // 1) Validate game
+            var game = await _repoGame.Query().AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == gameId, ct)
+                ?? throw new ArgumentException("Invalid game ID");
 
-            #region Check if the Room Available
-            var game = await _repoGame.Query()
-                .AsNoTracking()
-                .Where(s => s.Id == gameId)
-                .FirstOrDefaultAsync(ct);
-            if(game == null)
-                throw new ArgumentException("Invalid game ID");
-
+            // 2) Find any room by game category (your rule)
             var room = await _repoRoom.Query()
+                .Include(r => r.Sets)  // need sets
                 .AsNoTracking()
-                .Where(s => s.CategoryId == game.CategoryId)
-                .FirstOrDefaultAsync(ct);
+                .FirstOrDefaultAsync(s => s.CategoryId == game.CategoryId, ct)
+                ?? throw new InvalidOperationException("No available room for the selected game type.");
 
-            if(room == null)
-                throw new InvalidOperationException("No available room for the selected game type.");
+            // 3) Validate the chosen RoomSet belongs to this room
+            var set = room.Sets.FirstOrDefault(s => s.Id == roomSetId)
+                ?? throw new ArgumentException("Invalid set ID for the selected room.");
 
-
-            // check if there is trnx ongoing for the same room and compare it with number of set
-
-            var ongoingTrnx = await _repo.Query()
-                .AsNoTracking()
-                .Where(s => s.RoomId == room.Id && s.StatusId == statusid) // status id should be equal to ongoing status
-                .CountAsync(ct);
-
-            //if (ongoingTrnx >= room.Sets)
-            //{
-            //    throw new InvalidOperationException("No available room for the selected game type.");
-            //}
-
-            #region Check if the set is available
-            // check if the set is valid for the room and if it is avaialable by checking status of trnx if it is ongoing 
-            var set = room.Sets.FirstOrDefault(s => s.Id == setId);
-            if (set == null)
-            {
-                throw new ArgumentException("Invalid set ID for the selected room.");
-            }
-
-            var setOngoingTrnx = await _repo.Query()
-                .AsNoTracking()
-                .Where(s => s.RoomId == room.Id && s.StatusId == statusid && s.SetId == setId) // status id should be equal to ongoing status
-                .CountAsync(ct);
-            if (setOngoingTrnx > 0)
-            {
+            // 4) Ensure this set is not already in use for an ongoing transaction
+            var isSetInUse = await _repo.Query().AsNoTracking()
+                .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
+            if (isSetInUse)
                 throw new InvalidOperationException("The selected set is currently in use. Please choose a different set.");
-            }
 
-            #endregion
-
-            #endregion
-            Setting? settingDto = await  _repoSetting.Query()
-                .AsNoTracking()
+            // 5) Price calc from Setting
+            var setting = await _repoSetting.Query().AsNoTracking()
                 .Where(s => s.Id == gameSettingId)
-                .Select(s => new Setting
-                {
-                    Id = s.Id,
-                    Hours = s.Hours,
-                    Price = s.Price,
-                })
-                .FirstOrDefaultAsync(ct);
+                .Select(s => new { s.Hours, s.Price })
+                .FirstOrDefaultAsync(ct)
+                ?? throw new ArgumentException("Invalid game setting ID");
 
-            if (settingDto == null)
-            {
-                throw new ArgumentException("Invalid game setting ID");
-            }
-
-            if (settingDto.Hours <= 0)
+            if (setting.Hours <= 0)
                 throw new InvalidOperationException("Configured Hours must be > 0 for price calculation.");
 
+            var totalPrice = setting.Price * hours / setting.Hours;
 
-            decimal totalPrice = settingDto.Price * hours / settingDto.Hours;
+            // 6) Create DTO -> Entity
+            var createDto = new TransactionCreateDto(
+                RoomId: room.Id,
+                SetId: roomSetId,              // NEW
+                GameTypeId: game.CategoryId,
+                GameId: gameId,
+                GameSettingId: gameSettingId,
+                Hours: hours,
+                TotalPrice: totalPrice,
+                StatusId: statusId,
+                CreatedOn: DateTime.UtcNow,
+                CreatedBy: createdBy ?? string.Empty
+            );
 
-            var entity = new TransactionCreateDto(
-                                RoomId: room.Id,
-                                GameTypeId: game.CategoryId,
-                                GameId: gameId,
-                                GameSettingId: gameSettingId,
-                                Hours: hours,
-                                TotalPrice: totalPrice,
-                                StatusId: statusid,
-                                CreatedOn: DateTime.UtcNow,
-                                CreatedBy: createdBy ?? string.Empty
-                            );
-
-
-            var e = _mapper.ToEntity(entity);
-            e.CreatedBy = createdBy ?? "";
-            e.CreatedOn = DateTime.UtcNow;
+            var e = _mapper.ToEntity(createDto);
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
+
             return _mapper.ToDto(e);
         }
 
@@ -285,6 +255,7 @@ namespace Application.Services
             var trx = new TransactionRecord
             {
                 RoomId = null,
+                SetId = null,
                 GameTypeId = null,
                 GameId = null,
                 GameSettingId = null,
