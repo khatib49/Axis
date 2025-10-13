@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
-    public class TransactionRecordService : ITransactionRecordService
+    public partial class TransactionRecordService : ITransactionRecordService
     {
         private readonly IBaseRepository<TransactionRecord> _repo;
         private readonly IBaseRepository<Setting> _repoSetting;
