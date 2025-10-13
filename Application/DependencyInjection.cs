@@ -30,6 +30,8 @@ namespace Application
             services.AddScoped<IUsersService, UsersService>();
             services.AddScoped<IStatusService, StatusService>();
 
+            services.AddScoped<ISetService, SetService>();
+
 
             return services;
         }

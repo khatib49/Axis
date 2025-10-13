@@ -1,11 +1,12 @@
 ﻿using Application.DTOs;
+using Application.IServices;
 using Domain.Entities;
 using Infrastructure.IRepositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
-    public class SetService
+    public class SetService : ISetService
     {
         private readonly IBaseRepository<Set> _repoSet;
         private readonly IBaseRepository<Room> _repoRoom;
