@@ -36,6 +36,9 @@ namespace Domain.Entities
         public int? SetId { get; set; }
         public Set? Set { get; set; } // NEW RELATION
 
+        public DateTime? ExpectedEndOn { get; set; } // NEW: UTC timestamp when it should end
+        public string? HangfireJobId { get; set; }   // NEW: to cancel/reschedule jobs
+
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
     }
 }

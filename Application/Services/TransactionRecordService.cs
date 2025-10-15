@@ -1,7 +1,9 @@
 ﻿using Application.DTOs;
 using Application.IServices;
 using Application.Mapping;
+using Application.Services.SignalR;
 using Domain.Entities;
+using Hangfire;
 using Infrastructure.IRepositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -220,11 +222,14 @@ namespace Application.Services
                 .FirstOrDefaultAsync(ct)
                 ?? throw new ArgumentException("Invalid game setting ID");
 
-            if(!setting.IsOpenHour)
+            DateTime? expectedEndOn = null;
+            if (!setting.IsOpenHour)
             {
                 if (setting.Hours <= 0)
                     throw new InvalidOperationException("Configured Hours must be > 0 for price calculation.");
-            }
+
+                expectedEndOn = setting.IsOpenHour ? null : DateTime.UtcNow.AddHours(hours);
+            }   
 
 
             decimal totalPrice = 0.0M;
@@ -256,8 +261,28 @@ namespace Application.Services
             var e = _mapper.ToEntity(createDto);
             if (e.SetId == 0)
                 e.SetId = null;
+
+            e.ExpectedEndOn = expectedEndOn;
+
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
+
+            // schedule a job only if there is a time limit
+            if (!setting.IsOpenHour && expectedEndOn.HasValue)
+            {
+                // Hangfire will call SessionEndMonitor.EndIfOngoingAsync at expected end
+                var jobId = BackgroundJob.Schedule<SessionEndMonitor>(
+                                x => x.EndIfOngoingAsync(e.Id, 3, CancellationToken.None),
+                                expectedEndOn.Value - DateTime.UtcNow);
+                    
+                // store job id
+                var tracked = await _repo.GetByIdAsync(e.Id, asNoTracking: false, ct);
+                if (tracked != null)
+                {
+                    tracked.HangfireJobId = jobId;
+                    await _uow.SaveChangesAsync(ct);
+                }
+            }
 
             return _mapper.ToDto(e);
         }

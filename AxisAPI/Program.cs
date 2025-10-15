@@ -1,7 +1,9 @@
 ﻿using Application;
 using Application.Services;
+using Application.Services.SignalR;
 using AxisAPI.Utils;
 using Domain.Identity;
+using Hangfire;
 using Infrastructure;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -19,6 +21,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration); // DbContext + repos
 builder.Services.AddApplication();                         // <-- registers IAuthService & IGameService
 builder.Services.AddScoped<IImageStorageService, LocalImageStorageService>();
+
+
+// Program.cs
+builder.Services.AddHangfire(config =>
+    config.UseSimpleAssemblyNameTypeSerializer()
+          .UseRecommendedSerializerSettings()
+          .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddHangfireServer();
+
+builder.Services.AddSignalR();
+
 
 
 
@@ -112,6 +126,9 @@ app.UseSwaggerUI(ui =>
     ui.SwaggerEndpoint("/swagger/v1/swagger.json", "Axis API v1");
     // ui.RoutePrefix = string.Empty; // <— uncomment if you want Swagger at root "/"
 });
+
+// your hub (below)
+app.MapHub<ReceptionHub>("/hubs/reception");
 
 app.UseHttpsRedirection();
 app.UseAuthentication();

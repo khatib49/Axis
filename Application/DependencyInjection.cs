@@ -1,6 +1,7 @@
 ﻿using Application.IServices;
 using Application.Mapping;
 using Application.Services;
+using Application.Services.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application
@@ -25,6 +26,8 @@ namespace Application
             services.AddScoped<IRoomService, RoomService>();
             services.AddScoped<ISettingService, SettingService>();
 
+            services.AddHostedService<SessionJobRehydrator>();
+            services.AddScoped<ISessionEndMonitor, SessionEndMonitor>();
             services.AddScoped<IMenuService, MenuService>();
 
             services.AddScoped<ITransactionRecordService, TransactionRecordService>();
