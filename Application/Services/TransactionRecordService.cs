@@ -262,7 +262,7 @@ namespace Application.Services
             if (e.SetId == 0)
                 e.SetId = null;
 
-            e.ExpectedEndOn = expectedEndOn;
+            //e.ExpectedEndOn = expectedEndOn;
 
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
@@ -279,7 +279,7 @@ namespace Application.Services
                 var tracked = await _repo.GetByIdAsync(e.Id, asNoTracking: false, ct);
                 if (tracked != null)
                 {
-                    tracked.HangfireJobId = jobId;
+                    //tracked.HangfireJobId = jobId;
                     await _uow.SaveChangesAsync(ct);
                 }
             }

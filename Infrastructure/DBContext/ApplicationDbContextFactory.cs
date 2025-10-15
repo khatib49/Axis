@@ -12,7 +12,7 @@ namespace Infrastructure.DBContext
 
             // You can read from env OR fall back to a hardcoded dev connection
             var cs = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION")
-                     ?? "Host=localhost;Port=5432;Database=AxisDB;Username=postgres;Password=admin;";
+                     ?? "Host=localhost;Port=5432;Database=axis_db;Username=postgres;Password=admin;";
 
             optionsBuilder.UseNpgsql(cs, b => b.MigrationsAssembly("Infrastructure"));
 

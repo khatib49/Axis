@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251013210438_Init-2")]
-    partial class Init2
+    [Migration("20251015192958_InitialCreate12222234")]
+    partial class InitialCreate12222234
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -400,6 +400,9 @@ namespace Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -438,6 +441,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("numeric");
 
                     b.Property<bool>("IsOffer")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsOpenHour")
                         .HasColumnType("boolean");
 
                     b.Property<string>("ModifiedBy")
@@ -521,6 +527,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
+                    b.Property<DateTime?>("ExpectedEndOn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int?>("GameId")
                         .HasColumnType("integer");
 
@@ -529,6 +538,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<int?>("GameTypeId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("HangfireJobId")
+                        .HasColumnType("text");
 
                     b.Property<int>("Hours")
                         .HasColumnType("integer");

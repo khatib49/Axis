@@ -278,7 +278,7 @@ namespace Infrastructure.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "text", nullable: false),
                     CategoryId = table.Column<int>(type: "integer", nullable: true),
-                    Sets = table.Column<int>(type: "integer", nullable: true)
+                    IsOpenSet = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -315,6 +315,27 @@ namespace Infrastructure.Migrations
                         name: "FK_Games_Status_StatusId",
                         column: x => x.StatusId,
                         principalTable: "Status",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Sets",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    RoomId = table.Column<int>(type: "integer", nullable: false),
+                    Name = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Sets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Sets_Rooms_RoomId",
+                        column: x => x.RoomId,
+                        principalTable: "Rooms",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -393,7 +414,9 @@ namespace Infrastructure.Migrations
                     ModifiedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedBy = table.Column<string>(type: "text", nullable: false),
                     ModifiedBy = table.Column<string>(type: "text", nullable: true),
-                    GameId = table.Column<int>(type: "integer", nullable: false)
+                    GameId = table.Column<int>(type: "integer", nullable: false),
+                    IsOffer = table.Column<bool>(type: "boolean", nullable: false),
+                    IsOpenHour = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -509,6 +532,7 @@ namespace Infrastructure.Migrations
                     CreatedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()"),
                     ModifiedOn = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedBy = table.Column<string>(type: "text", nullable: false),
+                    SetId = table.Column<int>(type: "integer", nullable: true),
                     CardId = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
@@ -537,6 +561,12 @@ namespace Infrastructure.Migrations
                         principalTable: "Rooms",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_transactions_Sets_SetId",
+                        column: x => x.SetId,
+                        principalTable: "Sets",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_transactions_Settings_GameSettingId",
                         column: x => x.GameSettingId,
@@ -744,6 +774,12 @@ namespace Infrastructure.Migrations
                 column: "CategoryId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Sets_RoomId_Name",
+                table: "Sets",
+                columns: new[] { "RoomId", "Name" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Settings_GameId",
                 table: "Settings",
                 column: "GameId");
@@ -782,6 +818,11 @@ namespace Infrastructure.Migrations
                 name: "IX_transactions_RoomId",
                 table: "transactions",
                 column: "RoomId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_transactions_SetId",
+                table: "transactions",
+                column: "SetId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_transactions_StatusId",
@@ -857,10 +898,13 @@ namespace Infrastructure.Migrations
                 name: "Cards");
 
             migrationBuilder.DropTable(
-                name: "Rooms");
+                name: "Sets");
 
             migrationBuilder.DropTable(
                 name: "Settings");
+
+            migrationBuilder.DropTable(
+                name: "Rooms");
 
             migrationBuilder.DropTable(
                 name: "Games");

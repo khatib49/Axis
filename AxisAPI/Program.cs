@@ -4,6 +4,7 @@ using Application.Services.SignalR;
 using AxisAPI.Utils;
 using Domain.Identity;
 using Hangfire;
+using Hangfire.PostgreSql;
 using Infrastructure;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -27,7 +28,7 @@ builder.Services.AddScoped<IImageStorageService, LocalImageStorageService>();
 builder.Services.AddHangfire(config =>
     config.UseSimpleAssemblyNameTypeSerializer()
           .UseRecommendedSerializerSettings()
-          .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+          .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddHangfireServer();
 
@@ -129,6 +130,8 @@ app.UseSwaggerUI(ui =>
 
 // your hub (below)
 app.MapHub<ReceptionHub>("/hubs/reception");
+
+app.UseHangfireDashboard("/hangfire");
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
