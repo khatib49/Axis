@@ -106,7 +106,7 @@ builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
                 option =>
                 {
                     option
-                    .WithOrigins("http://localhost:5173")
+                    .WithOrigins("http://localhost:5173", "https://lively-pond-098449403.2.azurestaticapps.net")
                     .AllowAnyMethod()
                     .AllowAnyHeader()
                     .AllowCredentials();
@@ -121,6 +121,9 @@ app.UseStaticFiles();
 
 // 🔧 Serve Swagger ALWAYS (dev & prod)
 // (Move these OUTSIDE any if (app.Environment.IsDevelopment()) block)
+
+app.MapGet("/healthz", () => Results.Ok("OK"));
+
 app.UseSwagger();
 app.UseSwaggerUI(ui =>
 {
