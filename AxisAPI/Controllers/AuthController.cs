@@ -12,12 +12,14 @@ namespace Api.Controllers
         private readonly IAuthService _auth;
         public AuthController(IAuthService auth) => _auth = auth;
 
+
+
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest req, CancellationToken ct)
         {
             var res = await _auth.CreateUserWithRoleAsync(req, ct);
             if (!res.Success) return BadRequest(new { error = res.Error });
-            return Ok(new { message = "User created and role assigned." });
+            return Ok(new { message = "User created and role assigned Done." });
         }
 
         [HttpPost("login")]
