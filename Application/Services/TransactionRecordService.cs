@@ -253,7 +253,7 @@ namespace Application.Services
                 GameSettingId: gameSettingId,
                 Hours: hours,
                 TotalPrice: totalPrice,
-                StatusId: statusId,
+                StatusId: 6, //processed and paid
                 CreatedOn: DateTime.UtcNow,
                 CreatedBy: createdBy ?? string.Empty
             );
