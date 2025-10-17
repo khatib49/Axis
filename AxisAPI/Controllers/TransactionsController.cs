@@ -1,6 +1,5 @@
 ﻿using Application.DTOs;
 using Application.IServices;
-using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -36,6 +35,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> List([FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
         {
             var categories = await _transactionService.ListAsync(pagination, ct);
@@ -43,6 +43,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, TransactionUpdateDto dto, CancellationToken ct)
         {
             var success = await _transactionService.UpdateAsync(id, dto, ct);
@@ -51,6 +52,7 @@ namespace AxisAPI.Controllers
         }
         [Authorize]
         [HttpPost("CreateGame")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create(TransactionCreateDto dto, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
@@ -61,6 +63,7 @@ namespace AxisAPI.Controllers
 
         
         [HttpPost("CreateGameSession")]
+        [Authorize(Roles = "admin,gamecashier")]
         public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status,int setId, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
@@ -69,6 +72,7 @@ namespace AxisAPI.Controllers
         }
 
         [Route("CreateCoffeeShopOrder")]
+        [Authorize(Roles = "admin,cashier")]
         [HttpPost]
         public async Task<IActionResult> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, CancellationToken ct)
         {
@@ -79,6 +83,7 @@ namespace AxisAPI.Controllers
 
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _transactionService.DeleteAsync(id, ct);

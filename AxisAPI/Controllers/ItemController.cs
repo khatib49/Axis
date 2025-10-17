@@ -1,6 +1,7 @@
 ﻿using Application.DTOs;
 using Application.IServices;
 using Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -39,6 +40,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, [FromForm] ItemUpdateDto dto, CancellationToken ct)
         {
             var success = await _itemService.UpdateAsync(id, dto, ct);
@@ -47,6 +49,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create([FromForm]ItemCreateDto dto, CancellationToken ct)
         {
             var created = await _itemService.CreateAsync(dto, ct);
@@ -54,6 +57,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _itemService.DeleteAsync(id, ct);

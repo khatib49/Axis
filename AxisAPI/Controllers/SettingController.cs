@@ -33,8 +33,8 @@ namespace AxisAPI.Controllers
             return Ok(settings);
         }
 
-        [Authorize]
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, SettingUpdateDto dto, CancellationToken ct)
         {
             var updatedBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
@@ -42,8 +42,9 @@ namespace AxisAPI.Controllers
             if (!success) return NotFound();
             return NoContent();
         }
-        [Authorize]
+
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create(SettingCreateDto dto, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
@@ -52,6 +53,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _settingService.DeleteAsync(id, ct);

@@ -1,6 +1,7 @@
 ﻿using Application.DTOs;
 using Application.IServices;
 using Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -50,6 +51,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, RoomUpdateDto dto, CancellationToken ct)
         {
             var success = await _roomService.UpdateAsync(id, dto, ct);
@@ -58,6 +60,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create(RoomCreateDto dto, CancellationToken ct)
         {
             var created = await _roomService.CreateAsync(dto, ct);
@@ -65,6 +68,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _roomService.DeleteAsync(id, ct);

@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -28,6 +29,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<RoomSetDto>> Create(RoomSetCreateDto dto, CancellationToken ct)
         {
             var created = await _setService.CreateAsync(dto, ct);
@@ -35,6 +37,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, RoomSetUpdateDto dto, CancellationToken ct)
         {
             var ok = await _setService.UpdateAsync(id, dto, ct);
@@ -42,6 +45,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var ok = await _setService.DeleteAsync(id, ct);

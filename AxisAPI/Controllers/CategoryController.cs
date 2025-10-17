@@ -2,6 +2,7 @@
 using Application.IServices;
 using Application.Services;
 using Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -40,6 +41,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, CategoryUpdateDto dto, CancellationToken ct)
         {
             var success = await _categoryService.UpdateAsync(id, dto, ct);
@@ -48,12 +50,14 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create(CategoryCreateDto dto, CancellationToken ct)
         {
             var created = await _categoryService.CreateAsync(dto, ct);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
+        [Authorize(Roles = "admin")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
