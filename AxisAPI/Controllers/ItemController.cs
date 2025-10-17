@@ -39,7 +39,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> Update(int id, ItemUpdateDto dto, CancellationToken ct)
+        public async Task<IActionResult> Update(int id, [FromForm] ItemUpdateDto dto, CancellationToken ct)
         {
             var success = await _itemService.UpdateAsync(id, dto, ct);
             if (!success) return NotFound();
@@ -47,7 +47,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(ItemCreateDto dto, CancellationToken ct)
+        public async Task<IActionResult> Create([FromForm]ItemCreateDto dto, CancellationToken ct)
         {
             var created = await _itemService.CreateAsync(dto, ct);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
