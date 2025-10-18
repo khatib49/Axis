@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -38,6 +39,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("daily-sales")]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<List<DailySalesDto>>> GetDailySales(
     [FromQuery] DateTime? from,
     [FromQuery] DateTime? to,
