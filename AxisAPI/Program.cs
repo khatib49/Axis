@@ -16,6 +16,7 @@ using NpgsqlTypes;
 using Serilog;
 using Serilog.Sinks.PostgreSQL;
 using System.Text;
+using Application.Middleware;
 
 // ---- Column writers (root namespace, no dataLength) ----
 var pgColumns = new Dictionary<string, ColumnWriterBase>
@@ -187,6 +188,7 @@ app.MapHub<ReceptionHub>("/hubs/reception");
 app.UseHangfireDashboard("/hangfire");
 
 app.UseHttpsRedirection();
+app.UseForce403ForUnauthorized();
 app.UseAuthentication();
 app.UseAuthorization();
 
