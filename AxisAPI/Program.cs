@@ -17,6 +17,7 @@ using Serilog;
 using Serilog.Sinks.PostgreSQL;
 using System.Text;
 using Application.Middleware;
+using AxisAPI.Middleware;
 
 // ---- Column writers (root namespace, no dataLength) ----
 var pgColumns = new Dictionary<string, ColumnWriterBase>
@@ -189,6 +190,7 @@ app.UseHangfireDashboard("/hangfire");
 
 app.UseHttpsRedirection();
 app.UseForce403ForUnauthorized();
+app.UseSerilogRequestEnricher();
 app.UseAuthentication();
 app.UseAuthorization();
 
