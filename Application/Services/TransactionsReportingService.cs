@@ -175,20 +175,25 @@ namespace Application.Services
         }
 
 
-        public async Task<List<DailySalesDto>> GetDailySalesAsync(DateTime? from, DateTime? to, CancellationToken ct = default)
+        public async Task<List<DailySalesDto>> GetDailySalesAsync(DateTime? from, DateTime? to, int? categoryId, CancellationToken ct = default)
         {
-            // Base query over transactions
             var q = _repo.Query(); // IQueryable<TransactionRecord> (AsNoTracking)
 
-
-            if(to.HasValue)
+            if (to.HasValue)
                 to = to?.Date.AddDays(1);
 
             if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
             if (to.HasValue) q = q.Where(t => t.CreatedOn < to.Value);
 
-            // --- Games totals per day (one row per transaction) ---
-            // Uses TransactionRecord.TotalPrice for game transactions
+            if (categoryId.HasValue)
+            {
+                q = q.Where(t =>
+                    (t.GameId != null && t.Game != null && t.Game.CategoryId == categoryId.Value) ||
+                    (t.GameId == null && t.TransactionItems.Any(ti => ti.Item != null && ti.Item.CategoryId == categoryId.Value))
+                );
+            }
+
+            // --- Games totals ---
             var gamesDaily = await q
                 .Where(t => t.GameId != null)
                 .GroupBy(t => t.CreatedOn.Date)
@@ -199,10 +204,9 @@ namespace Application.Services
                 })
                 .ToListAsync(ct);
 
-            // --- Items totals per day (sum of line totals) ---
-            // Sum Item.Price * Quantity over item transactions
+            // --- Items totals ---
             var itemsDaily = await q
-                .Where(t => t.GameId == null) // item-only transactions
+                .Where(t => t.GameId == null)
                 .SelectMany(t => t.TransactionItems.Select(ti => new
                 {
                     Date = t.CreatedOn.Date,
@@ -216,7 +220,6 @@ namespace Application.Services
                 })
                 .ToListAsync(ct);
 
-            // Merge (full outer join in memory)
             var gameDict = gamesDaily.ToDictionary(x => x.Date, x => x.Total);
             var itemDict = itemsDaily.ToDictionary(x => x.Date, x => x.Total);
             var allDates = gameDict.Keys.Union(itemDict.Keys).OrderBy(d => d);
@@ -226,26 +229,23 @@ namespace Application.Services
                 var items = itemDict.TryGetValue(d, out var it) ? it : 0m;
                 var games = gameDict.TryGetValue(d, out var gt) ? gt : 0m;
                 return new DailySalesDto(
-                    Date: d,                       // midnight of that day
+                    Date: d,
                     ItemsTotal: items,
                     GamesTotal: games,
                     GrandTotal: items + games
                 );
             }).ToList();
 
-            // Optional: if a range was provided, ensure missing days appear with zeros
             if (from.HasValue && to.HasValue)
             {
                 var start = from.Value.Date;
-                var endEx = to.Value.Date; // exclusive upper bound assumed above
+                var endEx = to.Value.Date;
                 var days = Enumerable.Range(0, (endEx - start).Days).Select(i => start.AddDays(i));
 
                 var dict = result.ToDictionary(x => x.Date);
-                result = days.Select(d =>
-                {
-                    if (dict.TryGetValue(d, out var v)) return v;
-                    return new DailySalesDto(d, 0m, 0m, 0m);
-                }).ToList();
+                result = days.Select(d => dict.TryGetValue(d, out var v)
+                    ? v
+                    : new DailySalesDto(d, 0m, 0m, 0m)).ToList();
             }
 
             return result;
