@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using AxisAPI.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -64,6 +65,7 @@ namespace AxisAPI.Controllers
         
         [HttpPost("CreateGameSession")]
         [Authorize(Roles = "admin,gamecashier")]
+        [LogOnError]
         public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status,int setId, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
@@ -74,6 +76,7 @@ namespace AxisAPI.Controllers
         [Route("CreateCoffeeShopOrder")]
         [Authorize(Roles = "admin,cashier,gamecashier")]
         [HttpPost]
+        [LogOnError]
         public async Task<IActionResult> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
