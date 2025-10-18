@@ -36,5 +36,17 @@ namespace AxisAPI.Controllers
             var result = await _svc.GetGameTransactionsWithDetailsAsync(f, ct);
             return Ok(result);
         }
+
+        [HttpGet("daily-sales")]
+        public async Task<ActionResult<List<DailySalesDto>>> GetDailySales(
+    [FromQuery] DateTime? from,
+    [FromQuery] DateTime? to,
+    CancellationToken ct)
+        {
+            var data = await _svc.GetDailySalesAsync(from, to, ct);
+            return Ok(data);
+        }
+
+
     }
 }

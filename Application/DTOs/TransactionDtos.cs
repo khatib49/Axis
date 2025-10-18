@@ -1,5 +1,11 @@
 ﻿namespace Application.DTOs
 {
+    public record DailySalesDto(
+    DateTime Date,       
+    decimal ItemsTotal,
+    decimal GamesTotal,
+    decimal GrandTotal
+);
     public record TransactionDto(
         int Id,
         int? RoomId,

@@ -4,6 +4,7 @@ namespace Application.IServices
 {
     public interface ITransactionRecordService
     {
+        Task<List<DailySalesDto>> GetDailySalesAsync(DateTime? from, DateTime? to, CancellationToken ct = default);
         Task<RoomSetsAvailabilityDto?> GetRoomSetsAvailability( int roomId, int ongoingStatusId = 1, CancellationToken ct = default);
         Task<TransactionDto?> GetAsync(int id, CancellationToken ct = default);
         Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default);
