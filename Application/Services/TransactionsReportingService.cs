@@ -175,36 +175,44 @@ namespace Application.Services
         }
 
 
-        public async Task<List<DailySalesDto>> GetDailySalesAsync(DateTime? from, DateTime? to, int? categoryId, CancellationToken ct = default)
+        public async Task<List<DailySalesDto>> GetDailySalesAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
         {
-            var q = _repo.Query(); // IQueryable<TransactionRecord> (AsNoTracking)
+            // base query
+            var q = _repo.Query(); // IQueryable<TransactionRecord>, AsNoTracking in repo
 
-            if (to.HasValue)
-                to = to?.Date.AddDays(1);
-
+            // inclusive date range [from, to]
+            var toExclusive = to?.Date.AddDays(1);
             if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
-            if (to.HasValue) q = q.Where(t => t.CreatedOn < to.Value);
+            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
 
-            if (categoryId.HasValue)
+            // parse "1,2,3" -> List<int>
+            List<int> catList = new();
+            if (!string.IsNullOrWhiteSpace(categoryIds))
+            {
+                catList = categoryIds
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : (int?)null)
+                    .Where(n => n.HasValue)
+                    .Select(n => n!.Value)
+                    .ToList();
+            }
+
+            if (catList.Count > 0)
             {
                 q = q.Where(t =>
-                    (t.GameId != null && t.Game != null && t.Game.CategoryId == categoryId.Value) ||
-                    (t.GameId == null && t.TransactionItems.Any(ti => ti.Item != null && ti.Item.CategoryId == categoryId.Value))
+                    (t.GameId != null && t.Game != null && catList.Contains(t.Game.CategoryId)) ||
+                    (t.GameId == null && t.TransactionItems.Any(ti => ti.Item != null && catList.Contains(ti.Item.CategoryId)))
                 );
             }
 
-            // --- Games totals ---
+            // games totals per day (use TransactionRecord.TotalPrice)
             var gamesDaily = await q
                 .Where(t => t.GameId != null)
                 .GroupBy(t => t.CreatedOn.Date)
-                .Select(g => new
-                {
-                    Date = g.Key,
-                    Total = g.Sum(t => t.TotalPrice)
-                })
+                .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
-            // --- Items totals ---
+            // items totals per day (sum Item.Price * Quantity)
             var itemsDaily = await q
                 .Where(t => t.GameId == null)
                 .SelectMany(t => t.TransactionItems.Select(ti => new
@@ -213,16 +221,13 @@ namespace Application.Services
                     LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity
                 }))
                 .GroupBy(x => x.Date)
-                .Select(g => new
-                {
-                    Date = g.Key,
-                    Total = g.Sum(x => x.LineTotal)
-                })
+                .Select(g => new { Date = g.Key, Total = g.Sum(x => x.LineTotal) })
                 .ToListAsync(ct);
 
+            // merge
             var gameDict = gamesDaily.ToDictionary(x => x.Date, x => x.Total);
             var itemDict = itemsDaily.ToDictionary(x => x.Date, x => x.Total);
-            var allDates = gameDict.Keys.Union(itemDict.Keys).OrderBy(d => d);
+            var allDates = gameDict.Keys.Union(itemDict.Keys).OrderBy(d => d).ToList();
 
             var result = allDates.Select(d =>
             {
@@ -236,16 +241,14 @@ namespace Application.Services
                 );
             }).ToList();
 
-            if (from.HasValue && to.HasValue)
+            // zero-fill missing days if range provided
+            if (from.HasValue && toExclusive.HasValue)
             {
                 var start = from.Value.Date;
-                var endEx = to.Value.Date;
+                var endEx = toExclusive.Value.Date; // exclusive
                 var days = Enumerable.Range(0, (endEx - start).Days).Select(i => start.AddDays(i));
-
                 var dict = result.ToDictionary(x => x.Date);
-                result = days.Select(d => dict.TryGetValue(d, out var v)
-                    ? v
-                    : new DailySalesDto(d, 0m, 0m, 0m)).ToList();
+                result = days.Select(d => dict.TryGetValue(d, out var v) ? v : new DailySalesDto(d, 0m, 0m, 0m)).ToList();
             }
 
             return result;

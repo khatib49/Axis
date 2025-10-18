@@ -40,15 +40,13 @@ namespace AxisAPI.Controllers
 
         [HttpGet("daily-sales")]
         [Authorize(Roles = "admin")]
-        public async Task<ActionResult<List<DailySalesDto>>> GetDailySales(
-    [FromQuery] DateTime? from,
-    [FromQuery] DateTime? to,
-    [FromQuery] int? categoryId,      // ✅ NEW
-    CancellationToken ct)
+        public async Task<ActionResult<List<DailySalesDto>>> GetDailySales( [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+            [FromQuery] string? categoryIds,  CancellationToken ct)
         {
-            var data = await _svc.GetDailySalesAsync(from, to, categoryId, ct);
+            var data = await _svc.GetDailySalesAsync(from, to, categoryIds, ct);
             return Ok(data);
         }
+
 
 
     }
