@@ -180,6 +180,10 @@ namespace Application.Services
             // Base query over transactions
             var q = _repo.Query(); // IQueryable<TransactionRecord> (AsNoTracking)
 
+
+            if(to.HasValue)
+                to = to?.Date.AddDays(1);
+
             if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
             if (to.HasValue) q = q.Where(t => t.CreatedOn < to.Value);
 
