@@ -39,7 +39,8 @@ namespace Application.Services
             {
                 Email = req.Email,
                 UserName = req.Email,
-                DisplayName = req.DisplayName
+                DisplayName = req.DisplayName,
+                StatusId = (int)UserStatus.Active
             };
 
             var created = await _userMgr.CreateAsync(user, req.Password);
@@ -58,6 +59,14 @@ namespace Application.Services
             var user = await _userMgr.FindByEmailAsync(req.Email);
             if (user is null) return new(false, null, "Invalid credentials.");
 
+            // ❗ Block if not Active
+            if (user.StatusId != (int)UserStatus.Active)
+                return new(false, null, "Account is not active.");
+
+            // Also honor lockouts
+            if (await _userMgr.IsLockedOutAsync(user))
+                return new(false, null, "Account is locked.");
+
             var ok = await _userMgr.CheckPasswordAsync(user, req.Password);
             if (!ok) return new(false, null, "Invalid credentials.");
 
@@ -73,8 +82,10 @@ namespace Application.Services
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-            new(ClaimTypes.Name, user.UserName ?? string.Empty)
+            new(ClaimTypes.Name, user.UserName ?? string.Empty),
+            new Claim("status", user.StatusId.ToString())
         };
+
             claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
             var issuer = _cfg["Jwt:Issuer"];

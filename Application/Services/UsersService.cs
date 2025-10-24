@@ -71,6 +71,8 @@ namespace Application.Services
                 user.Email = request.Email;
                 user.UserName = request.Email;
             }
+            if (user.StatusId == (int)UserStatus.Deleted)
+                return false;
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
