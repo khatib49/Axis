@@ -40,7 +40,7 @@ namespace Application.Services
 
             if (!string.IsNullOrWhiteSpace(pagination.search))
             {
-                query = query.Where(x => x.Name.Contains(pagination.search));
+                query = query.Where(x => x.Name.Contains(pagination.search , StringComparison.OrdinalIgnoreCase));
             }
 
             
