@@ -40,10 +40,11 @@ namespace Application.Services
 
             if (!string.IsNullOrWhiteSpace(pagination.search))
             {
-                query = query.Where(x => x.Name.Contains(pagination.search , StringComparison.OrdinalIgnoreCase));
+                var searchLower = pagination.search.ToLower();
+                query = query.Where(x => x.Name != null && x.Name.ToLower().Contains(searchLower));
             }
 
-            
+
             var totalCount = await query.CountAsync(ct);
 
            
