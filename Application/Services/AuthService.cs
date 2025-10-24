@@ -40,7 +40,7 @@ namespace Application.Services
                 Email = req.Email,
                 UserName = req.Email,
                 DisplayName = req.DisplayName,
-                StatusId = (int)UserStatus.Active
+                StatusId = req.StatusId
             };
 
             var created = await _userMgr.CreateAsync(user, req.Password);
@@ -60,7 +60,7 @@ namespace Application.Services
             if (user is null) return new(false, null, "Invalid credentials.");
 
             // ❗ Block if not Active
-            if (user.StatusId != (int)UserStatus.Active)
+            if (user.StatusId != 1)
                 return new(false, null, "Account is not active.");
 
             // Also honor lockouts

@@ -1,6 +1,6 @@
 ﻿namespace Application.DTOs
 {
-    public record RegisterRequest(string Email, string Password, string? DisplayName, string RoleName);
+    public record RegisterRequest(string Email, string Password, string? DisplayName, string RoleName, int StatusId);
     public record LoginRequest(string Email, string Password);
     public record AuthResponse(bool Success, string? Token, string? Error);
     public record BaseResponse(bool Success, string? Error);
