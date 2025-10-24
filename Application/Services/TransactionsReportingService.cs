@@ -42,6 +42,7 @@ namespace Application.Services
 
             // -------- Count before pagination --------
             var total = await q.CountAsync(ct);
+            var totalInvoices = await q.SumAsync(t => (decimal?)t.TotalPrice ?? 0, ct);
 
             var page = Math.Max(1, f.Page);
             var size = Math.Max(1, f.PageSize);
@@ -88,7 +89,7 @@ namespace Application.Services
                 })
                 .ToListAsync(ct);
 
-            return new PaginatedResponse<ItemTransactionDto>(total, data, page, size);
+            return new PaginatedResponse<ItemTransactionDto>(total, data, page, size, totalInvoices);
         }
 
         public async Task<PaginatedResponse<GameTransactionDetailsDto>> GetGameTransactionsWithDetailsAsync(
@@ -126,6 +127,7 @@ namespace Application.Services
 
             // -------- Count before pagination --------
             var total = await q.CountAsync(ct);
+            var totalInvoices = await q.SumAsync(t => (decimal?)t.TotalPrice ?? 0, ct);
 
             var page = Math.Max(1, f.Page);
             var size = Math.Max(1, f.PageSize);
@@ -171,7 +173,7 @@ namespace Application.Services
                 })
                 .ToListAsync(ct);
 
-            return new PaginatedResponse<GameTransactionDetailsDto>(total, data, page, size);
+            return new PaginatedResponse<GameTransactionDetailsDto>(total, data, page, size, totalInvoices);
         }
 
 

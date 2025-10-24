@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Application.DTOs
+﻿namespace Application.DTOs
 {
-    public record PaginatedResponse<T>(int TotalCount, IReadOnlyList<T> Data, int PageNumber, int PageSize);
+    public record PaginatedResponse<T>(int TotalCount, IReadOnlyList<T> Data, int PageNumber, int PageSize,  decimal TotalInvoices = 0);
 
 }
