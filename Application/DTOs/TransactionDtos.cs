@@ -42,15 +42,16 @@
         );
 
     public record OrderItemRequest(int ItemId, int Quantity);
-    public record TransactionUpdateDto(int RoomId,
-    int GameTypeId,
-    int GameId,
-    int GameSettingId,
-    int Hours,
-    decimal TotalPrice,
-    int StatusId,
-        int SetId
-        );
+    public record TransactionUpdateDto(
+    int? RoomId,    
+    int? GameTypeId,
+    int? GameId,
+    int? GameSettingId,
+    int? Hours,
+    decimal? TotalPrice,
+    int? StatusId,
+    int? SetId
+);
 
     public record TransactionItemDto(
     int ItemId,

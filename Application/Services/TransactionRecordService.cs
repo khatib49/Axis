@@ -16,13 +16,14 @@ namespace Application.Services
         private readonly IBaseRepository<Room> _repoRoom;
         private readonly IBaseRepository<Game> _repoGame;
         private readonly IBaseRepository<Item> _repoItem;
+        private readonly IBaseRepository<Status> _repoStatus;
         private readonly IBaseRepository<TransactionItem> _repoTrxItem;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
 
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
-            IBaseRepository<TransactionItem> repoTrxItem,
+            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus,
             IUnitOfWork uow, DomainMapper mapper)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -31,6 +32,7 @@ namespace Application.Services
             _repoGame = repoGame;
             _repoItem = repoItem;
             _repoTrxItem = repoTrxItem;
+            _repoStatus = repoStatus;
         }
 
         public async Task<RoomSetsAvailabilityDto?> GetRoomSetsAvailability(int roomId, int ongoingStatusId = 1, CancellationToken ct = default)
@@ -381,22 +383,102 @@ namespace Application.Services
 
         public async Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default)
         {
-            var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
+            var e = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems) // for future-proofing; no stock ops here
+                .FirstOrDefaultAsync(t => t.Id == id, ct);
+
             if (e is null) return false;
+
+            var roomChanged = dto.RoomId.HasValue && dto.RoomId.Value != e.RoomId;
+            var setChanged = dto.SetId.HasValue && dto.SetId.Value != e.SetId;
+
+            // Apply only provided fields
+            if (dto.RoomId.HasValue) e.RoomId = dto.RoomId;
+            if (dto.SetId.HasValue) e.SetId = dto.SetId;
+            if (dto.GameTypeId.HasValue) e.GameTypeId = dto.GameTypeId;
+            if (dto.GameId.HasValue) e.GameId = dto.GameId;
+            if (dto.GameSettingId.HasValue) e.GameSettingId = dto.GameSettingId;
+            if (dto.Hours.HasValue) e.Hours = dto.Hours ?? 0;
+            if (dto.TotalPrice.HasValue) e.TotalPrice = dto.TotalPrice ?? e.TotalPrice;
+            if (dto.StatusId.HasValue) e.StatusId = dto.StatusId.Value;
+
+            // Validate Room/Set relationship only if either changed and both are present
+            if ((roomChanged || setChanged) && e.RoomId.HasValue && e.SetId.HasValue)
+            {
+                var room = await _repoRoom.Query()
+                    .Include(r => r.Sets)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.Id == e.RoomId.Value, ct)
+                    ?? throw new ArgumentException("Invalid RoomId.");
+
+                if (!room.IsOpenSet)
+                {
+                    var belongs = room.Sets.Any(s => s.Id == e.SetId.Value);
+                    if (!belongs) throw new ArgumentException("Selected SetId does not belong to the selected Room.");
+                }
+            }
+
+            // Optional: prevent exact same (RoomId, SetId, StatusId) clash ONLY if caller changed StatusId
+            // (mirrors your CreateGameSession check that included StatusId in the predicate)
+            if (dto.StatusId.HasValue && e.RoomId.HasValue && e.SetId.HasValue)
+            {
+                var statusId = dto.StatusId.Value;
+                var clash = await _repo.Query(true)
+                    .AsNoTracking()
+                    .AnyAsync(t =>
+                        t.Id != e.Id &&
+                        t.RoomId == e.RoomId &&
+                        t.SetId == e.SetId &&
+                        t.StatusId == statusId, ct);
+
+                if (clash)
+                    throw new InvalidOperationException("Another transaction with the same Room/Set and Status already exists.");
+            }
+
             e.ModifiedOn = DateTime.UtcNow;
-            _mapper.MapTo(dto, e); // updates only non-null fields
             await _uow.SaveChangesAsync(ct);
             return true;
         }
 
+
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
-            var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
+            var e = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems)
+                .FirstOrDefaultAsync(t => t.Id == id, ct);
+
             if (e is null) return false;
+
+            // If it's a coffee-shop order (no GameId), return stock
+            if (e.GameId == null && e.TransactionItems?.Count > 0)
+            {
+                var itemIds = e.TransactionItems.Select(i => i.ItemId).Distinct().ToList();
+                var dbItems = await _repoItem.Query(false)
+                    .Where(i => itemIds.Contains(i.Id))
+                    .ToListAsync(ct);
+
+                foreach (var it in dbItems)
+                {
+                    var qty = e.TransactionItems.Where(x => x.ItemId == it.Id).Sum(x => x.Quantity);
+                    it.Quantity += qty;
+                }
+            }
+
+            // Cancel any scheduled job if you persist it
+            // if (!string.IsNullOrEmpty(e.HangfireJobId)) BackgroundJob.Delete(e.HangfireJobId);
+
+            // FK on TransactionItems is RESTRICT -> remove children first
+            if (e.TransactionItems is not null && e.TransactionItems.Count > 0)
+                _repoTrxItem.RemoveRange(e.TransactionItems);
 
             _repo.Remove(e);
             await _uow.SaveChangesAsync(ct);
             return true;
         }
+
+
+
+
+
     }
 }
