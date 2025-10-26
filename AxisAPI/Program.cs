@@ -186,7 +186,10 @@ app.UseSwaggerUI(ui =>
 // your hub (below)
 app.MapHub<ReceptionHub>("/hubs/reception");
 
-app.UseHangfireDashboard("/hangfire");
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new AllowAllDashboardAuthorizationFilter() }
+});
 
 app.UseHttpsRedirection();
 app.UseForce403ForUnauthorized();
