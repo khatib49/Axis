@@ -63,6 +63,7 @@ namespace Application.Services
             if (user == null)
                 return false;
 
+            // --- Basic profile updates ---
             if (!string.IsNullOrWhiteSpace(request.DisplayName))
                 user.DisplayName = request.DisplayName;
 
@@ -71,12 +72,36 @@ namespace Application.Services
                 user.Email = request.Email;
                 user.UserName = request.Email;
             }
-            user.StatusId = request.StatusId ?? user.StatusId;
 
+            if (request.StatusId.HasValue)
+                user.StatusId = request.StatusId.Value;
+
+            // --- Save user details ---
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
                 return false;
 
+            // --- Update password (if provided) ---
+            if (!string.IsNullOrWhiteSpace(request.Password))
+            {
+                // Remove old password if it exists (Identity requires one at a time)
+                var hasPassword = await _userManager.HasPasswordAsync(user);
+                IdentityResult passResult;
+                if (hasPassword)
+                {
+                    await _userManager.RemovePasswordAsync(user);
+                    passResult = await _userManager.AddPasswordAsync(user, request.Password);
+                }
+                else
+                {
+                    passResult = await _userManager.AddPasswordAsync(user, request.Password);
+                }
+
+                if (!passResult.Succeeded)
+                    return false;
+            }
+
+            // --- Update roles ---
             if (request.Roles is not null)
             {
                 var currentRoles = await _userManager.GetRolesAsync(user);
@@ -90,9 +115,12 @@ namespace Application.Services
                     await _userManager.AddToRolesAsync(user, toAdd);
             }
 
+            // --- Return user dto (if needed) ---
             var updatedRoles = (await _userManager.GetRolesAsync(user)).ToList();
             _mapper.ToDto(user, updatedRoles);
+
             return true;
         }
+
     }
 }
