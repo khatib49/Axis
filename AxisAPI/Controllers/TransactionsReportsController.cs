@@ -51,5 +51,15 @@ namespace AxisAPI.Controllers
 
 
 
+        [HttpGet("total-sales")]
+        [Authorize(Roles = "admin,admin_fnb")]
+        public async Task<ActionResult<List<DailySalesDto>>> GetTotalSales([FromQuery] DateTime? from, [FromQuery] DateTime? to,
+            [FromQuery] string? categoryIds, CancellationToken ct)
+        {
+            var data = await _svc.GetTotalsAsync(from, to, categoryIds, ct);
+            return Ok(data);
+        }
+
+
     }
 }

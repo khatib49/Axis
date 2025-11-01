@@ -6,6 +6,7 @@
     decimal GamesTotal,
     decimal GrandTotal
 );
+    public record PeriodTotalsDto(decimal TotalAmount, int OrdersCount);
     public record TransactionDto(
         int Id,
         int? RoomId,
