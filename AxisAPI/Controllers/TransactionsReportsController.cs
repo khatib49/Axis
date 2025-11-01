@@ -20,6 +20,7 @@ namespace AxisAPI.Controllers
         /// Item transactions (flattened to one row per item line), multi-filter & paginated.
         /// </summary>
         [HttpGet("item-transactions")]
+        [Authorize]
         public async Task<ActionResult<PaginatedResponse<ItemTransactionLineDto>>> GetItemTransactions(
             [FromQuery] TransactionsFilterDto f, CancellationToken ct)
         {
@@ -31,6 +32,7 @@ namespace AxisAPI.Controllers
         /// Game transactions (one row per transaction), multi-filter & paginated.
         /// </summary>
         [HttpGet("game-transactions")]
+        [Authorize]
         public async Task<ActionResult<PaginatedResponse<GameTransactionDetailsDto>>> GetGameTransactions(
             [FromQuery] TransactionsFilterDto f, CancellationToken ct)
         {
@@ -39,7 +41,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("daily-sales")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,admin_fnb")]
         public async Task<ActionResult<List<DailySalesDto>>> GetDailySales( [FromQuery] DateTime? from, [FromQuery] DateTime? to,
             [FromQuery] string? categoryIds,  CancellationToken ct)
         {

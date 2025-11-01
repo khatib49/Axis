@@ -114,6 +114,8 @@ namespace Application.Services
             if (f.CategoryIds is { Count: > 0 })
                 q = q.Where(t => t.Game != null && f.CategoryIds!.Contains(t.Game.CategoryId));
 
+            q= q.Where(t => t.StatusId == 6);
+
             // -------- Search on game/room/type/setting names --------
             if (!string.IsNullOrWhiteSpace(f.Search))
             {

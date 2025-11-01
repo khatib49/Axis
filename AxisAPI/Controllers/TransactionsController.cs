@@ -74,7 +74,7 @@ namespace AxisAPI.Controllers
         }
 
         [Route("CreateCoffeeShopOrder")]
-        [Authorize(Roles = "admin,cashier,gamecashier")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
         [HttpPost]
         [LogOnError]
         public async Task<IActionResult> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, CancellationToken ct)
