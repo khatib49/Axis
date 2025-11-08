@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AxisAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b3f99ec49a7ec0c3e1db88dbc08c80d0bec1dfd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ac1a8e023b3d7369c28b886d6743bc1e4449e0c0")]
 [assembly: System.Reflection.AssemblyProductAttribute("AxisAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AxisAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -2,6 +2,7 @@
 using Application.Mapping;
 using Application.Services;
 using Application.Services.SignalR;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application
@@ -25,6 +26,8 @@ namespace Application
             services.AddScoped<IReceiptService, ReceiptService>();
             services.AddScoped<IRoomService, RoomService>();
             services.AddScoped<ISettingService, SettingService>();
+            services.AddScoped<IExpenseService, ExpenseService>();
+            services.AddScoped<IExpenseCategoryService, ExpenseCategoryService>();
 
             services.AddHostedService<SessionJobRehydrator>();
             services.AddScoped<ISessionEndMonitor, SessionEndMonitor>();

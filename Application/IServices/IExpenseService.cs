@@ -4,10 +4,11 @@ namespace Application.IServices
 {
     public interface IExpenseService
     {
-        Task<ExpenseDto?> GetAsync(int id, CancellationToken ct = default);
-        Task<PaginatedResponse<ExpenseDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default);
-        Task<ExpenseDto> CreateAsync(ExpenseCreateDto dto, CancellationToken ct = default);
-        Task<bool> UpdateAsync(int id, ExpenseUpdateDto dto, CancellationToken ct = default);
-        Task<bool> DeleteAsync(int id, CancellationToken ct = default);
+        Task<ExpenseDto> CreateAsync(ExpenseCreateDto dto, int? createdBy, CancellationToken ct);
+        Task<ExpenseDto> UpdateAsync(int id, ExpenseUpdateDto dto, CancellationToken ct);
+        Task<bool> DeleteAsync(int id, CancellationToken ct);
+        Task<ExpenseDto?> GetByIdAsync(int id, CancellationToken ct);
+        Task<PagedExpensesResult> QueryAsync(ExpenseFilter filter, CancellationToken ct);
+
     }
 }
