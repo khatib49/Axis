@@ -189,48 +189,57 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-            public async Task<TransactionDto> CreateGameSession( int gameId, int gameSettingId, int hours, int statusId, 
+        public async Task<BaseResponse<TransactionDto>> CreateGameSession( int gameId, int gameSettingId, int hours, int statusId, 
                 string createdBy, int roomSetId, CancellationToken ct = default)
             {
-                // 1) Validate game
-                var game = await _repoGame.Query().AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Id == gameId, ct)
-                    ?? throw new ArgumentException("Invalid game ID");
+            // 1) Validate game
+            var game = await _repoGame.Query().AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == gameId, ct);
+            if (game is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid game ID", "The specified game does not exist.");
 
-                // 2) Find any room by game category (your rule)
-                var room = await _repoRoom.Query()
+            // 2) Find any room by game category (your rule)
+            var room = await _repoRoom.Query()
                     .Include(r => r.Sets)  // need sets
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.CategoryId == game.CategoryId, ct)
-                    ?? throw new InvalidOperationException("No available room for the selected game type.");
+                    .FirstOrDefaultAsync(s => s.CategoryId == game.CategoryId, ct);
 
-                if(!room.IsOpenSet)
+            if (room is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid room ID", "No available room for the selected game type.");
+
+            if (!room.IsOpenSet)
                 {
-                    // 3) Validate the chosen RoomSet belongs to this room
-                    var set = room.Sets.FirstOrDefault(s => s.Id == roomSetId)
-                        ?? throw new ArgumentException("Invalid set ID for the selected room.");
+                // 3) Validate the chosen RoomSet belongs to this room
+                var set = room.Sets.FirstOrDefault(s => s.Id == roomSetId);
+                if (set is null)
+                    return new BaseResponse<TransactionDto>(false, "invalid set id", "Invalid set ID for the selected room.");
 
                     // 4) Ensure this set is not already in use for an ongoing transaction
                     var isSetInUse = await _repo.Query().AsNoTracking()
                         .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
                     if (isSetInUse)
-                        throw new InvalidOperationException("The selected set is currently in use. Please choose a different set.");
+                        return new BaseResponse<TransactionDto>(false, "set in use", "The selected set is currently in use. Please choose a different set.");
                 }
 
-                // 5) Price calc from Setting
-                var setting = await _repoSetting.Query().AsNoTracking()
-                    .Where(s => s.Id == gameSettingId)
-                    .Select(s => new { s.Hours, s.Price, s.IsOpenHour })
-                    .FirstOrDefaultAsync(ct)
-                    ?? throw new ArgumentException("Invalid game setting ID");
+            // 5) Price calc from Setting
+            var setting = await _repoSetting.Query().AsNoTracking()
+                .Where(s => s.Id == gameSettingId)
+                .Select(s => new { s.Hours, s.Price, s.IsOpenHour })
+                .FirstOrDefaultAsync(ct);
+            
+            if(setting is null)
+            {
+                return new BaseResponse<TransactionDto>(false, "Invalid game setting", "The specified game setting does not exist.");
+            }
 
                 DateTime? expectedEndOn = null;
                 if (!setting.IsOpenHour)
                 {
                     if (setting.Hours <= 0)
-                        throw new InvalidOperationException("Configured Hours must be > 0 for price calculation.");
-
-                    expectedEndOn = setting.IsOpenHour ? null : DateTime.UtcNow.AddHours(hours);
+                    {
+                        return new BaseResponse<TransactionDto>(false, "Invalid game setting hours", "The specified game setting has invalid hours for a timed session ( should be greater than 0).");
+                    }
+                expectedEndOn = setting.IsOpenHour ? null : DateTime.UtcNow.AddHours(hours);
                 }   
 
 
@@ -286,14 +295,17 @@ namespace Application.Services
                     }
                 }
 
-                return _mapper.ToDto(e);
-            }
+                
+                 TransactionDto transactionDto =   _mapper.ToDto(e);
+
+                return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
+        }
 
 
-            public async Task<TransactionDto> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
+            public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
             {
                 if (itemsRequest is null || itemsRequest.Count == 0)
-                    throw new ArgumentException("No items provided.");
+                    return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
 
             
                 var requested = itemsRequest
@@ -303,7 +315,8 @@ namespace Application.Services
             
                 var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
                 if (invalidQty.Any())
-                    throw new ArgumentException($"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
+                    return new BaseResponse<TransactionDto>(false, "Invalid quantity", 
+                        $"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
 
                 var ids = requested.Keys.ToList();
 
@@ -316,8 +329,9 @@ namespace Application.Services
                 if (dbItems.Count != ids.Count)
                 {
                     var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
-                    throw new ArgumentException($"Items not found: {string.Join(", ", missing)}");
-                }
+                    return new BaseResponse<TransactionDto>(false, "Invalid items", 
+                        $"The following item IDs do not exist: {string.Join(", ", missing)}");
+            }
 
             
                 var outOfStock = new List<string>();
@@ -328,10 +342,11 @@ namespace Application.Services
                         outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})"); 
                 }
                 if (outOfStock.Any())
-                    throw new InvalidOperationException($"Insufficient stock for: {string.Join(", ", outOfStock)}");
+                    return new BaseResponse<TransactionDto>(false, "Out of stock", 
+                        $"The following items are out of stock or insufficient: {string.Join("; ", outOfStock)}");
 
-                // Compute total
-                decimal totalPrice = 0m;
+            // Compute total
+            decimal totalPrice = 0m;
                 foreach (var it in dbItems)
                 {
                     var qty = requested[it.Id];
@@ -378,8 +393,9 @@ namespace Application.Services
            
                 await _uow.SaveChangesAsync(ct);
 
-                return _mapper.ToDto(trx);
-            }
+                TransactionDto transactionDto =  _mapper.ToDto(trx);
+                return new BaseResponse<TransactionDto>(true, null, "Item Order created successfully.", transactionDto);
+        }
 
         public async Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default)
         {

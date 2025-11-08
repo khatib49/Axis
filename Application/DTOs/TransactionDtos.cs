@@ -6,6 +6,7 @@
     decimal GamesTotal,
     decimal GrandTotal
 );
+    public record BaseResponse<T>(bool Success, string? Error, string Message, T? Data = default);
     public record PeriodTotalsDto(decimal TotalAmount, int OrdersCount);
     public record TransactionDto(
         int Id,
