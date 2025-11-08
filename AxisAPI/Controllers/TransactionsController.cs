@@ -70,7 +70,7 @@ namespace AxisAPI.Controllers
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, setId,ct);
-            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(Get), new { id = created.Data.Id }, created);
         }
 
         [Route("CreateCoffeeShopOrder")]
@@ -81,7 +81,7 @@ namespace AxisAPI.Controllers
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateCoffeeShopOrder(itemsRequest, createdBy, ct);
-            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(Get), new { id = created.Data.Id }, created);
         }
 
 

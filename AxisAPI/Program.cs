@@ -149,7 +149,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthentication()
+    .AddJwtBearer(o =>
+    {
+        o.Events = new JwtBearerEvents
+        {
+            OnChallenge = ctx =>
+            {
+                ctx.HandleResponse();                   
+                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+        };
+    });
+
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
@@ -192,7 +205,7 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 app.UseHttpsRedirection();
-app.UseForce403ForUnauthorized();
+//app.UseForce403ForUnauthorized();
 app.UseSerilogRequestEnricher();
 app.UseAuthentication();
 app.UseAuthorization();

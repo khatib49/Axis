@@ -301,8 +301,7 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
         }
 
-
-            public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
+        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
             {
                 if (itemsRequest is null || itemsRequest.Count == 0)
                     return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
