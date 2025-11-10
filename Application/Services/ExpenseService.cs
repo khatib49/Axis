@@ -11,11 +11,13 @@ namespace Application.Services
     {
         private readonly IBaseRepository<Expense> _expenseRepo;
         private readonly IBaseRepository<ExpenseCategory> _catRepo;
+        private readonly IUnitOfWork _uow;
 
-        public ExpenseService(IBaseRepository<Expense> expenseRepo, IBaseRepository<ExpenseCategory> catRepo)
+        public ExpenseService(IBaseRepository<Expense> expenseRepo, IBaseRepository<ExpenseCategory> catRepo, IUnitOfWork unitOfWork)
         {
             _expenseRepo = expenseRepo;
             _catRepo = catRepo;
+            _uow = unitOfWork;
         }
 
         public async Task<ExpenseDto> CreateAsync(ExpenseCreateDto dto, int? createdBy, CancellationToken ct)
@@ -38,6 +40,7 @@ namespace Application.Services
 
             await _expenseRepo.AddAsync(entity, ct);
 
+            await _uow.SaveChangesAsync(ct);
             // Load category name for DTO
             var catName = (await _catRepo.Query().Where(c => c.Id == entity.FK_CategoryId)
                                     .Select(c => c.Name).FirstAsync(ct));
@@ -63,6 +66,7 @@ namespace Application.Services
 
             _expenseRepo.Update(entity);
 
+            await _uow.SaveChangesAsync(ct);
             var catName = (await _catRepo.Query().Where(c => c.Id == entity.FK_CategoryId)
                                     .Select(c => c.Name).FirstAsync(ct));
 
@@ -75,6 +79,8 @@ namespace Application.Services
             if (entity is null) return false;
 
             _expenseRepo.Remove(entity);
+
+            await _uow.SaveChangesAsync(ct);
             return true;
         }
 

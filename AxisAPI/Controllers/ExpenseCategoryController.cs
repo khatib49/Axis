@@ -21,5 +21,23 @@ namespace AxisAPI.Controllers
             var created = await _svc.CreateAsync(dto, ct);
             return CreatedAtAction(nameof(List), new { id = created.Id }, created);
         }
+
+
+        // PUT: api/expense-categories/{id}
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult<ExpenseCategoryDto>> UpdateAsync([FromRoute] int id, [FromBody] ExpenseCategoryUpdateDto dto, CancellationToken ct)
+        {
+            var updated = await _svc.UpdateAsync(id, dto, ct);
+            return Ok(updated);
+        }
+
+        // DELETE: api/expense-categories/{id}
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteAsync([FromRoute] int id, CancellationToken ct)
+        {
+            await _svc.DeleteAsync(id, ct);
+            return Ok();
+        }
+
     }
 }

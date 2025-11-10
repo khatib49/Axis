@@ -31,6 +31,7 @@
         DateTime CreatedOn
     );
 
+    public record ExpenseCategoryUpdateDto(string Name, string? Description);
     public record ExpenseFilter(
         DateTime? From = null,
         DateTime? To = null,
