@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -19,6 +20,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<PagedExpensesResult>> Query(
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
@@ -32,6 +34,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<ExpenseDto>> Create([FromBody] ExpenseCreateDto dto, CancellationToken ct)
         {
             // If you have auth, get user id from claims; here we accept none:
@@ -41,6 +44,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<ExpenseDto>> Update(int id, [FromBody] ExpenseUpdateDto dto, CancellationToken ct)
         {
             var updated = await _svc.UpdateAsync(id, dto, ct);
@@ -48,6 +52,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var ok = await _svc.DeleteAsync(id, ct);

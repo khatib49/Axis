@@ -1,11 +1,19 @@
 ﻿using Application.DTOs;
 using Application.IServices;
 using Application.Mapping;
+using Application.Middleware;
 using Application.Services.SignalR;
 using Domain.Entities;
 using Hangfire;
 using Infrastructure.IRepositories;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
+using Npgsql;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace Application.Services
 {
@@ -20,11 +28,13 @@ namespace Application.Services
         private readonly IBaseRepository<TransactionItem> _repoTrxItem;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
+        private readonly IHttpContextAccessor _http;
+        private readonly ILogger<TransactionRecordService> _logger;
 
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus,
-            IUnitOfWork uow, DomainMapper mapper)
+            IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
             _repoSetting = repoSetting;
@@ -33,6 +43,8 @@ namespace Application.Services
             _repoItem = repoItem;
             _repoTrxItem = repoTrxItem;
             _repoStatus = repoStatus;
+            _logger = logger;
+            _http = httpContextAccessor;
         }
 
         public async Task<RoomSetsAvailabilityDto?> GetRoomSetsAvailability(int roomId, int ongoingStatusId = 1, CancellationToken ct = default)
@@ -192,6 +204,8 @@ namespace Application.Services
         public async Task<BaseResponse<TransactionDto>> CreateGameSession( int gameId, int gameSettingId, int hours, int statusId, 
                 string createdBy, int roomSetId, CancellationToken ct = default)
             {
+            var reqId = GetReqId();
+            var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
             // 1) Validate game
             var game = await _repoGame.Query().AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == gameId, ct);
@@ -273,10 +287,26 @@ namespace Application.Services
                 if (e.SetId == 0)
                     e.SetId = null;
 
-                //e.ExpectedEndOn = expectedEndOn;
+            //e.ExpectedEndOn = expectedEndOn;
 
+            try
+            {
+                _logger.LogInformation("GS/Session BEFORE_SAVE ReqId={ReqId} Room={RoomId} Set={SetId} Total={Total}",
+                    reqId, e.RoomId, e.SetId, e.TotalPrice);
                 await _repo.AddAsync(e, ct);
                 await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                var (prov, code) = ExtractDbCode(ex);
+
+                _logger.LogError(ex,
+                    "GS/Session ERROR ReqId={ReqId} DB={Prov}:{Code} Game={Game} Setting={Setting} Set={Set} Sig={Sig} ",
+                    reqId, prov, code, gameId, gameSettingId, roomSetId, sig);
+
+                return new BaseResponse<TransactionDto>(false, "set in use", "The selected set just became in use. Please choose a different set.");
+            }
+
 
                 // schedule a job only if there is a time limit
                 if (!setting.IsOpenHour && expectedEndOn.HasValue)
@@ -303,7 +333,11 @@ namespace Application.Services
 
         public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
             {
-                if (itemsRequest is null || itemsRequest.Count == 0)
+
+            var reqId = GetReqId();
+            var sig = itemsRequest is null ? "-" : ItemsSignature(itemsRequest);
+
+            if (itemsRequest is null || itemsRequest.Count == 0)
                     return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
 
             
@@ -385,12 +419,28 @@ namespace Application.Services
                     it.Quantity -= qty;
                 }
 
-            
+
+
+            try
+            {
+                _logger.LogInformation("CS/Order BEFORE_SAVE ReqId={ReqId} Total={Total} Items={Count}",reqId, totalPrice, trxItems.Count);
+
+
                 await _repo.AddAsync(trx, ct);
                 await _repoTrxItem.AddRangeAsync(trxItems, ct);
 
-           
+
                 await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                var (prov, code) = ExtractDbCode(ex);
+                _logger.LogError(ex,
+                    "CS/Order ERROR ReqId={ReqId} DB={Prov}:{Code} Total={Total} Items={Count} Sig={Sig}",
+                    reqId, prov, code, totalPrice, trxItems.Count, sig);
+
+                return new BaseResponse<TransactionDto>(false, "Error happened", "Error happened");
+            }
 
                 TransactionDto transactionDto =  _mapper.ToDto(trx);
                 return new BaseResponse<TransactionDto>(true, null, "Item Order created successfully.", transactionDto);
@@ -491,7 +541,44 @@ namespace Application.Services
             return true;
         }
 
+        public string GetReqId()
+        {
+            var ctx = _http.HttpContext;
+            if (ctx is null) return Guid.NewGuid().ToString("N");
 
+            if (ctx.Request.Headers.TryGetValue("X-Request-ID", out var v) && !StringValues.IsNullOrEmpty(v))
+                return v.ToString();
+
+            return ctx.TraceIdentifier ?? Guid.NewGuid().ToString("N");
+        }
+
+        private static string HashObject(object o)
+        {
+            var json = JsonSerializer.Serialize(o);
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(json));
+            return Convert.ToHexString(bytes);
+        }
+
+        private static string ItemsSignature(IEnumerable<OrderItemRequest> items)
+        {
+            // stable order -> (ItemId:Qty;...)
+            var parts = items
+                .OrderBy(i => i.ItemId)
+                .ThenBy(i => i.Quantity)
+                .Select(i => $"{i.ItemId}:{i.Quantity}");
+            return string.Join(';', parts);
+        }
+
+        private static (string Provider, string Code) ExtractDbCode(Exception ex)
+        {
+            // Helps identify transient/unique violations/etc.
+            if (ex is DbUpdateException dbe) ex = dbe.InnerException ?? ex;
+
+            if (ex is PostgresException pg)
+                return ("PG", pg.SqlState ?? "");
+
+            return ("-", "-");
+        }
 
 
 

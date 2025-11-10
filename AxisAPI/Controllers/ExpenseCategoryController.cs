@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AxisAPI.Controllers
@@ -12,10 +13,12 @@ namespace AxisAPI.Controllers
         public ExpenseCategoryController(IExpenseCategoryService svc) => _svc = svc;
 
         [HttpGet]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<IReadOnlyList<ExpenseCategoryDto>>> List(CancellationToken ct)
             => Ok(await _svc.ListAsync(ct));
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<ExpenseCategoryDto>> Create([FromBody] ExpenseCategoryCreateDto dto, CancellationToken ct)
         {
             var created = await _svc.CreateAsync(dto, ct);
@@ -25,6 +28,7 @@ namespace AxisAPI.Controllers
 
         // PUT: api/expense-categories/{id}
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<ExpenseCategoryDto>> UpdateAsync([FromRoute] int id, [FromBody] ExpenseCategoryUpdateDto dto, CancellationToken ct)
         {
             var updated = await _svc.UpdateAsync(id, dto, ct);
@@ -33,6 +37,7 @@ namespace AxisAPI.Controllers
 
         // DELETE: api/expense-categories/{id}
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> DeleteAsync([FromRoute] int id, CancellationToken ct)
         {
             await _svc.DeleteAsync(id, ct);
