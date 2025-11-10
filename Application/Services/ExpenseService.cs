@@ -3,6 +3,7 @@ using Application.IServices;
 using Application.Mapping;
 using Domain.Entities;
 using Infrastructure.IRepositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
@@ -60,7 +61,7 @@ namespace Application.Services
             entity.FromDate = dto.FromDate.Date;
             entity.ToDate = dto.ToDate.Date;
 
-            await _expenseRepo.UpdateAsync(entity, ct);
+            _expenseRepo.Update(entity);
 
             var catName = (await _catRepo.Query().Where(c => c.Id == entity.FK_CategoryId)
                                     .Select(c => c.Name).FirstAsync(ct));
@@ -73,7 +74,7 @@ namespace Application.Services
             var entity = await _expenseRepo.Query().FirstOrDefaultAsync(e => e.Id == id, ct);
             if (entity is null) return false;
 
-            await _expenseRepo.DeleteAsync(entity, ct);
+            _expenseRepo.Remove(entity);
             return true;
         }
 
