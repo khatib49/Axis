@@ -63,14 +63,27 @@ namespace AxisAPI.Controllers
 
 
         
+        //[HttpPost("CreateGameSession")]
+        //[Authorize(Roles = "admin,gamecashier")]
+        //[LogOnError]
+        //public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status,int setId, CancellationToken ct)
+        //{
+        //    var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+        //    var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, setId,ct);
+        //    return CreatedAtAction(nameof(Get), new { id = created.Data.Id }, created);
+        //}
+
         [HttpPost("CreateGameSession")]
         [Authorize(Roles = "admin,gamecashier")]
-        [LogOnError]
-        public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, int status,int setId, CancellationToken ct)
+        public async Task<IActionResult> CreateGameSession(
+     int gameId, int gameSettingId, int hours, int status, int setId,
+    CancellationToken ct)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var created = await _transactionService.CreateGameSession(gameId, gameSettingId, hours, status, createdBy, setId,ct);
-            return CreatedAtAction(nameof(Get), new { id = created.Data.Id }, created);
+            var created = await _transactionService.CreateGameSession(
+                gameId, gameSettingId, hours, status, createdBy ?? "", setId, ct);
+
+            return created.Success ? Ok(created) : BadRequest(created);
         }
 
         [Route("CreateCoffeeShopOrder")]
@@ -81,7 +94,7 @@ namespace AxisAPI.Controllers
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateCoffeeShopOrder(itemsRequest, createdBy, ct);
-            return CreatedAtAction(nameof(Get), new { id = created.Data.Id }, created);
+            return created.Success ? Ok(created) : BadRequest(created);
         }
 
 
