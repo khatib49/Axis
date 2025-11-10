@@ -283,7 +283,7 @@ namespace Application.Services
                 {
                     // Hangfire will call SessionEndMonitor.EndIfOngoingAsync at expected end
                     var jobId = BackgroundJob.Schedule<SessionEndMonitor>(
-                                    x => x.EndIfOngoingAsync(e.Id, 3, CancellationToken.None),
+                                    x => x.EndIfOngoingAsync(e.Id, 6, CancellationToken.None),
                                     expectedEndOn.Value - DateTime.UtcNow);
                     
                     // store job id
