@@ -35,7 +35,8 @@ namespace Application.Services
                 FromDate = dto.FromDate.Date,
                 ToDate = dto.ToDate.Date,
                 CreatedBy = createdBy,
-                CreatedOn = DateTime.UtcNow
+                CreatedOn = DateTime.UtcNow,
+
             };
 
             await _expenseRepo.AddAsync(entity, ct);
