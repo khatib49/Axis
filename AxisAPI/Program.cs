@@ -60,6 +60,8 @@ Log.Logger = new LoggerConfiguration()
 var builder = WebApplication.CreateBuilder(args);
 
 
+
+
 builder.Host.UseSerilog((ctx, sp, cfg) =>
 {
     cfg.ReadFrom.Configuration(ctx.Configuration)
@@ -133,10 +135,18 @@ builder.Services
 var jwt = builder.Configuration.GetSection("Jwt");
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!));
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(o =>
+
+
+
+builder.Services
+    .AddAuthentication(options =>
     {
-        o.TokenValidationParameters = new()
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme; // "Bearer"
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new()
         {
             ValidateIssuer = true,
             ValidateAudience = true,
@@ -147,21 +157,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = key,
             ClockSkew = TimeSpan.Zero
         };
-    });
 
-builder.Services.AddAuthentication()
-    .AddJwtBearer(o =>
-    {
-        o.Events = new JwtBearerEvents
+        options.Events = new JwtBearerEvents
         {
+            // Typically 401 for unauthenticated requests
             OnChallenge = ctx =>
             {
-                ctx.HandleResponse();                   
+                ctx.HandleResponse();
+                ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            },
+            // 403 fits here: authenticated but not authorized
+            OnForbidden = ctx =>
+            {
                 ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
                 return Task.CompletedTask;
             }
         };
     });
+
 
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
