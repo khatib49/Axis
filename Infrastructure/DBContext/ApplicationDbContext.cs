@@ -214,6 +214,22 @@ namespace Infrastructure.Persistence
                 e.HasIndex(ti => ti.ItemId);
                 e.HasIndex(ti => ti.TransactionRecordId);
             });
+
+            b.Entity<Expense>(e =>
+            {
+                e.ToTable("Expenses");
+
+                // Map the property FK_CategoryId -> the existing DB column CategoryId
+                e.Property(x => x.FK_CategoryId)
+                 .HasColumnName("CategoryId");
+
+                // Configure the relationship to Category
+                e.HasOne(x => x.Category)
+                 .WithMany(c => c.Expenses)      // make sure ExpenseCategory has ICollection<Expense> Expenses
+                 .HasForeignKey(x => x.FK_CategoryId)
+                 .OnDelete(DeleteBehavior.Restrict); // or your intended behavior
+            });
+
         }
     }
 }
