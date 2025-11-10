@@ -26,38 +26,38 @@ namespace Application.Services
             var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
-
         public async Task<PaginatedResponse<ItemDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            
+            var page = pagination.Page <= 0 ? 1 : pagination.Page;
+            var pageSize = pagination.PageSize <= 0 ? 20 : pagination.PageSize;
+
             var query = _repo.QueryableAsync(null, asNoTracking: true);
 
-         
+            // Filters
             if (pagination.CategoryId.HasValue)
-            {
                 query = query.Where(x => x.CategoryId == pagination.CategoryId.Value);
-            }
 
             if (!string.IsNullOrWhiteSpace(pagination.search))
             {
-                var searchLower = pagination.search.ToLower();
-                query = query.Where(x => x.Name != null && x.Name.ToLower().Contains(searchLower));
+                var term = pagination.search.Trim();
+                // Postgres case-insensitive LIKE
+                query = query.Where(x => x.Name != null && EF.Functions.ILike(x.Name, $"%{term}%"));
+                // If term can include % or _ and you need literal matching, escape them and use ESCAPE clause via raw SQL or custom util.
             }
-
 
             var totalCount = await query.CountAsync(ct);
 
-           
-            var pagedList = await query
-                .Skip((pagination.Page - 1) * pagination.PageSize)
-                .Take(pagination.PageSize)
+            // Deterministic ordering for paging
+            query = query.OrderBy(x => x.Id); // or .OrderByDescending(x => x.CreatedOn).ThenBy(x => x.Id);
+
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
 
-            var result = pagedList.Select(_mapper.ToDto).ToList();
-
-            return new PaginatedResponse<ItemDto>(totalCount, result, pagination.Page, pagination.PageSize);
+            var result = items.Select(_mapper.ToDto).ToList();
+            return new PaginatedResponse<ItemDto>(totalCount, result, page, pageSize);
         }
-
         public async Task<ItemDto> CreateAsync(ItemCreateDto dto, CancellationToken ct = default)
         {
             var e = _mapper.ToEntity(dto);
