@@ -4,9 +4,11 @@ using Application.Mapping;
 using Application.Middleware;
 using Application.Services.SignalR;
 using Domain.Entities;
+using Domain.Identity;
 using Hangfire;
 using Infrastructure.IRepositories;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -31,12 +33,15 @@ namespace Application.Services
         private readonly IHttpContextAccessor _http;
         private readonly ILogger<TransactionRecordService> _logger;
 
+        private readonly UserManager<AppUser> _userManager;
+
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
-            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus,
+            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
             IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
+            _userManager = userManager;
             _repoSetting = repoSetting;
             _repoRoom = repoRoom;
             _repoGame = repoGame;
@@ -201,11 +206,15 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateGameSession( int gameId, int gameSettingId, int hours, int statusId, 
+        public async Task<BaseResponse<TransactionDto>> CreateGameSession(string? phoneNumber, int gameId, int gameSettingId, int hours, int statusId, 
                 string createdBy, int roomSetId, CancellationToken ct = default)
             {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
+
+            // --- NEW: resolve client user ---
+            int? userId = await GetOrCreateClientUserIdByPhoneAsync(phoneNumber, ct);
+
             // 1) Validate game
             var game = await _repoGame.Query().AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == gameId, ct);
@@ -268,9 +277,14 @@ namespace Application.Services
                     totalPrice = setting.Price * hours / setting.Hours;
                 }
 
-            
-                // 6) Create DTO -> Entity
-                var createDto = new TransactionCreateDto(
+                int statusToUse = 6; // default to processed and paid
+            #region to Check if it is for ps5 or board games to let the status be processed and unpaid
+            //statusToUse = (game.CategoryId == 2 || game.CategoryId == 3) ? 5 : 6; // 5: processed and unpaid, 6: processed and paid
+            #endregion
+
+
+            // 6) Create DTO -> Entity
+            var createDto = new TransactionCreateDto(
                     RoomId: room.Id,
                     SetId: roomSetId,              // NEW
                     GameTypeId: game.CategoryId,
@@ -278,7 +292,8 @@ namespace Application.Services
                     GameSettingId: gameSettingId,
                     Hours: hours,
                     TotalPrice: totalPrice,
-                    StatusId: 6, //processed and paid
+                    StatusId: statusToUse, //processed and paid
+                    UserId: userId,
                     CreatedOn: DateTime.UtcNow,
                     CreatedBy: createdBy ?? string.Empty
                 );
@@ -307,35 +322,38 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(false, "set in use", "The selected set just became in use. Please choose a different set.");
             }
 
+            #region No need for hangfire now
+            //// schedule a job only if there is a time limit
+            //if (!setting.IsOpenHour && expectedEndOn.HasValue)
+            //{
+            //    // Hangfire will call SessionEndMonitor.EndIfOngoingAsync at expected end
+            //    var jobId = BackgroundJob.Schedule<SessionEndMonitor>(
+            //                    x => x.EndIfOngoingAsync(e.Id, 6, CancellationToken.None),
+            //                    expectedEndOn.Value - DateTime.UtcNow);
 
-                // schedule a job only if there is a time limit
-                if (!setting.IsOpenHour && expectedEndOn.HasValue)
-                {
-                    // Hangfire will call SessionEndMonitor.EndIfOngoingAsync at expected end
-                    var jobId = BackgroundJob.Schedule<SessionEndMonitor>(
-                                    x => x.EndIfOngoingAsync(e.Id, 6, CancellationToken.None),
-                                    expectedEndOn.Value - DateTime.UtcNow);
-                    
-                    // store job id
-                    var tracked = await _repo.GetByIdAsync(e.Id, asNoTracking: false, ct);
-                    if (tracked != null)
-                    {
-                        //tracked.HangfireJobId = jobId;
-                        await _uow.SaveChangesAsync(ct);
-                    }
-                }
+            //    // store job id
+            //    var tracked = await _repo.GetByIdAsync(e.Id, asNoTracking: false, ct);
+            //    if (tracked != null)
+            //    {
+            //        //tracked.HangfireJobId = jobId;
+            //        await _uow.SaveChangesAsync(ct);
+            //    }
+            //}
+            #endregion
 
-                
-                 TransactionDto transactionDto =   _mapper.ToDto(e);
+            TransactionDto transactionDto = _mapper.ToDto(e);
 
                 return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
+        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(string phoneNumber, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
             {
 
             var reqId = GetReqId();
             var sig = itemsRequest is null ? "-" : ItemsSignature(itemsRequest);
+
+            // --- NEW: resolve client user ---
+            int? userId = await GetOrCreateClientUserIdByPhoneAsync(phoneNumber, ct);
 
             if (itemsRequest is null || itemsRequest.Count == 0)
                     return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
@@ -398,6 +416,7 @@ namespace Application.Services
                     Hours = 0,
                     TotalPrice = totalPrice,
                     StatusId = 6,
+                    UserId = userId,
                     CreatedBy = createdBy ?? "",
                     CreatedOn = DateTime.UtcNow,
                 };
@@ -504,8 +523,6 @@ namespace Application.Services
             await _uow.SaveChangesAsync(ct);
             return true;
         }
-
-
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query(asNoTracking: false)
@@ -580,7 +597,42 @@ namespace Application.Services
             return ("-", "-");
         }
 
+        private async Task<int?> GetOrCreateClientUserIdByPhoneAsync(string? phoneNumber, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+                return null;
 
+            var phone = phoneNumber.Trim();
+
+            // 1) Try to find existing user
+            var existing = await _userManager.Users
+                .FirstOrDefaultAsync(u => u.PhoneNumber == phone, ct);
+
+            if (existing != null)
+                return existing.Id;
+
+            // 2) Create a new minimal client user
+            var user = new AppUser
+            {
+                UserName = phone,
+                PhoneNumber = phone,
+                DisplayName = phone,
+                StatusId = (int)UserStatus.Active
+            };
+
+            var createResult = await _userManager.CreateAsync(user);
+            if (!createResult.Succeeded)
+            {
+                // if creation failed, we just don't link UserId (keep it null)
+                // you can log errors here if you want
+                return null;
+            }
+
+            // optionally assign Client role if you use it
+            await _userManager.AddToRoleAsync(user, "Client");
+
+            return user.Id;
+        }
 
     }
 }

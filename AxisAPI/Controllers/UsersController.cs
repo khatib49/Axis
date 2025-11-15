@@ -1,4 +1,6 @@
 ﻿using Application.DTOs;
+using Application.DTOs.RequestDto;
+using Application.DTOs.ResponseDto;
 using Application.IServices;
 using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +17,22 @@ namespace AxisAPI.Controllers
         public UsersController(IUsersService usersService)
         {
             _usersService = usersService;
+        }
+
+
+        /// <summary>
+        /// Create or get a client user by phone number.
+        /// If the phone already exists, returns the existing user.
+        /// </summary>
+        [HttpPost("client")]
+        public async Task<ActionResult<ClientUserResponse>> CreateClient([FromBody] ClientUserCreateRequest request, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+                return BadRequest("PhoneNumber is required.");
+
+            var result = await _usersService.CreateClient(request, ct);
+
+            return Ok(result);
         }
 
         [HttpGet("{id:int}")]

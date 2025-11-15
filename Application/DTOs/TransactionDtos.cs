@@ -39,6 +39,7 @@
     int Hours,
     decimal TotalPrice,
     int StatusId,
+    int? UserId,
     DateTime CreatedOn,
     string CreatedBy
         );

@@ -1,10 +1,13 @@
 ﻿using Application.DTOs;
+using Application.DTOs.RequestDto;
+using Application.DTOs.ResponseDto;
 using Application.IServices;
 using Application.Mapping;
 using Domain.Entities;
 using Domain.Identity;
 using Infrastructure.IRepositories;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
@@ -120,6 +123,66 @@ namespace Application.Services
             _mapper.ToDto(user, updatedRoles);
 
             return true;
+        }
+
+        public async Task<ClientUserResponse> CreateClient(ClientUserCreateRequest request, CancellationToken ct = default)
+        {
+            var phone = request.PhoneNumber.Trim();
+
+            // 1) Check if user already exists by phone
+            var existingUser = await _userManager.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.PhoneNumber == phone, ct);
+
+            if (existingUser != null)
+            {
+                return new ClientUserResponse
+                {
+                    Id = existingUser.Id,
+                    PhoneNumber = existingUser.PhoneNumber!,
+                    FirstName = existingUser.FirstName,
+                    LastName = existingUser.LastName,
+                    DisplayName = existingUser.DisplayName,
+                    IsNewlyCreated = false
+                };
+            }
+
+            // 2) Create new client user
+            var user = new AppUser
+            {
+                UserName = phone,                // use phone as username
+                PhoneNumber = phone,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                DisplayName = $"{request.FirstName} {request.LastName}".Trim(),
+                StatusId = (int)UserStatus.Active
+            };
+
+            // No password for now (e.g. login via OTP / external auth)
+            var createResult = await _userManager.CreateAsync(user);
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed to create client user: {errors}");
+            }
+
+            // 3) Assign "Client" role (make sure it exists in your seed)
+            var roleResult = await _userManager.AddToRoleAsync(user, "Client");
+            if (!roleResult.Succeeded)
+            {
+                var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed to assign Client role: {errors}");
+            }
+
+            return new ClientUserResponse
+            {
+                Id = user.Id,
+                PhoneNumber = user.PhoneNumber!,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                DisplayName = user.DisplayName,
+                IsNewlyCreated = true
+            };
         }
 
     }

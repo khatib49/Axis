@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using Domain.Identity;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
 {
@@ -22,7 +23,11 @@ namespace Domain.Entities
 
         // Required fields
         public int StatusId { get; set; }
-        public Status Status { get; set; } = default!; 
+        public Status Status { get; set; } = default!;
+
+        // NEW: link to client user (can be null)
+        public int? UserId { get; set; }
+        public AppUser? User { get; set; }
 
         // Transaction details
         public int Hours { get; set; }
