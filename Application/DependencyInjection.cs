@@ -39,6 +39,7 @@ namespace Application
             services.AddScoped<IStatusService, StatusService>();
 
             services.AddScoped<ISetService, SetService>();
+            services.AddScoped<IDiscountService, DiscountService>();
 
 
             return services;

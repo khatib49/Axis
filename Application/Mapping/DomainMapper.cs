@@ -175,6 +175,11 @@ namespace Application.Mapping
         public partial StatusDto ToDto(Status e);
         public partial Status ToEntity(StatusCreateDto dto);
         public partial void MapTo(StatusUpdateDto dto, [MappingTarget] Status e);
+
+        // ---------- Discount ----------
+        public partial DiscountDto ToDto(Discount e);
+        public partial Discount ToEntity(DiscountCreateDto dto);
+        public partial void MapTo(DiscountUpdateDto dto, [MappingTarget] Discount e);
     }
 
 }

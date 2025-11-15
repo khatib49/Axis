@@ -30,6 +30,7 @@ namespace Infrastructure.Persistence
         public DbSet<TransactionItem> TransactionItems => Set<TransactionItem>();
 
         public DbSet<Set> Sets => Set<Set>();
+        public DbSet<Discount> Discounts => Set<Discount>();
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
