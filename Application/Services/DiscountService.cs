@@ -82,7 +82,7 @@ namespace Application.Services
             if (dto.Name != null) e.Name = dto.Name;
             if (dto.Type != null) e.Type = dto.Type;
             if (dto.Description != null) e.Description = dto.Description;
-            if (dto.Amount.HasValue) e.Amount = dto.Amount.Value;
+            if (dto.Percentage.HasValue) e.Percentage = dto.Percentage.Value;
             if (dto.IsActive.HasValue) e.IsActive = dto.IsActive.Value;
 
             await _uow.SaveChangesAsync(ct);
