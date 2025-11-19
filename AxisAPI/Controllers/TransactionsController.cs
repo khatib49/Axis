@@ -80,7 +80,7 @@ namespace AxisAPI.Controllers
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateGameSession(userId,
-                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId, numberOfPersons ,ct);
+                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId ,ct, numberOfPersons);
 
             return created.Success ? Ok(created) : BadRequest(created);
         }
