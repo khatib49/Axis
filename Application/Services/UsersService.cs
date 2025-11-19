@@ -147,6 +147,7 @@ namespace Application.Services
                 };
             }
 
+            var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
             // 2) Create new client user
             var user = new AppUser
             {
@@ -154,6 +155,7 @@ namespace Application.Services
                 PhoneNumber = phone,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
+                Email = request.Email,
                 DisplayName = $"{request.FirstName} {request.LastName}".Trim(),
                 StatusId = (int)UserStatus.Active
             };
