@@ -210,14 +210,11 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateGameSession(string? phoneNumber, int gameId, int gameSettingId, int hours, int statusId, 
+        public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, 
                 string createdBy, int roomSetId, int discountId, CancellationToken ct = default)
             {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
-
-            // --- NEW: resolve client user ---
-            int? userId = await GetOrCreateClientUserIdByPhoneAsync(phoneNumber, ct);
 
             // 1) Validate game
             var game = await _repoGame.Query().AsNoTracking()
@@ -370,14 +367,11 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(string phoneNumber, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
+        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
             {
 
             var reqId = GetReqId();
             var sig = itemsRequest is null ? "-" : ItemsSignature(itemsRequest);
-
-            // --- NEW: resolve client user ---
-            int? userId = await GetOrCreateClientUserIdByPhoneAsync(phoneNumber, ct);
 
             if (itemsRequest is null || itemsRequest.Count == 0)
                     return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");

@@ -259,28 +259,26 @@ namespace Application.Services
             };
         }
 
-        public async Task<List<UserDto>> SearchByPhoneAsync(string phone, CancellationToken ct = default)
+        public async Task<List<User2Dto>> SearchByPhoneAsync(string phone, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(phone))
-                return new List<UserDto>();
+                return new List<User2Dto>();
 
             phone = phone.Trim();
 
             var users = await _userManager.Users
-                .Where(u => u.PhoneNumber.Contains(phone))
+                .Where(u => u.PhoneNumber != null && u.PhoneNumber.Contains(phone))
                 .AsNoTracking()
                 .ToListAsync(ct);
 
-            var result = new List<UserDto>();
-
-            foreach (var user in users)
-            {
-                var roles = (await _userManager.GetRolesAsync(user)).ToList();
-                result.Add(_mapper.ToDto(user, roles));
-            }
+            // Map directly to User2Dto – no need to load roles here
+            var result = users
+                .Select(u => _mapper.ToUser2Dto(u))
+                .ToList();
 
             return result;
         }
+
 
         public async Task<PaginatedResponse<User2Dto>> GetUsersByRoleIdAsync(
     int roleId,
