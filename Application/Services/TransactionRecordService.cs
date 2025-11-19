@@ -326,7 +326,8 @@ namespace Application.Services
                     UserId: userId,
                     CreatedOn: DateTime.UtcNow,
                     CreatedBy: createdBy ?? string.Empty,
-                    DiscountId: discount?.Id 
+                    DiscountId: discount?.Id ,
+                    numberOfPersons: numberOfPersons
                 );
 
                 var e = _mapper.ToEntity(createDto);
