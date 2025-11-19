@@ -212,7 +212,7 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, 
-                string createdBy, int roomSetId, int discountId, int numberOfPersons = 1, CancellationToken ct = default)
+                string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1)
             {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
