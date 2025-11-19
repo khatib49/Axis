@@ -14,12 +14,15 @@ namespace Application.Services
     public class UsersService : IUsersService
     {
         private readonly IBaseRepository<AppUser> _repo;
+        private readonly RoleManager<AppRole> _roleManager;
         private readonly UserManager<AppUser> _userManager;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
-        public UsersService(IBaseRepository<AppUser> repo, IUnitOfWork uow, DomainMapper mapper, UserManager<AppUser> userManager)
+        public UsersService(IBaseRepository<AppUser> repo, 
+            IUnitOfWork uow, DomainMapper mapper, UserManager<AppUser> userManager , RoleManager<AppRole> roleManager)
         {
             _repo = repo; _uow = uow; _mapper = mapper; _userManager = userManager;
+            _roleManager = roleManager;
         }
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
@@ -185,6 +188,54 @@ namespace Application.Services
                 DisplayName = user.DisplayName,
                 IsNewlyCreated = true
             };
+        }
+
+        public async Task<List<UserDto>> SearchByPhoneAsync(string phone, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(phone))
+                return new List<UserDto>();
+
+            phone = phone.Trim();
+
+            var users = await _userManager.Users
+                .Where(u => u.PhoneNumber.Contains(phone))
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            var result = new List<UserDto>();
+
+            foreach (var user in users)
+            {
+                var roles = (await _userManager.GetRolesAsync(user)).ToList();
+                result.Add(_mapper.ToDto(user, roles));
+            }
+
+            return result;
+        }
+
+
+        public async Task<List<UserDto>> GetUsersByRoleId(int roleId, CancellationToken ct = default)
+        {
+            // 1) Get role by Id
+            var role = await _roleManager.Roles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == roleId, ct);
+
+            if (role == null)
+                return new List<UserDto>(); // or throw if you prefer
+
+            // 2) Get users in this role (Identity works by role name)
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
+
+            // 3) Map to DTOs (with roles)
+            var result = new List<UserDto>();
+            foreach (var user in usersInRole)
+            {
+                var roles = (await _userManager.GetRolesAsync(user)).ToList();
+                result.Add(_mapper.ToDto(user, roles));
+            }
+
+            return result;
         }
 
     }

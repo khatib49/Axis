@@ -11,5 +11,7 @@ namespace Application.IServices
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
         Task<bool> UpdateAsync(int Id, UserUpdateDto request, CancellationToken ct = default);
         Task<ClientUserResponse> CreateClient(ClientUserCreateRequest request, CancellationToken ct = default);
+        Task<List<UserDto>> GetUsersByRoleId(int roleId, CancellationToken ct = default);
+        Task<List<UserDto>> SearchByPhoneAsync(string phone, CancellationToken ct = default);
     }
 }

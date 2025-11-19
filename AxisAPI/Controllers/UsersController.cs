@@ -35,6 +35,21 @@ namespace AxisAPI.Controllers
             return Ok(result);
         }
 
+        [HttpGet("search")]
+        public async Task<ActionResult<List<UserDto>>> SearchByPhone([FromQuery] string phone, CancellationToken ct)
+        {
+            var users = await _usersService.SearchByPhoneAsync(phone, ct);
+            return Ok(users);
+        }
+
+        [HttpPost("GetUsersByRoleId")]
+        public async Task<ActionResult<ClientUserResponse>> GetUsersByRoleId([FromBody] int roleId, CancellationToken ct)
+        {
+            var result = await _usersService.GetUsersByRoleId(roleId, ct);
+
+            return Ok(result);
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
