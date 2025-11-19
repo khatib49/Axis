@@ -26,8 +26,10 @@
         string CreatedBy,
         List<TransactionItemDto> Items,
         int? SetId,
-        string Set
-    );
+        string Set,
+        int? DiscountId,          // <-- added
+        string? DiscountName      // <-- added
+     );
 
 
     public record TransactionCreateDto(
@@ -41,7 +43,8 @@
     int StatusId,
     int? UserId,
     DateTime CreatedOn,
-    string CreatedBy
+    string CreatedBy,
+    int? DiscountId
         );
 
     public record OrderItemRequest(int ItemId, int Quantity);
@@ -53,7 +56,8 @@
     int? Hours,
     decimal? TotalPrice,
     int? StatusId,
-    int? SetId
+    int? SetId,
+    int? DiscountId
 );
 
     public record TransactionItemDto(

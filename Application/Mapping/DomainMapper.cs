@@ -96,7 +96,9 @@ namespace Application.Mapping
                     )).ToList()
                 )).ToList(),
                 e.SetId,
-                e.Set?.Name ?? string.Empty
+                e.Set?.Name ?? string.Empty,
+                e.DiscountId,
+                e.Discount?.Name ?? string.Empty
             );
 
 
