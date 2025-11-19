@@ -241,7 +241,7 @@ namespace Application.Services
             }
 
             // 3) Assign "Client" role (make sure it exists in your seed)
-            var roleResult = await _userManager.AddToRoleAsync(user, "Client");
+            var roleResult = await _userManager.AddToRoleAsync(user, "client");
             if (!roleResult.Succeeded)
             {
                 var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
