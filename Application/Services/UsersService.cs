@@ -3,7 +3,6 @@ using Application.DTOs.RequestDto;
 using Application.DTOs.ResponseDto;
 using Application.IServices;
 using Application.Mapping;
-using Domain.Entities;
 using Domain.Identity;
 using Infrastructure.IRepositories;
 using Microsoft.AspNetCore.Identity;
@@ -213,8 +212,8 @@ namespace Application.Services
             return result;
         }
 
-
-        public async Task<List<UserDto>> GetUsersByRoleId(int roleId, CancellationToken ct = default)
+        public async Task<PaginatedResponse<UserDto>> GetUsersByRoleIdAsync(int roleId, BasePaginationRequestDto pagination,
+            CancellationToken ct = default)
         {
             // 1) Get role by Id
             var role = await _roleManager.Roles
@@ -222,21 +221,43 @@ namespace Application.Services
                 .FirstOrDefaultAsync(r => r.Id == roleId, ct);
 
             if (role == null)
-                return new List<UserDto>(); // or throw if you prefer
+            {
+                return new PaginatedResponse<UserDto>(
+                    0,
+                    new List<UserDto>(),
+                    pagination.Page,
+                    pagination.PageSize
+                );
+            }
 
-            // 2) Get users in this role (Identity works by role name)
-            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
+            // 2) Get all users in this role (by role name)
+            var allUsersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
 
-            // 3) Map to DTOs (with roles)
+            var totalCount = allUsersInRole.Count;
+
+            // 3) Apply pagination in-memory
+            var pagedUsers = allUsersInRole
+                .AsQueryable()
+                .Skip((pagination.Page - 1) * pagination.PageSize)
+                .Take(pagination.PageSize)
+                .ToList();
+
+            // 4) Map to DTOs
             var result = new List<UserDto>();
-            foreach (var user in usersInRole)
+            foreach (var user in pagedUsers)
             {
                 var roles = (await _userManager.GetRolesAsync(user)).ToList();
                 result.Add(_mapper.ToDto(user, roles));
             }
 
-            return result;
+            return new PaginatedResponse<UserDto>(
+                totalCount,
+                result,
+                pagination.Page,
+                pagination.PageSize
+            );
         }
+
 
     }
 }
