@@ -13,6 +13,16 @@ namespace Application.Mapping
     [Mapper]
     public partial class DomainMapper
     {
+        public User2Dto ToUser2Dto(AppUser user)
+        {
+            return new User2Dto(
+                user.Id,
+                user.Email,
+                user.FirstName,
+                user.LastName ?? string.Empty,
+                user.PhoneNumber ?? string.Empty
+            );
+        }
         // ---------- Identity ----------
         // Note: roles are provided as an additional parameter and bound by name (case-insensitive). :contentReference[oaicite:2]{index=2}
         public partial UserDto ToDto(AppUser user, IList<string> roles);

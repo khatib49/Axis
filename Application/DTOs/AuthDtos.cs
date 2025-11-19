@@ -6,6 +6,7 @@
     public record BaseResponse(bool Success, string? Error);
 
     public record UserDto(int Id, string? Email, string? DisplayName, List<string> Roles, int StatusId );
+    public record User2Dto(int Id, string? Email, string? FirstName, string LastName, string PhoneNumber);
     public record UserUpdateDto(string? DisplayName, string? Email, List<string>? Roles, int? StatusId, string? Password);
 
 

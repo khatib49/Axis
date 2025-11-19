@@ -282,52 +282,49 @@ namespace Application.Services
             return result;
         }
 
-        public async Task<PaginatedResponse<UserDto>> GetUsersByRoleIdAsync(int roleId, BasePaginationRequestDto pagination,
-            CancellationToken ct = default)
+        public async Task<PaginatedResponse<User2Dto>> GetUsersByRoleIdAsync(
+    int roleId,
+    BasePaginationRequestDto pagination,
+    CancellationToken ct = default)
         {
-            // 1) Get role by Id
+            // 1) Get role
             var role = await _roleManager.Roles
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == roleId, ct);
 
             if (role == null)
             {
-                return new PaginatedResponse<UserDto>(
+                return new PaginatedResponse<User2Dto>(
                     0,
-                    new List<UserDto>(),
+                    new List<User2Dto>(),
                     pagination.Page,
                     pagination.PageSize
                 );
             }
 
-            // 2) Get all users in this role (by role name)
+            // 2) Load all users in role
             var allUsersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
-
             var totalCount = allUsersInRole.Count;
 
-            // 3) Apply pagination in-memory
+            // 3) Pagination in memory
             var pagedUsers = allUsersInRole
                 .AsQueryable()
                 .Skip((pagination.Page - 1) * pagination.PageSize)
                 .Take(pagination.PageSize)
                 .ToList();
 
-            // 4) Map to DTOs
-            var result = new List<UserDto>();
-            foreach (var user in pagedUsers)
-            {
-                var roles = (await _userManager.GetRolesAsync(user)).ToList();
-                result.Add(_mapper.ToDto(user, roles));
-            }
+            // 4) Map to User2Dto
+            var result = pagedUsers
+                .Select(u => _mapper.ToUser2Dto(u))
+                .ToList();
 
-            return new PaginatedResponse<UserDto>(
+            return new PaginatedResponse<User2Dto>(
                 totalCount,
                 result,
                 pagination.Page,
                 pagination.PageSize
             );
         }
-
 
     }
 }
