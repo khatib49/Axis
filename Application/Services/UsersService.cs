@@ -190,6 +190,30 @@ namespace Application.Services
             };
         }
 
+        public async Task<List<UserDto>> SearchByPhoneAsync(string phone, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(phone))
+                return new List<UserDto>();
+
+            phone = phone.Trim();
+
+            var users = await _userManager.Users
+                .Where(u => u.PhoneNumber.Contains(phone))
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            var result = new List<UserDto>();
+
+            foreach (var user in users)
+            {
+                var roles = (await _userManager.GetRolesAsync(user)).ToList();
+                result.Add(_mapper.ToDto(user, roles));
+            }
+
+            return result;
+        }
+
+
         public async Task<List<UserDto>> GetUsersByRoleId(int roleId, CancellationToken ct = default)
         {
             // 1) Get role by Id
