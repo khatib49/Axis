@@ -228,8 +228,12 @@ namespace Application.Services
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.CategoryId == game.CategoryId, ct);
 
+            
             if (room is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid room ID", "No available room for the selected game type.");
+
+            if (room.IsOpenSet && roomSetId > 0)
+                return new BaseResponse<TransactionDto>(false, "Invalid set selection", "This game requires open set.");
 
             if (!room.IsOpenSet)
                 {
@@ -297,7 +301,7 @@ namespace Application.Services
                 }
             }
 
-            int statusToUse = 6; // default to processed and paid
+            int statusToUse = 3; // default to processed and paid
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
             //statusToUse = (game.CategoryId == 2 || game.CategoryId == 3) ? 5 : 6; // 5: processed and unpaid, 6: processed and paid
             #endregion
@@ -316,7 +320,7 @@ namespace Application.Services
                     UserId: userId,
                     CreatedOn: DateTime.UtcNow,
                     CreatedBy: createdBy ?? string.Empty,
-                    DiscountId: discount?.Id ?? 0
+                    DiscountId: discount?.Id 
                 );
 
                 var e = _mapper.ToEntity(createDto);
