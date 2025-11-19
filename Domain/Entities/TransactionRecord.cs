@@ -45,6 +45,7 @@ namespace Domain.Entities
         public string? HangfireJobId { get; set; }   // NEW: to cancel/reschedule jobs
         public int? DiscountId { get; set; }       // <-- added
         public Discount? Discount { get; set; }
+        public int numberOfPersons { get; set; } = 1;
 
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
     }

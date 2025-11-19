@@ -28,7 +28,8 @@
         int? SetId,
         string Set,
         int? DiscountId,          // <-- added
-        string? DiscountName      // <-- added
+        string? DiscountName,      // <-- added
+        int numberOfPersons
      );
 
 
@@ -44,7 +45,8 @@
     int? UserId,
     DateTime CreatedOn,
     string CreatedBy,
-    int? DiscountId
+    int? DiscountId,
+    int numberOfPersons
         );
 
     public record OrderItemRequest(int ItemId, int Quantity);
@@ -58,7 +60,7 @@
     int? StatusId,
     int? SetId,
     int? DiscountId
-);
+        );
 
     public record TransactionItemDto(
     int ItemId,
