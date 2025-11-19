@@ -11,9 +11,17 @@ namespace Application.IServices
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
         Task<bool> UpdateAsync(int Id, UserUpdateDto request, CancellationToken ct = default);
         Task<ClientUserResponse> CreateClient(ClientUserCreateRequest request, CancellationToken ct = default);
+<<<<<<< HEAD
         Task<PaginatedResponse<UserDto>> GetUsersByRoleIdAsync(int roleId, BasePaginationRequestDto pagination,
             CancellationToken ct = default);
         Task<List<User2Dto>> SearchByPhoneAsync(string phone, CancellationToken ct = default);
+=======
+        Task<PaginatedResponse<User2Dto>> GetUsersByRoleIdAsync(
+   int roleId,
+   BasePaginationRequestDto pagination,
+   CancellationToken ct = default);
+        Task<List<UserDto>> SearchByPhoneAsync(string phone, CancellationToken ct = default);
+>>>>>>> cdeb1a8afb14090ef3426860b693540ec72b1124
         Task<ClientUserResponse?> UpdateClientAsync(int id, ClientUserUpdateRequest request, CancellationToken ct = default);
     }
 }
