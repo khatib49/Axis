@@ -114,6 +114,7 @@
 
         public int Hours { get; set; }
         public decimal TotalPrice { get; set; }
+        public DiscountDto? Discount {get;set; }
 
         // Items inside this game transaction
         public List<TransactionItemMiniDto> Items { get; set; } = new();

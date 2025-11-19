@@ -182,6 +182,18 @@ namespace Application.Services
 
                     Hours = t.Hours,
                     TotalPrice = t.TotalPrice,
+                    Discount = t.DiscountId != null && t.Discount != null
+                    ? new DiscountDto(
+                        t.Discount.Id,
+                        t.Discount.Name,
+                        t.Discount.Type,
+                        t.Discount.Description,
+                        t.Discount.Percentage,
+                        t.Discount.IsActive,
+                        t.Discount.CreatedOn,
+                        t.Discount.UpdatedOn
+                      )
+                    : null
 
                     // Explicitly omit items (if your serializer ignores nulls):
                     // Items = null
