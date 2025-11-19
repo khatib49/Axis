@@ -55,12 +55,13 @@ namespace AxisAPI.Controllers
             return Ok(result);
         }
 
-        [HttpPost("GetUsersByRoleId")]
-        public async Task<ActionResult<ClientUserResponse>> GetUsersByRoleId([FromBody] int roleId,
-            BasePaginationRequestDto pagination, CancellationToken ct)
+        [HttpGet("by-role/{roleId:int}")]
+        public async Task<ActionResult<PaginatedResponse<UserDto>>> GetUsersByRoleId(
+      [FromRoute] int roleId,
+      [FromQuery] BasePaginationRequestDto pagination,
+      CancellationToken ct)
         {
-            var result = await _usersService.GetUsersByRoleIdAsync(roleId, pagination,ct);
-
+            var result = await _usersService.GetUsersByRoleIdAsync(roleId, pagination, ct);
             return Ok(result);
         }
 
