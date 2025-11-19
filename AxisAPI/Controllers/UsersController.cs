@@ -35,6 +35,15 @@ namespace AxisAPI.Controllers
             return Ok(result);
         }
 
+
+        [HttpPost("GetUsersByRoleId")]
+        public async Task<ActionResult<ClientUserResponse>> GetUsersByRoleId([FromBody] int roleId, CancellationToken ct)
+        {
+            var result = await _usersService.GetUsersByRoleId(roleId, ct);
+
+            return Ok(result);
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
