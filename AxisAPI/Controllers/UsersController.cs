@@ -25,6 +25,7 @@ namespace AxisAPI.Controllers
         /// If the phone already exists, returns the existing user.
         /// </summary>
         [HttpPost("client")]
+        [Authorize]
         public async Task<ActionResult<ClientUserResponse>> CreateClient([FromBody] ClientUserCreateRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.PhoneNumber))
@@ -36,6 +37,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("search")]
+        [Authorize]
         public async Task<ActionResult<List<UserDto>>> SearchByPhone([FromQuery] string phone, CancellationToken ct)
         {
             var users = await _usersService.SearchByPhoneAsync(phone, ct);
@@ -43,6 +45,7 @@ namespace AxisAPI.Controllers
         }
         // PUT: api/users/clients/5
         [HttpPut("clients/{id:int}")]
+        [Authorize]
         public async Task<ActionResult<ClientUserResponse>> UpdateClient(
             int id,
             [FromBody] ClientUserUpdateRequest request,
@@ -56,16 +59,16 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("by-role/{roleId:int}")]
-        public async Task<ActionResult<PaginatedResponse<UserDto>>> GetUsersByRoleId(
-      [FromRoute] int roleId,
-      [FromQuery] BasePaginationRequestDto pagination,
-      CancellationToken ct)
+        [Authorize]
+        public async Task<ActionResult<PaginatedResponse<UserDto>>> GetUsersByRoleId([FromRoute] int roleId,[FromQuery] BasePaginationRequestDto pagination,
+            CancellationToken ct)
         {
             var result = await _usersService.GetUsersByRoleIdAsync(roleId, pagination, ct);
             return Ok(result);
         }
 
         [HttpGet("{id:int}")]
+        [Authorize]
         public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var user = await _usersService.GetAsync(id, ct);
@@ -74,6 +77,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> List([FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
         {
             var users = await _usersService.ListAsync(pagination, ct);
