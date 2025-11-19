@@ -41,12 +41,25 @@ namespace AxisAPI.Controllers
             var users = await _usersService.SearchByPhoneAsync(phone, ct);
             return Ok(users);
         }
+        // PUT: api/users/clients/5
+        [HttpPut("clients/{id:int}")]
+        public async Task<ActionResult<ClientUserResponse>> UpdateClient(
+            int id,
+            [FromBody] ClientUserUpdateRequest request,
+            CancellationToken ct)
+        {
+            var result = await _usersService.UpdateClientAsync(id, request, ct);
+            if (result is null)
+                return NotFound();
+
+            return Ok(result);
+        }
 
         [HttpPost("GetUsersByRoleId")]
         public async Task<ActionResult<ClientUserResponse>> GetUsersByRoleId([FromBody] int roleId,
             BasePaginationRequestDto pagination, CancellationToken ct)
         {
-            var result = await _usersService.GetUsersByRoleId(roleId, ct);
+            var result = await _usersService.GetUsersByRoleIdAsync(roleId, pagination,ct);
 
             return Ok(result);
         }

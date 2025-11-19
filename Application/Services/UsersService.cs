@@ -23,6 +23,76 @@ namespace Application.Services
             _repo = repo; _uow = uow; _mapper = mapper; _userManager = userManager;
             _roleManager = roleManager;
         }
+        public async Task<ClientUserResponse?> UpdateClientAsync(int id, ClientUserUpdateRequest request, CancellationToken ct = default)
+        {
+            // 1) Get user
+            var user = await _userManager.FindByIdAsync(id.ToString());
+            if (user == null)
+                return null;
+
+            // (Optional but recommended) ensure user is a Client
+            if (!await _userManager.IsInRoleAsync(user, "Client"))
+                throw new InvalidOperationException("User is not a client user.");
+
+            // 2) Update phone (if provided)
+            if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+            {
+                var newPhone = request.PhoneNumber.Trim();
+
+                if (!string.Equals(newPhone, user.PhoneNumber, StringComparison.Ordinal))
+                {
+                    // Check if phone already used by another user
+                    var exists = await _userManager.Users
+                        .AsNoTracking()
+                        .AnyAsync(u => u.PhoneNumber == newPhone && u.Id != user.Id, ct);
+
+                    if (exists)
+                        throw new InvalidOperationException("This phone number is already in use by another user.");
+
+                    user.PhoneNumber = newPhone;
+                    user.UserName = newPhone; // keep same behavior as CreateClient (login via phone)
+                }
+            }
+
+            // 3) Update first/last name (if provided)
+            if (!string.IsNullOrWhiteSpace(request.FirstName))
+                user.FirstName = request.FirstName.Trim();
+
+            if (!string.IsNullOrWhiteSpace(request.LastName))
+                user.LastName = request.LastName.Trim();
+
+            // 4) Update email (if provided – allow clearing as null)
+            if (request.Email != null)
+            {
+                var email = string.IsNullOrWhiteSpace(request.Email)
+                    ? null
+                    : request.Email.Trim();
+
+                user.Email = email;
+            }
+
+            // 5) Rebuild display name
+            user.DisplayName = $"{user.FirstName} {user.LastName}".Trim();
+
+            // 6) Save
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed to update client user: {errors}");
+            }
+
+            // 7) Return same shape as CreateClient
+            return new ClientUserResponse
+            {
+                Id = user.Id,
+                PhoneNumber = user.PhoneNumber!,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                DisplayName = user.DisplayName,
+                IsNewlyCreated = false
+            };
+        }
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.GetByIdAsync(id, asNoTracking: false, ct);
