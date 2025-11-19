@@ -108,7 +108,8 @@ namespace Application.Mapping
                 e.SetId,
                 e.Set?.Name ?? string.Empty,
                 e.DiscountId,
-                e.Discount?.Name ?? string.Empty
+                e.Discount?.Name ?? string.Empty,
+                e.numberOfPersons
             );
 
 

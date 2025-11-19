@@ -161,7 +161,8 @@ namespace Application.Services
                 e.SetId,
                 e.Set?.Name ?? string.Empty,
                 e.DiscountId,
-                e.Discount?.Name ?? string.Empty
+                e.Discount?.Name ?? string.Empty,
+                e.numberOfPersons
             );
         }
 
@@ -211,7 +212,7 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, 
-                string createdBy, int roomSetId, int discountId, CancellationToken ct = default)
+                string createdBy, int roomSetId, int discountId, int numberOfPersons = 1, CancellationToken ct = default)
             {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
@@ -277,6 +278,11 @@ namespace Application.Services
                 {
                     totalPrice = setting.Price * hours / setting.Hours;
                 }
+            if (numberOfPersons > 0)
+            {
+                totalPrice = totalPrice * numberOfPersons;
+            }
+            
             Discount? discount = null;
             if (discountId != 0)
             {
@@ -316,7 +322,8 @@ namespace Application.Services
                     UserId: userId,
                     CreatedOn: DateTime.UtcNow,
                     CreatedBy: createdBy ?? string.Empty,
-                    DiscountId: discount?.Id ?? 0
+                    DiscountId: discount?.Id ?? 0,
+                    numberOfPersons: numberOfPersons
                 );
 
                 var e = _mapper.ToEntity(createDto);
