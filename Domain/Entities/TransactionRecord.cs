@@ -43,6 +43,8 @@ namespace Domain.Entities
 
         public DateTime? ExpectedEndOn { get; set; } // NEW: UTC timestamp when it should end
         public string? HangfireJobId { get; set; }   // NEW: to cancel/reschedule jobs
+        public int? DiscountId { get; set; }       // <-- added
+        public Discount? Discount { get; set; }
 
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
     }

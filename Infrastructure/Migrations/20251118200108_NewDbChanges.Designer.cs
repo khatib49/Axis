@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251118200108_NewDbChanges")]
+    partial class NewDbChanges
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -59,9 +62,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ItemType")
-                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -597,9 +597,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
-                    b.Property<int?>("DiscountId")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime?>("ExpectedEndOn")
                         .HasColumnType("timestamp with time zone");
 
@@ -639,8 +636,6 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CardId");
-
-                    b.HasIndex("DiscountId");
 
                     b.HasIndex("GameId");
 
@@ -1129,10 +1124,6 @@ namespace Infrastructure.Migrations
                         .WithMany("Transactions")
                         .HasForeignKey("CardId");
 
-                    b.HasOne("Domain.Entities.Discount", "Discount")
-                        .WithMany()
-                        .HasForeignKey("DiscountId");
-
                     b.HasOne("Domain.Entities.Game", "Game")
                         .WithMany("Transactions")
                         .HasForeignKey("GameId")
@@ -1167,8 +1158,6 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId");
-
-                    b.Navigation("Discount");
 
                     b.Navigation("Game");
 

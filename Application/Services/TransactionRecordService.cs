@@ -32,12 +32,12 @@ namespace Application.Services
         private readonly DomainMapper _mapper;
         private readonly IHttpContextAccessor _http;
         private readonly ILogger<TransactionRecordService> _logger;
-
+        private readonly IBaseRepository<Discount> _repoDiscount;
         private readonly UserManager<AppUser> _userManager;
 
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
-            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
+            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager, IBaseRepository<Discount> repoDiscount,
             IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -48,6 +48,7 @@ namespace Application.Services
             _repoItem = repoItem;
             _repoTrxItem = repoTrxItem;
             _repoStatus = repoStatus;
+            _repoDiscount = repoDiscount;
             _logger = logger;
             _http = httpContextAccessor;
         }
@@ -115,6 +116,7 @@ namespace Application.Services
                 .Include(s => s.Room)
                 .Include(s => s.Status)
                 .Include(s => s.Set) // Include Set
+                .Include(s => s.Discount)
                 .Include(s => s.TransactionItems)
                     .ThenInclude(ti => ti.Item)
                         .ThenInclude(i => i.CoffeeShopOrders)
@@ -157,7 +159,9 @@ namespace Application.Services
                     )).ToList()
                 )).ToList(),
                 e.SetId,
-                e.Set?.Name ?? string.Empty
+                e.Set?.Name ?? string.Empty,
+                e.DiscountId,
+                e.Discount?.Name ?? string.Empty
             );
         }
 
@@ -207,7 +211,7 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateGameSession(string? phoneNumber, int gameId, int gameSettingId, int hours, int statusId, 
-                string createdBy, int roomSetId, CancellationToken ct = default)
+                string createdBy, int roomSetId, int discountId, CancellationToken ct = default)
             {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
@@ -276,8 +280,27 @@ namespace Application.Services
                 {
                     totalPrice = setting.Price * hours / setting.Hours;
                 }
+            Discount? discount = null;
+            if (discountId != 0)
+            {
+                // Apply Discount
+                discount = await _repoDiscount.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == discountId, ct);
 
-                int statusToUse = 6; // default to processed and paid
+                if (discount is null)
+                    return new BaseResponse<TransactionDto>(false, "Invalid discount", "The selected discount does not exist.");
+
+                if (discount.IsActive)
+                {
+                    totalPrice -= (totalPrice * discount.Percentage / 100);
+
+                    if (totalPrice < 0)
+                        totalPrice = 0;
+                }
+            }
+
+            int statusToUse = 6; // default to processed and paid
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
             //statusToUse = (game.CategoryId == 2 || game.CategoryId == 3) ? 5 : 6; // 5: processed and unpaid, 6: processed and paid
             #endregion
@@ -295,7 +318,8 @@ namespace Application.Services
                     StatusId: statusToUse, //processed and paid
                     UserId: userId,
                     CreatedOn: DateTime.UtcNow,
-                    CreatedBy: createdBy ?? string.Empty
+                    CreatedBy: createdBy ?? string.Empty,
+                    DiscountId: discount?.Id ?? 0
                 );
 
                 var e = _mapper.ToEntity(createDto);
@@ -346,7 +370,7 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(string phoneNumber, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
+        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(string phoneNumber, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
             {
 
             var reqId = GetReqId();
@@ -404,8 +428,29 @@ namespace Application.Services
                     totalPrice += (it.Price * qty);
                 }
 
-                // Create transaction
-                var trx = new TransactionRecord
+            Discount? discount = null;
+            if (discountId != 0)
+            {
+                // Apply Discount
+                discount = await _repoDiscount.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == discountId, ct);
+
+                if (discount is null)
+                    return new BaseResponse<TransactionDto>(false, "Invalid discount", "The selected discount does not exist.");
+
+                if (discount.IsActive)
+                {
+                    totalPrice -= (totalPrice * discount.Percentage / 100);
+
+                    if (totalPrice < 0)
+                        totalPrice = 0;
+                }
+            }
+
+
+            // Create transaction
+            var trx = new TransactionRecord
                 {
                 
                     RoomId = null,
@@ -419,6 +464,7 @@ namespace Application.Services
                     UserId = userId,
                     CreatedBy = createdBy ?? "",
                     CreatedOn = DateTime.UtcNow,
+                    DiscountId = discountId,
                 };
 
             
@@ -485,7 +531,25 @@ namespace Application.Services
             if (dto.Hours.HasValue) e.Hours = dto.Hours ?? 0;
             if (dto.TotalPrice.HasValue) e.TotalPrice = dto.TotalPrice ?? e.TotalPrice;
             if (dto.StatusId.HasValue) e.StatusId = dto.StatusId.Value;
+            Discount? discount = null;
 
+            if (dto.DiscountId.HasValue)
+            {
+                if (dto.DiscountId.Value > 0)
+                {
+                    discount = await _repoDiscount.Query()
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Id == dto.DiscountId.Value, ct)
+                        ?? throw new ArgumentException("Invalid DiscountId.");
+
+                    e.DiscountId = dto.DiscountId.Value;
+                }
+                else
+                {
+                    // remove discount
+                    e.DiscountId = null;
+                }
+            }
             // Validate Room/Set relationship only if either changed and both are present
             if ((roomChanged || setChanged) && e.RoomId.HasValue && e.SetId.HasValue)
             {
