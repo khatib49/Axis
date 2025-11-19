@@ -51,6 +51,7 @@ namespace Application.Services
                 .OrderByDescending(t => t.CreatedOn)
                 .Skip((page - 1) * size)
                 .Take(size)
+                .Include(t => t.Discount)
                 .Select(t => new ItemTransactionDto
                 {
                     TransactionId = t.Id,
@@ -67,6 +68,19 @@ namespace Application.Services
 
                     Hours = t.Hours,
                     TotalPrice = t.TotalPrice,
+                    Discount = t.DiscountId != null && t.Discount != null
+                    ? new DiscountDto(
+                        t.Discount.Id,
+                        t.Discount.Name,
+                        t.Discount.Type,
+                        t.Discount.Description,
+                        t.Discount.Percentage,
+                        t.Discount.IsActive,
+                        t.Discount.CreatedOn,
+                        t.Discount.UpdatedOn
+                      )
+                    : null,
+
 
                     Items = t.TransactionItems.Select(ti => new TransactionItemMiniDto
                     {

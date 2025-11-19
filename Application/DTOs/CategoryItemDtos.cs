@@ -80,6 +80,7 @@
 
         // Items inside this transaction
         public List<TransactionItemMiniDto> Items { get; set; } = new();
+        public DiscountDto? Discount { get; set; }
     }
 
     /// <summary>
