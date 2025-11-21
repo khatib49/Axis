@@ -21,7 +21,8 @@ namespace Application.Services
             if (f.CreatedBy is { Count: > 0 })
                 q = q.Where(t => f.CreatedBy!.Contains(t.CreatedBy));
 
-
+            q = q.Where(t => t.StatusId == 6);
+                //q = q.Where(t => f.StatusIds!.Contains(t.StatusId));
                 q = q.Where(t => t.Game == null);
 
             // -------- Item/Category filters & search --------
@@ -99,7 +100,7 @@ namespace Application.Services
                         LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity,
                         ImagePath = ti.Item != null ? ti.Item.ImagePath : null
                     }).ToList()
-                })
+                }).Where( c => c.StatusId==6)
                 .ToListAsync(ct);
 
             return new PaginatedResponse<ItemTransactionDto>(total, data, page, size, totalInvoices);
@@ -123,6 +124,7 @@ namespace Application.Services
             // ensure only game transactions
             q = q.Where(t => t.GameId != null);
 
+            q = q.Where(t => t.StatusId == 6);
             // -------- Game category filter --------
             if (f.CategoryIds is { Count: > 0 })
                 q = q.Where(t => t.Game != null && f.CategoryIds!.Contains(t.Game.CategoryId));
@@ -197,7 +199,7 @@ namespace Application.Services
 
                     // Explicitly omit items (if your serializer ignores nulls):
                     // Items = null
-                })
+                }).Where( c => c.StatusId==6)
                 .ToListAsync(ct);
 
             return new PaginatedResponse<GameTransactionDetailsDto>(total, data, page, size, totalInvoices);
@@ -280,21 +282,21 @@ namespace Application.Services
             if (catList.Count > 0)
             {
                 q = q.Where(t =>
-                    (t.GameId != null && t.Game != null && catList.Contains(t.Game.CategoryId)) ||
+                    (t.GameId != null && t.StatusId == 6 && t.Game != null && catList.Contains(t.Game.CategoryId)) ||
                     (t.GameId == null && t.TransactionItems.Any(ti => ti.Item != null && catList.Contains(ti.Item.CategoryId)))
                 );
             }
 
             // games totals per day (use TransactionRecord.TotalPrice)
             var gamesDaily = await q
-                .Where(t => t.GameId != null)
+                .Where(t => t.GameId != null && t.StatusId ==6)
                 .GroupBy(t => t.CreatedOn.Date)
                 .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
             // items totals per day (sum Item.Price * Quantity)
             var itemsDaily = await q
-                .Where(t => t.GameId == null)
+                .Where(t => t.GameId == null && t.StatusId == 6)
                 .SelectMany(t => t.TransactionItems.Select(ti => new
                 {
                     Date = t.CreatedOn.Date,

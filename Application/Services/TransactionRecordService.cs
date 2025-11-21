@@ -307,7 +307,7 @@ namespace Application.Services
                 }
             }
 
-            int statusToUse = 3; // default to processed and paid
+            int statusToUse = 6; // default to processed and paid
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
             //statusToUse = (game.CategoryId == 2 || game.CategoryId == 3) ? 5 : 6; // 5: processed and unpaid, 6: processed and paid
             #endregion
@@ -469,7 +469,7 @@ namespace Application.Services
                     UserId = userId,
                     CreatedBy = createdBy ?? "",
                     CreatedOn = DateTime.UtcNow,
-                    DiscountId = discountId,
+                    DiscountId = discount?.Id,
                 };
 
             
