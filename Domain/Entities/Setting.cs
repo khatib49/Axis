@@ -19,6 +19,7 @@
         public Game Game { get; set; } = default!;
         public bool IsOffer { get; set; } = false;
         public bool IsOpenHour { get; set; } = false;
+        public bool IsDayPass { get; set; } = false;
 
 
 
