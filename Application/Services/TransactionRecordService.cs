@@ -694,10 +694,7 @@ namespace Application.Services
             return user.Id;
         }
 
-        public async Task<BaseResponse<TransactionDto>> CloseGameSession(
-    int invoiceId,
-    string updatedBy,
-    CancellationToken ct = default)
+        public async Task<BaseResponse<TransactionDto>> CloseGameSession(int invoiceId, string updatedBy, CancellationToken ct = default)
         {
             var reqId = GetReqId();
             var sig = HashObject(new { invoiceId });
@@ -800,12 +797,12 @@ namespace Application.Services
         }
 
 
-        public async Task<BaseResponse<List<TransactionDto>>> GetOpenBoardGameSessionsAsync(CancellationToken ct = default)
+        public async Task<BaseResponse<List<TransactionDto>>> GetOpenBoardGameSessions(CancellationToken ct = default)
         {
             return await GetOpenSessionsByCategoryAsync(2, ct); // 2 = board games
         }
 
-        public async Task<BaseResponse<List<TransactionDto>>> GetOpenPs5SessionsAsync(CancellationToken ct = default)
+        public async Task<BaseResponse<List<TransactionDto>>> GetOpenPs5Sessions(CancellationToken ct = default)
         {
             return await GetOpenSessionsByCategoryAsync(5, ct); // 5 = PS5
         }
