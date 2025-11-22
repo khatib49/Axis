@@ -367,19 +367,8 @@ namespace Application.Services
             //    }
             //}
             #endregion
-                e = await _repo.Query()
-                    .Include(x => x.Room)
-                    .Include(x => x.Game)
-                    .Include(x => x.GameType)
-                    .Include(x => x.GameSetting)
-                    .Include(x => x.Discount)
-                    .Include(x => x.Set)
-                    .Include(x => x.TransactionItems)
-                        .ThenInclude(ti => ti.Item)
-                    .Include(x => x.TransactionItems)
-                        .ThenInclude(ti => ti.Item.CoffeeShopOrders)
-                    .FirstOrDefaultAsync(x => x.Id == e.Id, ct);
-                TransactionDto transactionDto = _mapper.ToDto(e);
+
+            TransactionDto transactionDto = _mapper.ToDto(e);
 
                 return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
         }
