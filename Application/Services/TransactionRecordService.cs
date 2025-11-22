@@ -694,6 +694,7 @@ namespace Application.Services
             return user.Id;
         }
 
+
         public async Task<BaseResponse<TransactionDto>> CloseGameSession(int invoiceId, string updatedBy, CancellationToken ct = default)
         {
             var reqId = GetReqId();
@@ -731,21 +732,44 @@ namespace Application.Services
             if (totalMinutes < 1)
                 totalMinutes = 1; // at least 1 minute
 
-            // fractional hours (e.g. 75 min = 1.25h)
-            decimal playedHours = (decimal)totalMinutes / 60m;
-            // optional: keep 2 decimals
+            // ---- ROUNDING LOGIC (30-min steps) ----
+            // 1:00 - 1:30  -> 1:30
+            // 1:31 - 1:59  -> 2:00
+            var fullHours = Math.Floor(totalMinutes / 60.0);             // e.g. 75 -> 1
+            var remainingMinutes = totalMinutes - (fullHours * 60.0);    // e.g. 75 - 60 = 15
+
+            if (remainingMinutes > 0 && remainingMinutes <= 30)
+            {
+                // anything between 1 and 30 min -> 30 min
+                remainingMinutes = 30;
+            }
+            else if (remainingMinutes > 30)
+            {
+                // more than 30 min -> next full hour
+                fullHours += 1;
+                remainingMinutes = 0;
+            }
+
+            var billedMinutes = (fullHours * 60.0) + remainingMinutes;   // e.g. 1h30 = 90
+            decimal playedHours = (decimal)billedMinutes / 60m;          // e.g. 90/60 = 1.5
             playedHours = Math.Round(playedHours, 2, MidpointRounding.AwayFromZero);
 
             // 4) Persons
             var persons = tx.numberOfPersons > 0 ? tx.numberOfPersons : 1;
 
             // 5) Calculate total price
-            decimal totalPrice = tx.TotalPrice; // default (in case IsOpenHour = false)
-            
             // Price is per hour per person
             // e.g. 3$ * 1.5h * 1 person = 4.5$
-            totalPrice = setting.Price * playedHours * persons;
-            
+            bool isBoardGame = tx.GameTypeId == 2;   // 2 = board games
+            decimal billedHoursForPrice = playedHours;
+
+            // BOARD GAMES: if more than 2H -> charge as "day pass" = price of 2H
+            if (isBoardGame && billedHoursForPrice > 2m)
+            {
+                billedHoursForPrice =  setting.Price;
+            }
+
+            decimal totalPrice = setting.Price * billedHoursForPrice * persons;
 
             // 6) Apply discount if exists
             if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
@@ -767,18 +791,18 @@ namespace Application.Services
             if (tracked is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
 
-            // If Hours column is int, store the ceil (for display),
-            // but billing is done using fractional totalPrice above.
+            // For display / reporting, Hours is stored as the ceiled rounded-hours
             tracked.Hours = (int)Math.Ceiling(playedHours);
             tracked.TotalPrice = totalPrice;
             tracked.StatusId = 6; // processed & paid
             tracked.ModifiedOn = nowUtc;
+            tracked.CreatedBy = updatedBy ?? tracked.CreatedBy;
 
             try
             {
                 _logger.LogInformation(
-                    "GS/CloseSession BEFORE_SAVE ReqId={ReqId} Tx={TxId} Hours={Hours} Total={Total}",
-                    reqId, tracked.Id, tracked.Hours, tracked.TotalPrice);
+                    "GS/CloseSession BEFORE_SAVE ReqId={ReqId} Tx={TxId} Hours={Hours} PlayedRounded={PlayedHours} Total={Total}",
+                    reqId, tracked.Id, tracked.Hours, playedHours, tracked.TotalPrice);
 
                 await _uow.SaveChangesAsync(ct);
             }
