@@ -782,13 +782,21 @@ namespace Application.Services
             bool isBoardGame = tx.GameTypeId == 2;   // 2 = board games
             decimal billedHoursForPrice = playedHours;
 
+            decimal totalPrice = 0;
             // BOARD GAMES: if more than 2H -> charge as "day pass" = price of 2H
             if (isBoardGame && billedHoursForPrice > 2m)
             {
-                billedHoursForPrice =  setting.Price;
-            }
+                var dayPassPrice = await _repoSetting.Query()
+                    .AsNoTracking()
+                    .Where(s => s.IsDayPass == true && s.Id == tx.GameSettingId).FirstOrDefaultAsync();
 
-            decimal totalPrice = setting.Price * billedHoursForPrice * persons;
+                billedHoursForPrice =  dayPassPrice!.Price;
+                totalPrice =  billedHoursForPrice * persons;
+            }
+            else
+            {
+                totalPrice = setting.Price * billedHoursForPrice * persons;
+            }
 
             // 6) Apply discount if exists
             if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
