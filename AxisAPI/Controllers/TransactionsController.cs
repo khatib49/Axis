@@ -76,11 +76,11 @@ namespace AxisAPI.Controllers
         [HttpPost("CreateGameSession")]
         [Authorize(Roles = "admin,gamecashier")]
         public async Task<IActionResult> CreateGameSession(
-     int gameId, int gameSettingId, int hours, int status, int setId, int discountId, int? userId, CancellationToken ct, int numberOfPersons = 1)
+     int gameId, int gameSettingId, int hours, int status, int setId, int discountId, int? userId, CancellationToken ct, int numberOfPersons = 1, bool isDayPass = false)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateGameSession(userId,
-                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId ,ct, numberOfPersons);
+                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId ,ct, numberOfPersons, isDayPass);
 
             return created.Success ? Ok(created) : BadRequest(created);
         }

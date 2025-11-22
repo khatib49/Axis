@@ -212,7 +212,7 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, 
-                string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1)
+                string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false)
             {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
@@ -262,15 +262,6 @@ namespace Application.Services
             }
 
                 DateTime? expectedEndOn = null;
-                if (!setting.IsOpenHour)
-                {
-                    if (setting.Hours <= 0)
-                    {
-                        return new BaseResponse<TransactionDto>(false, "Invalid game setting hours", "The specified game setting has invalid hours for a timed session ( should be greater than 0).");
-                    }
-                expectedEndOn = setting.IsOpenHour ? null : DateTime.UtcNow.AddHours(hours);
-                }   
-
 
                 decimal totalPrice = 0.0M;
 
@@ -278,10 +269,7 @@ namespace Application.Services
                 {
                     totalPrice = setting.Price;
                 }
-                else
-                {
-                    totalPrice = setting.Price * hours / setting.Hours;
-                }
+
             if (numberOfPersons > 0)
             {
                 totalPrice = totalPrice * numberOfPersons;
@@ -307,9 +295,12 @@ namespace Application.Services
                 }
             }
 
-            int statusToUse = 6; // default to processed and paid
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
-            //statusToUse = (game.CategoryId == 2 || game.CategoryId == 3) ? 5 : 6; // 5: processed and unpaid, 6: processed and paid
+            int statusToUse = (game.CategoryId == 5 || game.CategoryId== 2) ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
+            if(isDayPass)
+            {
+                statusToUse = 6;
+            }
             #endregion
 
 
