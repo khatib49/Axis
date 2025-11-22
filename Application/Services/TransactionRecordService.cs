@@ -253,7 +253,7 @@ namespace Application.Services
             // 5) Price calc from Setting
             var setting = await _repoSetting.Query().AsNoTracking()
                 .Where(s => s.Id == gameSettingId)
-                .Select(s => new { s.Hours, s.Price, s.IsOpenHour })
+                .Select(s => new { s.Hours, s.Price, s.IsOpenHour , s.IsDayPass })
                 .FirstOrDefaultAsync(ct);
             
             if(setting is null)
@@ -265,7 +265,7 @@ namespace Application.Services
 
                 decimal totalPrice = 0.0M;
 
-                if (setting.IsOpenHour)
+                if (setting.IsOpenHour || setting.IsDayPass)
                 {
                     totalPrice = setting.Price;
                 }
@@ -296,7 +296,7 @@ namespace Application.Services
             }
 
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
-            int statusToUse = (game.CategoryId == 5 || game.CategoryId== 2) ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
+            int statusToUse = (game.CategoryId == 5 || game.CategoryId== 6) ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
             if(isDayPass)
             {
                 statusToUse = 6;
@@ -823,12 +823,12 @@ namespace Application.Services
 
         public async Task<BaseResponse<List<TransactionDto>>> GetOpenBoardGameSessions(CancellationToken ct = default)
         {
-            return await GetOpenSessionsByCategoryAsync(2, ct); // 2 = board games
+            return await GetOpenSessionsByCategoryAsync(5, ct); // 2 = board games
         }
 
         public async Task<BaseResponse<List<TransactionDto>>> GetOpenPs5Sessions(CancellationToken ct = default)
         {
-            return await GetOpenSessionsByCategoryAsync(5, ct); // 5 = PS5
+            return await GetOpenSessionsByCategoryAsync(6, ct); // 5 = PS5
         }
 
         private async Task<BaseResponse<List<TransactionDto>>> GetOpenSessionsByCategoryAsync(
