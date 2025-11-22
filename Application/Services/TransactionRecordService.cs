@@ -28,6 +28,7 @@ namespace Application.Services
         private readonly IBaseRepository<Item> _repoItem;
         private readonly IBaseRepository<Status> _repoStatus;
         private readonly IBaseRepository<TransactionItem> _repoTrxItem;
+        private readonly IBaseRepository<Set> _repoSet;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
         private readonly IHttpContextAccessor _http;
@@ -37,8 +38,8 @@ namespace Application.Services
 
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
-            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager, IBaseRepository<Discount> repoDiscount,
-            IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
+            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager, IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet,
+        IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo; _uow = uow; _mapper = mapper;
             _userManager = userManager;
@@ -49,6 +50,7 @@ namespace Application.Services
             _repoTrxItem = repoTrxItem;
             _repoStatus = repoStatus;
             _repoDiscount = repoDiscount;
+            _repoSet = repoSet;
             _logger = logger;
             _http = httpContextAccessor;
         }
@@ -248,7 +250,9 @@ namespace Application.Services
                         .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
                     if (isSetInUse)
                         return new BaseResponse<TransactionDto>(false, "set in use", "The selected set is currently in use. Please choose a different set.");
-                }
+                    
+                    set.StatusId = 10;
+            }
 
             // 5) Price calc from Setting
             var setting = await _repoSetting.Query().AsNoTracking()
@@ -797,6 +801,16 @@ namespace Application.Services
             tracked.StatusId = 6; // processed & paid
             tracked.ModifiedOn = nowUtc;
             tracked.CreatedBy = updatedBy ?? tracked.CreatedBy;
+
+            //8) Make Set Available
+
+            var set = await _repoSet.Query()
+                .AsNoTracking()
+                .Where(s => s.Id == tx.SetId)
+                .FirstOrDefaultAsync(ct);
+
+            if (set != null)
+                set.StatusId = 9;
 
             try
             {
