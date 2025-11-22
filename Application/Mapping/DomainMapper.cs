@@ -109,7 +109,8 @@ namespace Application.Mapping
                 e.Set?.Name ?? string.Empty,
                 e.DiscountId,
                 e.Discount?.Name ?? string.Empty,
-                e.numberOfPersons
+                e.numberOfPersons,
+                e.GameSetting?.IsDayPass ?? false
             );
 
 

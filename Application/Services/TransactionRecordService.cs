@@ -164,7 +164,8 @@ namespace Application.Services
                 e.Set?.Name ?? string.Empty,
                 e.DiscountId,
                 e.Discount?.Name ?? string.Empty,
-                e.numberOfPersons
+                e.numberOfPersons,
+                e.GameSetting?.IsDayPass ?? false
             );
         }
 
@@ -251,7 +252,13 @@ namespace Application.Services
                     if (isSetInUse)
                         return new BaseResponse<TransactionDto>(false, "set in use", "The selected set is currently in use. Please choose a different set.");
                     
-                    set.StatusId = 10;
+                    
+                    Set setToUpdate = new Set { Id = set.Id };
+
+                    _repoSet.Attach(setToUpdate);
+                    setToUpdate.StatusId = 10;
+                    await _uow.SaveChangesAsync(ct);
+
             }
 
             // 5) Price calc from Setting
@@ -300,11 +307,8 @@ namespace Application.Services
             }
 
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
-            int statusToUse = (game.CategoryId == 5 || game.CategoryId== 6) ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
-            if(isDayPass)
-            {
-                statusToUse = 6;
-            }
+            int statusToUse = (game.CategoryId == 2 || game.CategoryId== 6) || isDayPass ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
+           
             #endregion
 
 
@@ -848,7 +852,7 @@ namespace Application.Services
 
         public async Task<BaseResponse<List<TransactionDto>>> GetOpenBoardGameSessions(CancellationToken ct = default)
         {
-            return await GetOpenSessionsByCategoryAsync(5, ct); // 2 = board games
+            return await GetOpenSessionsByCategoryAsync(2, ct); // 2 = board games
         }
 
         public async Task<BaseResponse<List<TransactionDto>>> GetOpenPs5Sessions(CancellationToken ct = default)
@@ -865,6 +869,11 @@ namespace Application.Services
             var query = _repo.Query()
                 .AsNoTracking()
                 .Where(t => t.StatusId == 7 && t.GameTypeId == categoryId)
+                .Include(t => t.Room)
+                .Include(t => t.Set)
+                .Include(t => t.Game)
+                .Include(t => t.GameType)
+                .Include(t => t.GameSetting)
                 .OrderByDescending(t => t.CreatedOn);
 
             var entities = await query.ToListAsync(ct);

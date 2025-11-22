@@ -29,7 +29,8 @@
         string Set,
         int? DiscountId,          // <-- added
         string? DiscountName,      // <-- added
-        int numberOfPersons
+        int numberOfPersons,
+        bool IsDayPass
      );
 
 

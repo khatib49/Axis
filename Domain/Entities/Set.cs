@@ -9,8 +9,8 @@
         // Examples: "A", "B", "C" or "Table 1", "Table 2"
         public string Name { get; set; } = default!;
         public string? Description { get; set; }
-        public int StatusId { get; set; }
-        public Status Status { get; set; } = default!;
+        public int? StatusId { get; set; }
+        public Status? Status { get; set; } = default!;
         public ICollection<TransactionRecord> Transactions { get; set; } = new List<TransactionRecord>();
 
     }
