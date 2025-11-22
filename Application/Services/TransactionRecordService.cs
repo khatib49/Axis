@@ -694,5 +694,152 @@ namespace Application.Services
             return user.Id;
         }
 
+        public async Task<BaseResponse<TransactionDto>> CloseGameSession(
+    int invoiceId,
+    string updatedBy,
+    CancellationToken ct = default)
+        {
+            var reqId = GetReqId();
+            var sig = HashObject(new { invoiceId });
+
+            // 1) Load transaction (unpaid session)
+            var tx = await _repo.Query()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (tx is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
+
+            // must be processed & unpaid (7)
+            if (tx.StatusId != 7)
+                return new BaseResponse<TransactionDto>(false, "Invalid status", "This session is not in 'processed & unpaid' status.");
+
+            // 2) Load game setting (price + IsOpenHour)
+            var setting = await _repoSetting.Query()
+                .AsNoTracking()
+                .Where(s => s.Id == tx.GameSettingId)
+                .Select(s => new { s.Hours, s.Price, s.IsOpenHour })
+                .FirstOrDefaultAsync(ct);
+
+            if (setting is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid game setting", "The game setting linked to this session does not exist.");
+
+            // 3) Calculate played time
+            var nowUtc = DateTime.UtcNow;
+            var startedOn = tx.CreatedOn; // assuming non-null
+            if (startedOn == default)
+                return new BaseResponse<TransactionDto>(false, "Invalid data", "Session start time is missing.");
+
+            var totalMinutes = (nowUtc - startedOn).TotalMinutes;
+            if (totalMinutes < 1)
+                totalMinutes = 1; // at least 1 minute
+
+            // fractional hours (e.g. 75 min = 1.25h)
+            decimal playedHours = (decimal)totalMinutes / 60m;
+            // optional: keep 2 decimals
+            playedHours = Math.Round(playedHours, 2, MidpointRounding.AwayFromZero);
+
+            // 4) Persons
+            var persons = tx.numberOfPersons > 0 ? tx.numberOfPersons : 1;
+
+            // 5) Calculate total price
+            decimal totalPrice = tx.TotalPrice; // default (in case IsOpenHour = false)
+            
+            // Price is per hour per person
+            // e.g. 3$ * 1.5h * 1 person = 4.5$
+            totalPrice = setting.Price * playedHours * persons;
+            
+
+            // 6) Apply discount if exists
+            if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
+            {
+                var discount = await _repoDiscount.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == tx.DiscountId.Value, ct);
+
+                if (discount is not null && discount.IsActive)
+                {
+                    totalPrice -= (totalPrice * discount.Percentage / 100m);
+                    if (totalPrice < 0)
+                        totalPrice = 0;
+                }
+            }
+
+            // 7) Update tracked entity
+            var tracked = await _repo.GetByIdAsync(invoiceId, asNoTracking: false, ct);
+            if (tracked is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
+
+            // If Hours column is int, store the ceil (for display),
+            // but billing is done using fractional totalPrice above.
+            tracked.Hours = (int)Math.Ceiling(playedHours);
+            tracked.TotalPrice = totalPrice;
+            tracked.StatusId = 6; // processed & paid
+            tracked.ModifiedOn = nowUtc;
+
+            try
+            {
+                _logger.LogInformation(
+                    "GS/CloseSession BEFORE_SAVE ReqId={ReqId} Tx={TxId} Hours={Hours} Total={Total}",
+                    reqId, tracked.Id, tracked.Hours, tracked.TotalPrice);
+
+                await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                var (prov, code) = ExtractDbCode(ex);
+                _logger.LogError(ex,
+                    "GS/CloseSession ERROR ReqId={ReqId} DB={Prov}:{Code} Tx={TxId} Sig={Sig}",
+                    reqId, prov, code, invoiceId, sig);
+
+                return new BaseResponse<TransactionDto>(false, "db error", "Failed to close the session. Please try again.");
+            }
+
+            var dto = _mapper.ToDto(tracked);
+            return new BaseResponse<TransactionDto>(true, null, "Game session closed successfully.", dto);
+        }
+
+
+        public async Task<BaseResponse<List<TransactionDto>>> GetOpenBoardGameSessionsAsync(CancellationToken ct = default)
+        {
+            return await GetOpenSessionsByCategoryAsync(2, ct); // 2 = board games
+        }
+
+        public async Task<BaseResponse<List<TransactionDto>>> GetOpenPs5SessionsAsync(CancellationToken ct = default)
+        {
+            return await GetOpenSessionsByCategoryAsync(5, ct); // 5 = PS5
+        }
+
+        private async Task<BaseResponse<List<TransactionDto>>> GetOpenSessionsByCategoryAsync(
+            int categoryId,
+            CancellationToken ct = default)
+        {
+            var reqId = GetReqId();
+
+            var query = _repo.Query()
+                .AsNoTracking()
+                .Where(t => t.StatusId == 7 && t.GameTypeId == categoryId)
+                .OrderByDescending(t => t.CreatedOn);
+
+            var entities = await query.ToListAsync(ct);
+
+            var dtos = new List<TransactionDto>();
+            foreach (var e in entities)
+            {
+                dtos.Add(_mapper.ToDto(e));
+            }
+
+            _logger.LogInformation(
+                "GS/GetOpenSessions ReqId={ReqId} Category={CategoryId} Count={Count}",
+                reqId, categoryId, dtos.Count);
+
+            return new BaseResponse<List<TransactionDto>>(
+                true,
+                null,
+                "Open sessions retrieved successfully.",
+                dtos);
+        }
+
+
     }
 }

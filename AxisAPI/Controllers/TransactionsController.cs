@@ -97,6 +97,36 @@ namespace AxisAPI.Controllers
             return created.Success ? Ok(created) : BadRequest(created);
         }
 
+        [Route("GetOpenBoardGameSessions")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        [HttpGet]
+        [LogOnError]
+        public async Task<IActionResult> GetOpenBoardGameSessions(CancellationToken ct)
+        {
+            var result = await _transactionService.GetOpenBoardGameSessions(ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+
+        [Route("GetOpenPs5Sessions")]
+        [Authorize(Roles = "admin,cashier,gamecashier")]
+        [HttpGet]
+        [LogOnError]
+        public async Task<IActionResult> GetOpenPs5Sessions(CancellationToken ct)
+        {
+            var result = await _transactionService.GetOpenPs5Sessions(ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+        [HttpPost("sessions/{invoiceId:int}/close")]
+        public async Task<ActionResult<BaseResponse<TransactionDto>>> CloseSession(int invoiceId,CancellationToken ct)
+        {
+            var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            var result = await _transactionService.CloseGameSession(invoiceId, createdBy, ct);
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
 
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "admin")]

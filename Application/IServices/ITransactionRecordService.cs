@@ -21,5 +21,9 @@ namespace Application.IServices
 
         Task<PaginatedResponse<GameTransactionDetailsDto>> GetGameTransactionsWithDetailsAsync(
             TransactionsFilterDto f, CancellationToken ct = default);
+        Task<BaseResponse<TransactionDto>> CloseGameSession(int invoiceId,string updatedBy,CancellationToken ct = default);
+        Task<BaseResponse<List<TransactionDto>>> GetOpenBoardGameSessions(CancellationToken ct = default);
+        Task<BaseResponse<List<TransactionDto>>> GetOpenPs5Sessions(CancellationToken ct = default);
+
     }
 }
