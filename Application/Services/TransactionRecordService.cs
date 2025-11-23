@@ -713,7 +713,6 @@ namespace Application.Services
             return user.Id;
         }
 
-
         public async Task<BaseResponse<TransactionDto>> CloseGameSession(int invoiceId, string updatedBy, CancellationToken ct = default)
         {
             var reqId = GetReqId();
@@ -754,17 +753,15 @@ namespace Application.Services
             // ---- ROUNDING LOGIC (30-min steps) ----
             // 1:00 - 1:30  -> 1:30
             // 1:31 - 1:59  -> 2:00
-            var fullHours = Math.Floor(totalMinutes / 60.0);             // e.g. 75 -> 1
-            var remainingMinutes = totalMinutes - (fullHours * 60.0);    // e.g. 75 - 60 = 15
+            var fullHours = Math.Floor(totalMinutes / 60.0);
+            var remainingMinutes = totalMinutes - (fullHours * 60.0);
 
             if (remainingMinutes > 0 && remainingMinutes <= 30)
             {
-                // anything between 1 and 30 min -> 30 min
                 remainingMinutes = 30;
             }
             else if (remainingMinutes > 30)
             {
-                // more than 30 min -> next full hour
                 fullHours += 1;
                 remainingMinutes = 0;
             }
@@ -776,29 +773,41 @@ namespace Application.Services
             // 4) Persons
             var persons = tx.numberOfPersons > 0 ? tx.numberOfPersons : 1;
 
-            // 5) Calculate total price
+            // 5) Calculate total price (NEW LOGIC)
             // Price is per hour per person
-            // e.g. 3$ * 1.5h * 1 person = 4.5$
-            bool isBoardGame = tx.GameTypeId == 2;   // 2 = board games
-            decimal billedHoursForPrice = playedHours;
-
-            decimal totalPrice = 0;
-            // BOARD GAMES: if more than 2H -> charge as "day pass" = price of 2H
-            if (isBoardGame && billedHoursForPrice > 2m)
+            bool isBoardGame = tx.GameTypeId == 2; // 2 = board games // if we ar darts games
+            decimal totalPriceBeforeDiscount;
+            bool calculateThePrice = true;
+            if (isBoardGame && playedHours > 2m)
             {
-                var dayPassPrice = await _repoSetting.Query()
+                // BOARD GAMES: if more than 2H -> use day-pass price
+                // adapt the filter to your schema (e.g. GameTypeId, GameId, etc.)
+                var dayPass = await _repoSetting.Query()
                     .AsNoTracking()
-                    .Where(s => s.IsDayPass == true && s.Id == tx.GameSettingId).FirstOrDefaultAsync();
-
-                billedHoursForPrice =  dayPassPrice!.Price;
-                totalPrice =  billedHoursForPrice * persons;
+                    .Where(s => s.IsDayPass == true && s.GameId == tx.GameId)
+                    .FirstOrDefaultAsync(ct);
+                decimal dayPassPrice = dayPass.Price;
+                if (dayPassPrice > 0)
+                {
+                    // day-pass price * persons
+                    calculateThePrice = false;
+                    totalPriceBeforeDiscount = dayPassPrice * persons;
+                }
+                else
+                {
+                    // fallback: charge normal hours if no day-pass configured
+                    totalPriceBeforeDiscount = setting.Price * playedHours * persons;
+                }
             }
             else
             {
-                totalPrice = setting.Price * billedHoursForPrice * persons;
+                // Normal hourly pricing
+                totalPriceBeforeDiscount = setting.Price * playedHours * persons;
             }
 
-            // 6) Apply discount if exists
+            decimal totalPrice = totalPriceBeforeDiscount;
+
+            // 6) Apply discount if exists (UNCHANGED)
             if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
             {
                 var discount = await _repoDiscount.Query()
@@ -813,27 +822,53 @@ namespace Application.Services
                 }
             }
 
+
+            // FINAL PRICE ROUNDING
+            if (totalPrice > 0 && calculateThePrice)
+            {
+                var floor = Math.Floor(totalPrice);          // x
+                var fraction = totalPrice - (decimal)floor;  // decimal part
+
+                if (fraction == 0)
+                {
+                    // x.0 → stay x.0
+                    totalPrice = (decimal)floor;
+                }
+                else if (fraction > 0 && fraction <= 0.5m)
+                {
+                    // x.1 - x.5 → x.5
+                    totalPrice = (decimal)floor + 0.5m;
+                }
+                else
+                {
+                    // x.6 - x.9 → x+1
+                    totalPrice = (decimal)floor + 1m;
+                }
+            }
+
+
+            // if totalPrice == 0 (e.g. 100% discount), keep it 0
+
             // 7) Update tracked entity
             var tracked = await _repo.GetByIdAsync(invoiceId, asNoTracking: false, ct);
             if (tracked is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
 
-            // For display / reporting, Hours is stored as the ceiled rounded-hours
-            tracked.Hours = (int)Math.Ceiling(playedHours);
+            tracked.Hours = (int)Math.Ceiling(playedHours);    // store rounded hours
             tracked.TotalPrice = totalPrice;
             tracked.StatusId = 6; // processed & paid
             tracked.ModifiedOn = nowUtc;
             tracked.CreatedBy = updatedBy ?? tracked.CreatedBy;
 
-            //8) Make Set Available
+            // 8) Make Set Available
+            if (tx.SetId.HasValue)
+            {
+                var set = await _repoSet.Query(asNoTracking: false)
+                    .FirstOrDefaultAsync(s => s.Id == tx.SetId.Value, ct);
 
-            var set = await _repoSet.Query()
-                .AsNoTracking()
-                .Where(s => s.Id == tx.SetId)
-                .FirstOrDefaultAsync(ct);
-
-            if (set != null)
-                set.StatusId = 9;
+                if (set != null)
+                    set.StatusId = 9; // available
+            }
 
             try
             {

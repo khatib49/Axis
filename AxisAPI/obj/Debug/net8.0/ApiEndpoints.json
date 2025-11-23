@@ -1839,14 +1839,19 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "phoneNumber",
-        "Type": "System.String",
+        "Name": "userId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
         "IsRequired": false
       },
       {
         "Name": "itemsRequest",
         "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.OrderItemRequest, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
         "IsRequired": true
+      },
+      {
+        "Name": "discountId",
+        "Type": "System.Int32",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -1901,12 +1906,73 @@
         "IsRequired": false
       },
       {
-        "Name": "phoneNumber",
-        "Type": "System.String",
+        "Name": "discountId",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "userId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "numberOfPersons",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "isDayPass",
+        "Type": "System.Boolean",
         "IsRequired": false
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "GetOpenBoardGameSessions",
+    "RelativePath": "api/transactions/GetOpenBoardGameSessions",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "GetOpenPs5Sessions",
+    "RelativePath": "api/transactions/GetOpenPs5Sessions",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "CloseSession",
+    "RelativePath": "api/transactions/sessions/{invoiceId}/close",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "invoiceId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.BaseResponse\u00601[[Application.DTOs.TransactionDto, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsReportsController",
@@ -2328,6 +2394,57 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.UsersController",
+    "Method": "GetUsersByRoleId",
+    "RelativePath": "api/users/by-role/{roleId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "roleId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "Page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "PageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "CategoryId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "createdBy",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.PaginatedResponse\u00601[[Application.DTOs.UserDto, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.UsersController",
     "Method": "CreateClient",
     "RelativePath": "api/users/client",
     "HttpMethod": "POST",
@@ -2343,6 +2460,63 @@
     "ReturnTypes": [
       {
         "Type": "Application.DTOs.ResponseDto.ClientUserResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.UsersController",
+    "Method": "UpdateClient",
+    "RelativePath": "api/users/clients/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "Application.DTOs.RequestDto.ClientUserUpdateRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.ResponseDto.ClientUserResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.UsersController",
+    "Method": "SearchByPhone",
+    "RelativePath": "api/users/search",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "phone",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.UserDto, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
         "MediaTypes": [
           "text/plain",
           "application/json",

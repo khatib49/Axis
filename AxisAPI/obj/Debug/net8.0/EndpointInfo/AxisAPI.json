@@ -3000,10 +3000,36 @@
             }
           },
           {
-            "name": "phoneNumber",
+            "name": "discountId",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "numberOfPersons",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "isDayPass",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -3021,10 +3047,19 @@
         ],
         "parameters": [
           {
-            "name": "phoneNumber",
+            "name": "userId",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "discountId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -3059,6 +3094,70 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transactions/GetOpenBoardGameSessions": {
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transactions/GetOpenPs5Sessions": {
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transactions/sessions/{invoiceId}/close": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionDtoBaseResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3650,6 +3749,190 @@
         }
       }
     },
+    "/api/users/search": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/clients/{id}": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientUserUpdateRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientUserUpdateRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientUserUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientUserResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientUserResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/by-role/{roleId}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "CategoryId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "createdBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDtoPaginatedResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDtoPaginatedResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDtoPaginatedResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/users/{id}": {
       "get": {
         "tags": [
@@ -3889,6 +4172,10 @@
           "lastName": {
             "type": "string",
             "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3918,6 +4205,62 @@
           },
           "isNewlyCreated": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClientUserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CoffeeShopOrderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cardId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -3966,6 +4309,43 @@
           "isActive": {
             "type": "boolean",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DiscountDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "percentage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedOn": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -4312,6 +4692,9 @@
           "totalPrice": {
             "type": "number",
             "format": "double"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/DiscountDto"
           },
           "items": {
             "type": "array",
@@ -4824,6 +5207,9 @@
           },
           "isOpenHour": {
             "type": "boolean"
+          },
+          "isDayPass": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -4856,6 +5242,9 @@
             "type": "boolean"
           },
           "isOpenHour": {
+            "type": "boolean"
+          },
+          "isDayPass": {
             "type": "boolean"
           }
         },
@@ -4927,6 +5316,171 @@
           },
           "createdBy": {
             "type": "string",
+            "nullable": true
+          },
+          "discountId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "numberOfPersons": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TransactionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roomId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "room": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameTypeId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "gameType": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "game": {
+            "type": "string",
+            "nullable": true
+          },
+          "gameSettingId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "gameSetting": {
+            "type": "string",
+            "nullable": true
+          },
+          "hours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifiedOn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionItemDto"
+            },
+            "nullable": true
+          },
+          "setId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "set": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "discountName": {
+            "type": "string",
+            "nullable": true
+          },
+          "numberOfPersons": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isDayPass": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TransactionDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/TransactionDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TransactionItemDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemName": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "coffeeShopOrders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CoffeeShopOrderDto"
+            },
             "nullable": true
           }
         },
@@ -5016,6 +5570,11 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "discountId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5044,6 +5603,64 @@
           "cardId": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserDtoPaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserDto"
+            },
+            "nullable": true
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalInvoices": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
