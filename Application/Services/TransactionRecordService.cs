@@ -105,6 +105,7 @@ namespace Application.Services
                     .Include(s => s.Room)
                     .Include(s => s.Status)
                     .Include(s => s.Set) // Include Set
+                    .AsSplitQuery()
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
@@ -123,6 +124,7 @@ namespace Application.Services
                     .ThenInclude(ti => ti.Item)
                         .ThenInclude(i => i.CoffeeShopOrders)
                             .ThenInclude(co => co.User) // if you want user name
+                            .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == id, ct);
 
@@ -179,7 +181,8 @@ namespace Application.Services
                         .Include(s => s.GameSetting)
                         .Include(s => s.Room)
                         .Include(s => s.Status)
-                        .Include(s => s.Set) // Include Set
+                        .Include(s => s.Set)
+                        .AsSplitQuery()// Include Set
                         .AsNoTracking();
 
             // Apply filters
@@ -382,6 +385,7 @@ namespace Application.Services
                         .ThenInclude(ti => ti.Item)
                     .Include(x => x.TransactionItems)
                         .ThenInclude(ti => ti.Item.CoffeeShopOrders)
+                        .AsSplitQuery()
                     .FirstOrDefaultAsync(x => x.Id == e.Id, ct);
                 TransactionDto transactionDto = _mapper.ToDto(e);
 
@@ -916,7 +920,7 @@ namespace Application.Services
                 .Include(t => t.Set)
                 .Include(t => t.Game)
                 .Include(t => t.GameType)
-                .Include(t => t.GameSetting)
+                .Include(t => t.GameSetting).AsSplitQuery()
                 .OrderByDescending(t => t.CreatedOn);
 
             var entities = await query.ToListAsync(ct);
