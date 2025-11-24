@@ -811,22 +811,6 @@ namespace Application.Services
 
             decimal totalPrice = totalPriceBeforeDiscount;
 
-            // 6) Apply discount if exists (UNCHANGED)
-            if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
-            {
-                var discount = await _repoDiscount.Query()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(d => d.Id == tx.DiscountId.Value, ct);
-
-                if (discount is not null && discount.IsActive)
-                {
-                    totalPrice -= (totalPrice * discount.Percentage / 100m);
-                    if (totalPrice < 0)
-                        totalPrice = 0;
-                }
-            }
-
-
             // FINAL PRICE ROUNDING
             if (totalPrice > 0 && calculateThePrice)
             {
@@ -850,6 +834,20 @@ namespace Application.Services
                 }
             }
 
+            // 6) Apply discount if exists (UNCHANGED)
+            if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
+            {
+                var discount = await _repoDiscount.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == tx.DiscountId.Value, ct);
+
+                if (discount is not null && discount.IsActive)
+                {
+                    totalPrice -= (totalPrice * discount.Percentage / 100m);
+                    if (totalPrice < 0)
+                        totalPrice = 0;
+                }
+            }
 
             // if totalPrice == 0 (e.g. 100% discount), keep it 0
 
