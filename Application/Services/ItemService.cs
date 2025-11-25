@@ -37,6 +37,7 @@ namespace Application.Services
             if (pagination.CategoryId.HasValue)
                 query = query.Where(x => x.CategoryId == pagination.CategoryId.Value);
 
+            query = query.Where(x => x.StatusId == 1);// Get Only enabled items
             if (!string.IsNullOrWhiteSpace(pagination.search))
             {
                 var term = pagination.search.Trim();
