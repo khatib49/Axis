@@ -323,6 +323,22 @@ namespace Application.Services
                 pagination.PageSize
             );
         }
+        public async Task<int> CountClientUsersAsync(CancellationToken ct = default)
+        {
+            // make sure the role name matches what you used in seeding & CreateClient
+            const string clientRoleName = "client";
+
+            var role = await _roleManager.Roles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Name == clientRoleName, ct);
+
+            if (role == null)
+                return 0;
+
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
+            return usersInRole.Count;
+        }
+
 
     }
 }

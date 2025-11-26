@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,10 +11,12 @@ namespace AxisAPI.Controllers
     public class TransactionsReportsController : ControllerBase
     {
         private readonly ITransactionRecordService _svc;
+        private readonly IUsersService _usersService;
 
-        public TransactionsReportsController(ITransactionRecordService svc)
+        public TransactionsReportsController(ITransactionRecordService svc, IUsersService usersService)
         {
             _svc = svc;
+            _usersService = usersService;
         }
 
         /// <summary>
@@ -40,6 +43,15 @@ namespace AxisAPI.Controllers
             return Ok(result);
         }
 
+        [HttpGet("orders/count")]
+        public async Task<IActionResult> GetOrdersCount([FromQuery] DateTime? from, [FromQuery] DateTime? to,[FromQuery] string? categoryIds, CancellationToken ct)
+        {
+            var count = await _svc.GetOrdersCountAsync(from, to, categoryIds, ct);
+
+            return Ok(new { ordersCount = count });
+        }
+
+
         [HttpGet("daily-sales")]
         [Authorize(Roles = "admin,admin_fnb")]
         public async Task<ActionResult<List<DailySalesDto>>> GetDailySales( [FromQuery] DateTime? from, [FromQuery] DateTime? to,
@@ -60,6 +72,11 @@ namespace AxisAPI.Controllers
             return Ok(data);
         }
 
-
+        [HttpGet("clients/count")]
+        public async Task<IActionResult> GetClientUsersCount(CancellationToken ct)
+        {
+            var count = await _usersService.CountClientUsersAsync(ct);
+            return Ok(new { count });
+        }
     }
 }

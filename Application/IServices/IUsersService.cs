@@ -6,6 +6,7 @@ namespace Application.IServices
 {
     public interface IUsersService
     {
+        Task<int> CountClientUsersAsync(CancellationToken ct = default);
         Task<UserDto?> GetAsync(int id, CancellationToken ct = default);
         Task<PaginatedResponse<UserDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default);
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
