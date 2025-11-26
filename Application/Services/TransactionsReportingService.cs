@@ -255,6 +255,43 @@ namespace Application.Services
             );
         }
 
+        public async Task<int> GetOrdersCountAsync(DateTime? from,DateTime? to,string? categoryIds,CancellationToken ct = default)
+        {
+            var q = _repo.Query(); // IQueryable<TransactionRecord>
+
+            // date filter  [from .. to]
+            var toExclusive = to?.Date.AddDays(1);
+            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+
+            // only completed transactions
+            q = q.Where(t => t.StatusId == 6);
+
+            // category filter (same as GetTotalsAsync)
+            List<int> cats = new();
+            if (!string.IsNullOrWhiteSpace(categoryIds))
+            {
+                cats = categoryIds
+                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : (int?)null)
+                    .Where(n => n.HasValue)
+                    .Select(n => n!.Value)
+                    .ToList();
+            }
+
+            if (cats.Count > 0)
+            {
+                q = q.Where(t =>
+                    (t.GameId != null && t.Game != null && cats.Contains(t.Game.CategoryId)) ||
+                    (t.GameId == null && t.TransactionItems.Any(ti => ti.Item != null && cats.Contains(ti.Item.CategoryId)))
+                );
+            }
+
+            // just count
+            var count = await q.CountAsync(ct);
+            return count;
+        }
+
 
         public async Task<List<DailySalesDto>> GetDailySalesAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
         {
