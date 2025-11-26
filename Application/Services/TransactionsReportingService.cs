@@ -266,7 +266,7 @@ namespace Application.Services
             if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
             if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
 
-            q.Where(t => t.StatusId == 6); // only completed transactions   
+            q= q.Where(t => t.StatusId == 6); // only completed transactions   
             // parse "1,2,3" -> List<int>
             List<int> catList = new();
             if (!string.IsNullOrWhiteSpace(categoryIds))
@@ -296,15 +296,10 @@ namespace Application.Services
 
             // items totals per day (sum Item.Price * Quantity)
             var itemsDaily = await q
-                .Where(t => t.GameId == null && t.StatusId == 6)
-                .SelectMany(t => t.TransactionItems.Select(ti => new
-                {
-                    Date = t.CreatedOn.Date,
-                    LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity
-                }))
-                .GroupBy(x => x.Date)
-                .Select(g => new { Date = g.Key, Total = g.Sum(x => x.LineTotal) })
-                .ToListAsync(ct);
+    .Where(t => t.GameId == null && t.StatusId == 6)
+    .GroupBy(t => t.CreatedOn.Date)
+    .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
+    .ToListAsync(ct);
 
             // merge
             var gameDict = gamesDaily.ToDictionary(x => x.Date, x => x.Total);
