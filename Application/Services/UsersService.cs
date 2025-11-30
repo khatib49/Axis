@@ -259,30 +259,32 @@ namespace Application.Services
             };
         }
 
-        public async Task<List<User2Dto>> SearchByPhoneAsync(string phone, CancellationToken ct = default)
+        public async Task<List<User2Dto>> SearchByPhoneAndNameAsync(string keyword, CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(phone))
+            if (string.IsNullOrWhiteSpace(keyword))
                 return new List<User2Dto>();
 
-            var s = phone.Trim().ToLower();
+            keyword = keyword.Trim().ToLower();
 
             var users = await _userManager.Users
                 .Where(u =>
-                    (u.PhoneNumber != null && u.PhoneNumber.ToLower().Contains(s)) ||
-                    (u.FirstName != null && u.FirstName.ToLower().Contains(s)) ||
-                    (u.LastName != null && u.LastName.ToLower().Contains(s))
+                    u.DeletedAt == null && // optional filter if you want active users only
+
+                    (
+                        // Phone search
+                        (u.PhoneNumber != null && u.PhoneNumber.Contains(keyword)) ||
+
+                        // Name search
+                        (u.FirstName != null && u.FirstName.ToLower().Contains(keyword)) ||
+                        (u.LastName != null && u.LastName.ToLower().Contains(keyword)) ||
+                        (u.DisplayName != null && u.DisplayName.ToLower().Contains(keyword))
+                    )
                 )
                 .AsNoTracking()
                 .ToListAsync(ct);
 
-            // Map directly to User2Dto – no need to load roles here
-            var result = users
-                .Select(u => _mapper.ToUser2Dto(u))
-                .ToList();
-
-            return result;
+            return users.Select(u => _mapper.ToUser2Dto(u)).ToList();
         }
-
 
         public async Task<PaginatedResponse<User2Dto>> GetUsersByRoleIdAsync(
     int roleId,

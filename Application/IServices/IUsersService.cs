@@ -16,7 +16,7 @@ namespace Application.IServices
    int roleId,
    BasePaginationRequestDto pagination,
    CancellationToken ct = default);
-        Task<List<User2Dto>> SearchByPhoneAsync(string phone, CancellationToken ct = default);
+        Task<List<User2Dto>> SearchByPhoneAndNameAsync(string phone, CancellationToken ct = default);
         Task<ClientUserResponse?> UpdateClientAsync(int id, ClientUserUpdateRequest request, CancellationToken ct = default);
     }
 }
