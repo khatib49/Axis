@@ -33,11 +33,16 @@ namespace Application.Services
             if (!string.IsNullOrWhiteSpace(f.Search))
             {
                 var s = f.Search.Trim().ToLower();
-                q = q.Where(t => t.TransactionItems.Any(ti =>
-                    ti.Item != null && (
-                        ti.Item.Name.ToLower().Contains(s) ||
-                        (ti.Item.Category != null && ti.Item.Category.Name.ToLower().Contains(s))
-                    )));
+
+                q = q.Where(t =>
+                    t.Id.ToString().ToLower().Contains(s) ||
+                    t.TransactionItems.Any(ti =>
+                        ti.Item != null && (
+                            ti.Item.Name.ToLower().Contains(s) ||
+                            (ti.Item.Category != null && ti.Item.Category.Name.ToLower().Contains(s))
+                        )
+                    )
+                );
             }
 
             // -------- Count before pagination --------
@@ -139,6 +144,7 @@ namespace Application.Services
                     (t.Game != null && t.Game.Name.ToLower().Contains(s)) ||
                     (t.Room != null && t.Room.Name!.ToLower().Contains(s)) ||
                     (t.GameType != null && t.GameType.Name.ToLower().Contains(s)) ||
+                    (t.Id.ToString().ToLower().Contains(s)) ||
                     (t.GameSetting != null && t.GameSetting.Name.ToLower().Contains(s)));
             }
 

@@ -264,10 +264,14 @@ namespace Application.Services
             if (string.IsNullOrWhiteSpace(phone))
                 return new List<User2Dto>();
 
-            phone = phone.Trim();
+            var s = phone.Trim().ToLower();
 
             var users = await _userManager.Users
-                .Where(u => u.PhoneNumber != null && u.PhoneNumber.Contains(phone))
+                .Where(u =>
+                    (u.PhoneNumber != null && u.PhoneNumber.ToLower().Contains(s)) ||
+                    (u.FirstName != null && u.FirstName.ToLower().Contains(s)) ||
+                    (u.LastName != null && u.LastName.ToLower().Contains(s))
+                )
                 .AsNoTracking()
                 .ToListAsync(ct);
 
