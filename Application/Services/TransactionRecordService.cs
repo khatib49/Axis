@@ -730,15 +730,14 @@ namespace Application.Services
             if (tx is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
 
-            // must be processed & unpaid (7)
             if (tx.StatusId != 7)
                 return new BaseResponse<TransactionDto>(false, "Invalid status", "This session is not in 'processed & unpaid' status.");
 
-            // 2) Load game setting (price + IsOpenHour)
+            // 2) Load game setting
             var setting = await _repoSetting.Query()
                 .AsNoTracking()
                 .Where(s => s.Id == tx.GameSettingId)
-                .Select(s => new { s.Hours, s.Price, s.IsOpenHour })
+                .Select(s => new { s.Price })
                 .FirstOrDefaultAsync(ct);
 
             if (setting is null)
@@ -746,95 +745,76 @@ namespace Application.Services
 
             // 3) Calculate played time
             var nowUtc = DateTime.UtcNow;
-            var startedOn = tx.CreatedOn; // assuming non-null
+            var startedOn = tx.CreatedOn.AddMinutes(5);
             if (startedOn == default)
                 return new BaseResponse<TransactionDto>(false, "Invalid data", "Session start time is missing.");
 
             var totalMinutes = (nowUtc - startedOn).TotalMinutes;
             if (totalMinutes < 1)
-                totalMinutes = 1; // at least 1 minute
+                totalMinutes = 1;
 
-            // ---- ROUNDING LOGIC (30-min steps) ----
-            // 1:00 - 1:30  -> 1:30
-            // 1:31 - 1:59  -> 2:00
-            var fullHours = Math.Floor(totalMinutes / 60.0);
-            var remainingMinutes = totalMinutes - (fullHours * 60.0);
+            // RAW hours
+            decimal rawHours = (decimal)(totalMinutes / 60.0);
 
-            if (remainingMinutes > 0 && remainingMinutes <= 30)
-            {
-                remainingMinutes = 30;
-            }
-            else if (remainingMinutes > 30)
-            {
-                fullHours += 1;
-                remainingMinutes = 0;
-            }
-
-            var billedMinutes = (fullHours * 60.0) + remainingMinutes;   // e.g. 1h30 = 90
-            decimal playedHours = (decimal)billedMinutes / 60m;          // e.g. 90/60 = 1.5
-            playedHours = Math.Round(playedHours, 2, MidpointRounding.AwayFromZero);
-
-            // 4) Persons
+            // 4) Players
             var persons = tx.numberOfPersons > 0 ? tx.numberOfPersons : 1;
 
-            // 5) Calculate total price (NEW LOGIC)
-            // Price is per hour per person
-            bool isBoardGame = tx.GameTypeId == 2; // 2 = board games // if we ar darts games
-            decimal totalPriceBeforeDiscount;
-            bool calculateThePrice = true;
-            if (isBoardGame && playedHours > 2m)
+            // 5) Rounding logic for hours (ONLY hour rounding stays)
+            bool isBoardGame = tx.GameTypeId == 2;
+
+            decimal GetBilledHours(decimal h)
             {
-                // BOARD GAMES: if more than 2H -> use day-pass price
-                // adapt the filter to your schema (e.g. GameTypeId, GameId, etc.)
+                if (h <= 0m || h <= 0.25m)
+                    return 0m;
+
+                // Minimum 1 hour for anything up to 1h 15m
+                if (h <= 1.25m) // 1.25h = 1h 15min
+                    return 1m;
+
+                // From here, apply the repeating pattern around each whole hour
+                var n = Math.Floor(h); // base whole hour: 1, 2, 3, ...
+
+                // x:00 → x:15  => x.0
+                if (h < n + 0.25m)
+                    return n;
+
+                // x:15 → x:45  => x.5
+                if (h < n + 0.75m)
+                    return n + 0.5m;
+
+                // x:45 → (x+1):15  => x+1
+                return n + 1m;
+            }
+
+            decimal billedHours = GetBilledHours(rawHours);
+
+            // 6) Board game day-pass override
+            decimal totalPriceBeforeDiscount;
+            if (isBoardGame && rawHours > 2m)
+            {
                 var dayPass = await _repoSetting.Query()
                     .AsNoTracking()
-                    .Where(s => s.IsDayPass == true && s.GameId == tx.GameId)
-                    .FirstOrDefaultAsync(ct);
-                decimal dayPassPrice = dayPass.Price;
-                if (dayPassPrice > 0)
+                    .FirstOrDefaultAsync(s => s.IsDayPass == true && s.GameId == tx.GameId, ct);
+
+                if (dayPass != null && dayPass.Price > 0)
                 {
-                    // day-pass price * persons
-                    calculateThePrice = false;
-                    totalPriceBeforeDiscount = dayPassPrice * persons;
+                    totalPriceBeforeDiscount = dayPass.Price * persons;
                 }
                 else
                 {
-                    // fallback: charge normal hours if no day-pass configured
-                    totalPriceBeforeDiscount = setting.Price * playedHours * persons;
+                    totalPriceBeforeDiscount = setting.Price * billedHours * persons;
                 }
             }
             else
             {
-                // Normal hourly pricing
-                totalPriceBeforeDiscount = setting.Price * playedHours * persons;
+                // Normal (PS5 + board games <=2h)
+                totalPriceBeforeDiscount = setting.Price * billedHours * persons;
             }
 
+            // ❌ NO FINAL PRICE ROUNDING
             decimal totalPrice = totalPriceBeforeDiscount;
 
-            // FINAL PRICE ROUNDING
-            if (totalPrice > 0 && calculateThePrice)
-            {
-                var floor = Math.Floor(totalPrice);          // x
-                var fraction = totalPrice - (decimal)floor;  // decimal part
-
-                if (fraction == 0)
-                {
-                    // x.0 → stay x.0
-                    totalPrice = (decimal)floor;
-                }
-                else if (fraction > 0 && fraction <= 0.5m)
-                {
-                    // x.1 - x.5 → x.5
-                    totalPrice = (decimal)floor + 0.5m;
-                }
-                else
-                {
-                    // x.6 - x.9 → x+1
-                    totalPrice = (decimal)floor + 1m;
-                }
-            }
-
-            // 6) Apply discount if exists (UNCHANGED)
+            // 7) Discounts
             if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
             {
                 var discount = await _repoDiscount.Query()
@@ -849,45 +829,34 @@ namespace Application.Services
                 }
             }
 
-            // if totalPrice == 0 (e.g. 100% discount), keep it 0
-
-            // 7) Update tracked entity
+            // 8) Update DB
             var tracked = await _repo.GetByIdAsync(invoiceId, asNoTracking: false, ct);
             if (tracked is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
 
-            tracked.Hours = (int)Math.Ceiling(playedHours);    // store rounded hours
+            tracked.Hours = billedHours;
             tracked.TotalPrice = totalPrice;
-            tracked.StatusId = 6; // processed & paid
+            tracked.StatusId = 6;
             tracked.ModifiedOn = nowUtc;
             tracked.CreatedBy = updatedBy ?? tracked.CreatedBy;
 
-            // 8) Make Set Available
+            // Make set available
             if (tx.SetId.HasValue)
             {
                 var set = await _repoSet.Query(asNoTracking: false)
                     .FirstOrDefaultAsync(s => s.Id == tx.SetId.Value, ct);
 
                 if (set != null)
-                    set.StatusId = 9; // available
+                    set.StatusId = 9;
             }
 
             try
             {
-                _logger.LogInformation(
-                    "GS/CloseSession BEFORE_SAVE ReqId={ReqId} Tx={TxId} Hours={Hours} PlayedRounded={PlayedHours} Total={Total}",
-                    reqId, tracked.Id, tracked.Hours, playedHours, tracked.TotalPrice);
-
                 await _uow.SaveChangesAsync(ct);
             }
-            catch (Exception ex)
+            catch
             {
-                var (prov, code) = ExtractDbCode(ex);
-                _logger.LogError(ex,
-                    "GS/CloseSession ERROR ReqId={ReqId} DB={Prov}:{Code} Tx={TxId} Sig={Sig}",
-                    reqId, prov, code, invoiceId, sig);
-
-                return new BaseResponse<TransactionDto>(false, "db error", "Failed to close the session. Please try again.");
+                return new BaseResponse<TransactionDto>(false, "db error", "Failed to close the session.");
             }
 
             var dto = _mapper.ToDto(tracked);

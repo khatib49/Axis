@@ -30,7 +30,7 @@ namespace Domain.Entities
         public AppUser? User { get; set; }
 
         // Transaction details
-        public int Hours { get; set; }
+        public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
 
         // Audit fields

@@ -75,7 +75,7 @@
         public string? SetName { get; set; }
 
         // Totals
-        public int Hours { get; set; }
+        public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
 
         // Items inside this transaction
@@ -112,7 +112,7 @@
         public int? GameSettingId { get; set; }
         public string? GameSettingName { get; set; }
 
-        public int Hours { get; set; }
+        public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
         public DiscountDto? Discount {get;set; }
 
