@@ -373,5 +373,154 @@ namespace Application.Services
 
             return result;
         }
+
+        public async Task<List<ItemSalesReportDto>> GetItemSalesReportAsync(
+    DateTime? from,
+    DateTime? to,
+    string? categoryIds,
+    int top,
+    CancellationToken ct = default)
+        {
+            var q = _repo.Query(); // IQueryable<TransactionRecord>
+
+            // Date range [from..to]
+            var toExclusive = to?.Date.AddDays(1);
+            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+
+            // Only completed transactions
+            q = q.Where(t => t.StatusId == 6);
+
+            // Only item transactions (no games)
+            q = q.Where(t => t.GameId == null);
+
+            // Parse categoryIds: "1,2,3"
+            List<int> cats = new();
+            if (!string.IsNullOrWhiteSpace(categoryIds))
+            {
+                cats = categoryIds
+                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : (int?)null)
+                    .Where(n => n.HasValue)
+                    .Select(n => n!.Value)
+                    .ToList();
+            }
+
+            // Flatten items (only scalar properties!)
+            var itemsQuery = q
+                .SelectMany(t => t.TransactionItems
+                    .Where(ti => ti.Item != null)
+                    .Select(ti => new
+                    {
+                        TransactionId = t.Id,
+                        ItemId = ti.Item.Id,
+                        ItemName = ti.Item.Name,
+                        CategoryId = ti.Item.CategoryId,
+                        ItemType = ti.Item.Type,
+                        ItemPrice = ti.Item.Price,
+                        Quantity = ti.Quantity
+                    }));
+
+            if (cats.Count > 0)
+            {
+                itemsQuery = itemsQuery.Where(x => cats.Contains(x.CategoryId));
+            }
+
+            var grouped = await itemsQuery
+                .GroupBy(x => new
+                {
+                    x.ItemId,
+                    x.ItemName,
+                    x.CategoryId,
+                    x.ItemType
+                })
+                .Select(g => new ItemSalesReportDto
+                {
+                    ItemId = g.Key.ItemId,
+                    ItemName = g.Key.ItemName,
+                    CategoryId = g.Key.CategoryId,
+                    // CategoryName: can't safely use navigation in grouping; fill later if needed
+                    CategoryName = string.Empty,
+                    ItemType = g.Key.ItemType,
+
+                    TotalQuantity = g.Sum(x => x.Quantity),
+                    TotalAmount = g.Sum(x => x.Quantity * x.ItemPrice),
+                    OrdersCount = g.Select(x => x.TransactionId).Distinct().Count(),
+                    AveragePerOrder = g.Select(x => x.TransactionId).Distinct().Count() == 0
+                        ? 0
+                        : g.Sum(x => x.Quantity) / (decimal)g.Select(x => x.TransactionId).Distinct().Count()
+                })
+                .OrderByDescending(x => x.TotalQuantity) // or .OrderByDescending(x => x.TotalAmount)
+                .Take(top > 0 ? top : 100)
+                .ToListAsync(ct);
+
+            return grouped;
+        }
+
+        public async Task<List<GameHourlySalesDto>> GetGameHourlySalesAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
+        {
+            var q = _repo.Query(); // IQueryable<TransactionRecord>
+
+            // date filter [from .. to]
+            var toExclusive = to?.Date.AddDays(1);
+            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+
+            // only completed GAME transactions
+            q = q.Where(t => t.StatusId == 6 && t.GameId != null);
+
+            // parse categoryIds (Game.CategoryId)
+            List<int> cats = new();
+            if (!string.IsNullOrWhiteSpace(categoryIds))
+            {
+                cats = categoryIds
+                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : (int?)null)
+                    .Where(n => n.HasValue)
+                    .Select(n => n!.Value)
+                    .ToList();
+            }
+
+            if (cats.Count > 0)
+            {
+                q = q.Where(t => t.Game != null && cats.Contains(t.Game.CategoryId));
+            }
+
+            // group by CreatedOn.Hour
+            var grouped = await q
+                .GroupBy(t => t.CreatedOn.Hour) // 0..23
+                .Select(g => new GameHourlySalesDto
+                {
+                    Hour = g.Key,
+                    SessionsCount = g.Count(),
+                    TotalHours = g.Sum(x => x.Hours),
+                    TotalAmount = g.Sum(x => x.TotalPrice),
+                    AverageSessionHours = g.Count() == 0 ? 0 : g.Sum(x => x.Hours) / g.Count(),
+                    AverageSessionAmount = g.Count() == 0 ? 0 : g.Sum(x => x.TotalPrice) / g.Count()
+                })
+                .OrderBy(x => x.Hour)
+                .ToListAsync(ct);
+
+            // ensure all 24 hours (0..23) exist, even if zero
+            var dict = grouped.ToDictionary(x => x.Hour);
+            var result = Enumerable.Range(0, 24)
+                .Select(h => dict.TryGetValue(h, out var v)
+                    ? v
+                    : new GameHourlySalesDto
+                    {
+                        Hour = h,
+                        SessionsCount = 0,
+                        TotalHours = 0m,
+                        TotalAmount = 0m,
+                        AverageSessionHours = 0m,
+                        AverageSessionAmount = 0m
+                    })
+                .OrderBy(x => x.Hour)
+                .ToList();
+
+            return result;
+        }
+
+
     }
 }

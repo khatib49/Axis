@@ -78,5 +78,45 @@ namespace AxisAPI.Controllers
             var count = await _usersService.CountClientUsersAsync(ct);
             return Ok(new { count });
         }
+
+        /// <summary>
+        /// Item sales / best-seller report (aggregated per item).
+        /// </summary>
+        [HttpGet("items/report")]
+        //[Authorize(Roles = "admin,admin_fnb")]
+        public async Task<ActionResult<List<ItemSalesReportDto>>> GetItemSalesReport(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? categoryIds,
+            [FromQuery] int top = 100,
+            CancellationToken ct = default)
+        {
+            var data = await _svc.GetItemSalesReportAsync(from, to, categoryIds, top, ct);
+            return Ok(data);
+        }
+
+        /// <summary>
+        /// Gaming sessions hourly heatmap (grouped by CreatedOn.Hour).
+        /// </summary>
+        [HttpGet("games/hourly-heatmap")]
+        //[Authorize(Roles = "admin")]
+        public async Task<ActionResult<List<GameHourlySalesDto>>> GetGameHourlyHeatmap(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? categoryIds,
+            CancellationToken ct = default)
+        {
+            //            Front - end can then:
+
+            //Plot Hour on X axis(0–23)
+
+            //Plot SessionsCount or TotalHours or TotalAmount on Y
+
+            //Very easy to see best gaming window(e.g. 18–22).
+            var data = await _svc.GetGameHourlySalesAsync(from, to, categoryIds, ct);
+            return Ok(data);
+        }
+
+
     }
 }

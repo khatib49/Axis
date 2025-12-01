@@ -3585,6 +3585,141 @@
         }
       }
     },
+    "/api/TransactionsReports/items/report": {
+      "get": {
+        "tags": [
+          "TransactionsReports"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemSalesReportDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemSalesReportDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemSalesReportDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/TransactionsReports/games/hourly-heatmap": {
+      "get": {
+        "tags": [
+          "TransactionsReports"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameHourlySalesDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameHourlySalesDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameHourlySalesDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/usercard/{id}": {
       "get": {
         "tags": [
@@ -4598,6 +4733,36 @@
         },
         "additionalProperties": false
       },
+      "GameHourlySalesDto": {
+        "type": "object",
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sessionsCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "averageSessionHours": {
+            "type": "number",
+            "format": "double"
+          },
+          "averageSessionAmount": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "GameSessionCreateDto": {
         "type": "object",
         "properties": {
@@ -4829,6 +4994,48 @@
           "imagePath": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemSalesReportDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemName": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemType": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "ordersCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averagePerOrder": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
