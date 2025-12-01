@@ -30,7 +30,8 @@
         int? DiscountId,          // <-- added
         string? DiscountName,      // <-- added
         int numberOfPersons,
-        bool IsDayPass
+        bool IsDayPass,
+        string? Comment
      );
 
 
@@ -47,7 +48,8 @@
     DateTime CreatedOn,
     string CreatedBy,
     int? DiscountId,
-    int numberOfPersons
+    int numberOfPersons,
+        string? Comment
         );
 
     public record OrderItemRequest(int ItemId, int Quantity);

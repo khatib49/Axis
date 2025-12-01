@@ -46,6 +46,7 @@ namespace Domain.Entities
         public int? DiscountId { get; set; }       // <-- added
         public Discount? Discount { get; set; }
         public int numberOfPersons { get; set; } = 1;
+        public string? Comment { get; set; }
 
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
     }

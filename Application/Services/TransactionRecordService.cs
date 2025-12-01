@@ -167,7 +167,8 @@ namespace Application.Services
                 e.DiscountId,
                 e.Discount?.Name ?? string.Empty,
                 e.numberOfPersons,
-                e.GameSetting?.IsDayPass ?? false
+                e.GameSetting?.IsDayPass ?? false,
+                e.Comment
             );
         }
 
@@ -218,7 +219,7 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, 
-                string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false)
+                string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false, string comment = "")
             {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
@@ -329,7 +330,8 @@ namespace Application.Services
                     CreatedOn: DateTime.UtcNow,
                     CreatedBy: createdBy ?? string.Empty,
                     DiscountId: discount?.Id ,
-                    numberOfPersons: numberOfPersons
+                    numberOfPersons: numberOfPersons,
+                    Comment: comment
                 );
 
                 var e = _mapper.ToEntity(createDto);
@@ -392,7 +394,7 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
+        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct, string comment = "")
             {
 
             var reqId = GetReqId();
@@ -484,7 +486,8 @@ namespace Application.Services
                     CreatedBy = createdBy ?? "",
                     CreatedOn = DateTime.UtcNow,
                     DiscountId = discount?.Id,
-                };
+                    Comment = comment
+            };
 
             
                 var trxItems = new List<TransactionItem>();

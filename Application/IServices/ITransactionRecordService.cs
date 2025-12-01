@@ -16,9 +16,9 @@ namespace Application.IServices
         Task<TransactionDto> CreateAsync(TransactionCreateDto dto, string createdBy, CancellationToken ct = default);
         Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default);
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
-        Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct);
+        Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct, string comment = "");
         Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, string createdBy, int roomSetId, int discountId,
-            CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false);
+            CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false, string comment = "");
         Task<PaginatedResponse<ItemTransactionDto>> GetItemTransactionsWithDetailsAsync(
             TransactionsFilterDto f, CancellationToken ct = default);
 

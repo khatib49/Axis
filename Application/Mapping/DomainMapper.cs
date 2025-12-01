@@ -110,7 +110,8 @@ namespace Application.Mapping
                 e.DiscountId,
                 e.Discount?.Name ?? string.Empty,
                 e.numberOfPersons,
-                e.GameSetting?.IsDayPass ?? false
+                e.GameSetting?.IsDayPass ?? false,
+                e.Comment
             );
 
 

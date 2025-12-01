@@ -83,7 +83,7 @@ namespace AxisAPI.Controllers
         /// Item sales / best-seller report (aggregated per item).
         /// </summary>
         [HttpGet("items/report")]
-        //[Authorize(Roles = "admin,admin_fnb")]
+        [Authorize(Roles = "admin,admin_fnb")]
         public async Task<ActionResult<List<ItemSalesReportDto>>> GetItemSalesReport(
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
@@ -99,7 +99,7 @@ namespace AxisAPI.Controllers
         /// Gaming sessions hourly heatmap (grouped by CreatedOn.Hour).
         /// </summary>
         [HttpGet("games/hourly-heatmap")]
-        //[Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<List<GameHourlySalesDto>>> GetGameHourlyHeatmap(
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
