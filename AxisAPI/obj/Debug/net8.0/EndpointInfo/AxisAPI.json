@@ -3410,6 +3410,43 @@
         }
       }
     },
+    "/api/TransactionsReports/orders/count": {
+      "get": {
+        "tags": [
+          "TransactionsReports"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/TransactionsReports/daily-sales": {
       "get": {
         "tags": [
@@ -3532,6 +3569,18 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/TransactionsReports/clients/count": {
+      "get": {
+        "tags": [
+          "TransactionsReports"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }

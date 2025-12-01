@@ -1976,6 +1976,16 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsReportsController",
+    "Method": "GetClientUsersCount",
+    "RelativePath": "api/TransactionsReports/clients/count",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsReportsController",
     "Method": "GetDailySales",
     "RelativePath": "api/TransactionsReports/daily-sales",
     "HttpMethod": "GET",
@@ -2161,6 +2171,32 @@
         "StatusCode": 200
       }
     ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsReportsController",
+    "Method": "GetOrdersCount",
+    "RelativePath": "api/TransactionsReports/orders/count",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "from",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "to",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "categoryIds",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsReportsController",
