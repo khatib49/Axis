@@ -41,6 +41,7 @@ namespace Application
             services.AddScoped<ISetService, SetService>();
             services.AddScoped<IDiscountService, DiscountService>();
 
+            services.AddScoped<IProfitService, ProfitService>();
 
             return services;
         }
