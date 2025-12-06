@@ -48,6 +48,8 @@ namespace Domain.Entities
         public int numberOfPersons { get; set; } = 1;
         public string? Comment { get; set; }
 
+        public int? FK_FoodStatusId { get; set; }
+        public Status? FoodStatus { get; set; }
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
     }
 }

@@ -469,6 +469,9 @@ namespace Application.Services
                 }
             }
 
+            // In CreateCoffeeShopOrder
+            //bool containsTcg = (await _repoItem.ListAsync()).Any(i =>
+            //    i.Category.Name.ToLower().Contains("tcg")); // check if the item category contains "tcg"
 
             // Create transaction
             var trx = new TransactionRecord
@@ -486,7 +489,8 @@ namespace Application.Services
                     CreatedBy = createdBy ?? "",
                     CreatedOn = DateTime.UtcNow,
                     DiscountId = discount?.Id,
-                    Comment = comment
+                    Comment = comment,
+                    FK_FoodStatusId = 11,
             };
 
             
@@ -911,7 +915,6 @@ namespace Application.Services
                 "Open sessions retrieved successfully.",
                 dtos);
         }
-
 
     }
 }
