@@ -3031,6 +3031,14 @@
               "type": "boolean",
               "default": false
             }
+          },
+          {
+            "name": "comment",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
           }
         ],
         "responses": {
@@ -3060,6 +3068,14 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "comment",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": ""
             }
           }
         ],
@@ -4907,6 +4923,10 @@
             "type": "number",
             "format": "double"
           },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
           "discount": {
             "$ref": "#/components/schemas/DiscountDto"
           },
@@ -5092,6 +5112,10 @@
             "format": "double"
           },
           "imagePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "comment": {
             "type": "string",
             "nullable": true
           }
@@ -5582,6 +5606,10 @@
           "numberOfPersons": {
             "type": "integer",
             "format": "int32"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5685,6 +5713,10 @@
           },
           "isDayPass": {
             "type": "boolean"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

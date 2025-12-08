@@ -1852,6 +1852,11 @@
         "Name": "discountId",
         "Type": "System.Int32",
         "IsRequired": false
+      },
+      {
+        "Name": "comment",
+        "Type": "System.String",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -1923,6 +1928,11 @@
       {
         "Name": "isDayPass",
         "Type": "System.Boolean",
+        "IsRequired": false
+      },
+      {
+        "Name": "comment",
+        "Type": "System.String",
         "IsRequired": false
       }
     ],

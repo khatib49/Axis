@@ -81,7 +81,7 @@ namespace AxisAPI.Controllers
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateGameSession(userId,
-                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId ,ct, numberOfPersons, isDayPass);
+                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId ,ct, numberOfPersons, isDayPass,comment);
 
             return created.Success ? Ok(created) : BadRequest(created);
         }
@@ -90,10 +90,10 @@ namespace AxisAPI.Controllers
         [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
         [HttpPost]
         [LogOnError]
-        public async Task<IActionResult> CreateCoffeeShopOrder(int? userId, List<OrderItemRequest> itemsRequest, int discountId, CancellationToken ct)
+        public async Task<IActionResult> CreateCoffeeShopOrder(int? userId, List<OrderItemRequest> itemsRequest, int discountId, CancellationToken ct , string comment = "")
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var created = await _transactionService.CreateCoffeeShopOrder(userId, discountId, itemsRequest, createdBy, ct);
+            var created = await _transactionService.CreateCoffeeShopOrder(userId, discountId, itemsRequest, createdBy, ct,comment);
             return created.Success ? Ok(created) : BadRequest(created);
         }
 

@@ -37,6 +37,7 @@
         public decimal UnitPrice { get; set; }
         public decimal LineTotal { get; set; }
         public string? ImagePath { get; set; }
+        public string? Comment { get; set; }
     }
 
 
@@ -77,6 +78,7 @@
         // Totals
         public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
+        public string? Comment { get; set; }
 
         // Items inside this transaction
         public List<TransactionItemMiniDto> Items { get; set; } = new();
@@ -114,6 +116,7 @@
 
         public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
+        public string? Comment { get; set; }
         public DiscountDto? Discount {get;set; }
 
         // Items inside this game transaction

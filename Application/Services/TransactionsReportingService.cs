@@ -64,10 +64,10 @@ namespace Application.Services
                     CreatedOn = t.CreatedOn,
                     StatusId = t.StatusId,
                     CreatedBy = t.CreatedBy,
-
+                    Comment = t.Comment,
                     RoomId = t.RoomId,
                     RoomName = t.Room != null ? t.Room.Name : null,
-
+                    
                     // If you store set on transactions (SetId/Set)
                     SetId = t.SetId,
                     SetName = t.Set != null ? t.Set.Name : null,
@@ -86,7 +86,7 @@ namespace Application.Services
                         t.Discount.UpdatedOn
                       )
                     : null,
-
+                    
 
                     Items = t.TransactionItems.Select(ti => new TransactionItemMiniDto
                     {
@@ -184,7 +184,7 @@ namespace Application.Services
                     GameCategoryName = (t.Game != null && t.Game.Category != null)
                                         ? t.Game.Category.Name
                                         : null,
-
+                    Comment = t.Comment,
                     GameSettingId = t.GameSettingId,
                     GameSettingName = t.GameSetting != null ? t.GameSetting.Name : null,
 
