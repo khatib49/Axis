@@ -15,7 +15,8 @@
         int? RoomId,
         string? RoomName,
         int? SetId,
-        string? SetName
+        string? SetName,
+        string? Comment
     );
 
     /// <summary>

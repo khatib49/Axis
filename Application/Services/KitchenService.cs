@@ -24,10 +24,9 @@ namespace Application.Services
             _statusRepo = statusRepo;
             _uow = uow;
         }
-
         public async Task<List<KitchenOrderDto>> GetKitchenOrdersAsync(
-            int? foodStatusId = null,
-            CancellationToken ct = default)
+           int? foodStatusId = null,
+           CancellationToken ct = default)
         {
             // Get TCG Retail category IDs to exclude them
             var tcgCategoryIds = await GetTcgRetailCategoryIds(ct);
@@ -53,13 +52,13 @@ namespace Application.Services
 
             // First get the transactions with included data
             var transactions = await query
-                .Include(t => t.FoodStatus)
+                .Include(t => t.FoodStatus)  // ← Load FoodStatus navigation
                 .Include(t => t.User)
                 .Include(t => t.Room)
                 .Include(t => t.Set)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
-                        .ThenInclude(i => i.Category)
+                        .ThenInclude(i => i!.Category)
                 .OrderBy(t => t.CreatedOn)
                 .ToListAsync(ct);
 
@@ -69,7 +68,7 @@ namespace Application.Services
                 OrderTime: t.CreatedOn,
                 OrderedBy: t.CreatedBy,
                 FoodStatusId: t.FK_FoodStatusId ?? 0,
-                FoodStatusName: t.FoodStatus?.Name ?? "Unknown",
+                FoodStatusName: t.FoodStatus?.Name ?? "Unknown",  // ← Now properly loaded
                 Items: t.TransactionItems
                     .Where(ti => ti.Item != null && !tcgCategoryIds.Contains(ti.Item.CategoryId))
                     .Select(ti => new KitchenOrderItemDto(
@@ -84,7 +83,8 @@ namespace Application.Services
                 RoomId: t.RoomId,
                 RoomName: t.Room?.Name,
                 SetId: t.SetId,
-                SetName: t.Set?.Name
+                SetName: t.Set?.Name,
+                Comment: t.Comment  // ← NEW: Include comment
             ))
             .ToList();
 
@@ -100,13 +100,13 @@ namespace Application.Services
             var transaction = await _transactionRepo.Query()
                 .Where(t => t.Id == transactionId)
                 .Where(t => t.GameId == null) // Only FNB orders
-                .Include(t => t.FoodStatus)
+                .Include(t => t.FoodStatus)  // ← Load FoodStatus navigation
                 .Include(t => t.User)
                 .Include(t => t.Room)
                 .Include(t => t.Set)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
-                        .ThenInclude(i => i.Category)
+                        .ThenInclude(i => i!.Category)
                 .FirstOrDefaultAsync(ct);
 
             if (transaction == null)
@@ -117,7 +117,7 @@ namespace Application.Services
                 OrderTime: transaction.CreatedOn,
                 OrderedBy: transaction.CreatedBy,
                 FoodStatusId: transaction.FK_FoodStatusId ?? 0,
-                FoodStatusName: transaction.FoodStatus?.Name ?? "Unknown",
+                FoodStatusName: transaction.FoodStatus?.Name ?? "Unknown",  // ← Now properly loaded
                 Items: transaction.TransactionItems
                     .Where(ti => ti.Item != null && !tcgCategoryIds.Contains(ti.Item.CategoryId))
                     .Select(ti => new KitchenOrderItemDto(
@@ -132,7 +132,8 @@ namespace Application.Services
                 RoomId: transaction.RoomId,
                 RoomName: transaction.Room?.Name,
                 SetId: transaction.SetId,
-                SetName: transaction.Set?.Name
+                SetName: transaction.Set?.Name,
+                Comment: transaction.Comment  // ← NEW: Include comment
             );
         }
 
@@ -163,8 +164,6 @@ namespace Application.Services
             // Update food status
             transaction.FK_FoodStatusId = newFoodStatusId;
             transaction.ModifiedOn = DateTime.UtcNow;
-            // Note: CreatedBy tracks who created the order, not who updates status
-            // You might want to add a separate audit trail if needed
 
             _transactionRepo.Update(transaction);
             await _uow.SaveChangesAsync(ct);
@@ -186,20 +185,18 @@ namespace Application.Services
 
             // Assuming food status IDs: 7=Pending, 8=InProgress, 9=Ready, 10=Served
             var pendingOrders = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 7, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 11, ct);
 
             var inProgressOrders = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 8, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 12, ct);
 
             var readyOrders = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 9, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 13, ct);
 
             var servedToday = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 10, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 14, ct);
 
-            // Calculate average preparation time (from order to ready status)
-            // This is a simplified calculation - you might want to add timestamps for status changes
-            var averagePreparationTime = 0m; // In minutes - can be calculated if you track status change times
+            var averagePreparationTime = 0m;
 
             return new KitchenStatsDto(
                 PendingOrders: pendingOrders,
