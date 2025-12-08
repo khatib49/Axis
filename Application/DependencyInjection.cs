@@ -37,6 +37,7 @@ namespace Application
             services.AddScoped<IUserCardService, UserCardService>();
             services.AddScoped<IUsersService, UsersService>();
             services.AddScoped<IStatusService, StatusService>();
+            services.AddScoped<IRoleCategoryService, RoleCategoryService>();
 
             services.AddScoped<ISetService, SetService>();
             services.AddScoped<IDiscountService, DiscountService>();

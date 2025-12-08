@@ -11,25 +11,43 @@ namespace Application.Services
         private readonly IBaseRepository<TransactionRecord> _transactionRepo;
         private readonly IBaseRepository<Category> _categoryRepo;
         private readonly IBaseRepository<Status> _statusRepo;
+        private readonly IRoleCategoryService _roleCategoryService;
         private readonly IUnitOfWork _uow;
 
         public KitchenService(
             IBaseRepository<TransactionRecord> transactionRepo,
             IBaseRepository<Category> categoryRepo,
             IBaseRepository<Status> statusRepo,
+            IRoleCategoryService roleCategoryService,
             IUnitOfWork uow)
         {
             _transactionRepo = transactionRepo;
             _categoryRepo = categoryRepo;
             _statusRepo = statusRepo;
+            _roleCategoryService = roleCategoryService;
             _uow = uow;
         }
+
         public async Task<List<KitchenOrderDto>> GetKitchenOrdersAsync(
-           int? foodStatusId = null,
-           CancellationToken ct = default)
+            int? foodStatusId = null,
+            string? userRole = null,
+            CancellationToken ct = default)
         {
-            // Get TCG Retail category IDs to exclude them
+            // Get TCG categories to exclude (always exclude retail)
             var tcgCategoryIds = await GetTcgRetailCategoryIds(ct);
+
+            // Get allowed categories for this role (from RoleCategory table)
+            var allowedCategoryIds = new List<int>();
+            if (!string.IsNullOrEmpty(userRole) && userRole.ToLower() != "admin" && userRole.ToLower() != "cashier")
+            {
+                allowedCategoryIds = await _roleCategoryService.GetCategoryIdsForRoleAsync(userRole, ct);
+
+                // If no categories assigned to this role, return empty list
+                if (!allowedCategoryIds.Any())
+                {
+                    return new List<KitchenOrderDto>();
+                }
+            }
 
             var query = _transactionRepo.Query()
                 .Where(t => t.StatusId == 6) // Only paid/completed transactions
@@ -46,13 +64,19 @@ namespace Application.Services
             else
             {
                 // Default: show orders that are not yet served (pending, in progress, ready)
-                // Assuming food status IDs: 7=Pending, 8=InProgress, 9=Ready, 10=Served
                 query = query.Where(t => t.FK_FoodStatusId != null && t.FK_FoodStatusId != 10);
+            }
+
+            // ✅ Filter by role-specific categories (if not admin/cashier)
+            if (allowedCategoryIds.Any())
+            {
+                query = query.Where(t => t.TransactionItems.Any(ti =>
+                    ti.Item != null && allowedCategoryIds.Contains(ti.Item.CategoryId)));
             }
 
             // First get the transactions with included data
             var transactions = await query
-                .Include(t => t.FoodStatus)  // ← Load FoodStatus navigation
+                .Include(t => t.FoodStatus)
                 .Include(t => t.User)
                 .Include(t => t.Room)
                 .Include(t => t.Set)
@@ -68,9 +92,11 @@ namespace Application.Services
                 OrderTime: t.CreatedOn,
                 OrderedBy: t.CreatedBy,
                 FoodStatusId: t.FK_FoodStatusId ?? 0,
-                FoodStatusName: t.FoodStatus?.Name ?? "Unknown",  // ← Now properly loaded
+                FoodStatusName: t.FoodStatus?.Name ?? "Unknown",
                 Items: t.TransactionItems
-                    .Where(ti => ti.Item != null && !tcgCategoryIds.Contains(ti.Item.CategoryId))
+                    .Where(ti => ti.Item != null &&
+                                !tcgCategoryIds.Contains(ti.Item.CategoryId) &&
+                                (allowedCategoryIds.Count == 0 || allowedCategoryIds.Contains(ti.Item.CategoryId)))
                     .Select(ti => new KitchenOrderItemDto(
                         ItemId: ti.ItemId,
                         ItemName: ti.Item!.Name,
@@ -84,8 +110,9 @@ namespace Application.Services
                 RoomName: t.Room?.Name,
                 SetId: t.SetId,
                 SetName: t.Set?.Name,
-                Comment: t.Comment  // ← NEW: Include comment
+                Comment: t.Comment
             ))
+            .Where(o => o.Items.Any()) // Only include orders that have items after filtering
             .ToList();
 
             return orders;
@@ -93,14 +120,22 @@ namespace Application.Services
 
         public async Task<KitchenOrderDto?> GetKitchenOrderByIdAsync(
             int transactionId,
+            string? userRole = null,
             CancellationToken ct = default)
         {
             var tcgCategoryIds = await GetTcgRetailCategoryIds(ct);
 
+            // Get allowed categories for this role
+            var allowedCategoryIds = new List<int>();
+            if (!string.IsNullOrEmpty(userRole) && userRole.ToLower() != "admin" && userRole.ToLower() != "cashier")
+            {
+                allowedCategoryIds = await _roleCategoryService.GetCategoryIdsForRoleAsync(userRole, ct);
+            }
+
             var transaction = await _transactionRepo.Query()
                 .Where(t => t.Id == transactionId)
-                .Where(t => t.GameId == null) // Only FNB orders
-                .Include(t => t.FoodStatus)  // ← Load FoodStatus navigation
+                .Where(t => t.GameId == null)
+                .Include(t => t.FoodStatus)
                 .Include(t => t.User)
                 .Include(t => t.Room)
                 .Include(t => t.Set)
@@ -117,9 +152,11 @@ namespace Application.Services
                 OrderTime: transaction.CreatedOn,
                 OrderedBy: transaction.CreatedBy,
                 FoodStatusId: transaction.FK_FoodStatusId ?? 0,
-                FoodStatusName: transaction.FoodStatus?.Name ?? "Unknown",  // ← Now properly loaded
+                FoodStatusName: transaction.FoodStatus?.Name ?? "Unknown",
                 Items: transaction.TransactionItems
-                    .Where(ti => ti.Item != null && !tcgCategoryIds.Contains(ti.Item.CategoryId))
+                    .Where(ti => ti.Item != null &&
+                                !tcgCategoryIds.Contains(ti.Item.CategoryId) &&
+                                (allowedCategoryIds.Count == 0 || allowedCategoryIds.Contains(ti.Item.CategoryId)))
                     .Select(ti => new KitchenOrderItemDto(
                         ItemId: ti.ItemId,
                         ItemName: ti.Item!.Name,
@@ -133,7 +170,7 @@ namespace Application.Services
                 RoomName: transaction.Room?.Name,
                 SetId: transaction.SetId,
                 SetName: transaction.Set?.Name,
-                Comment: transaction.Comment  // ← NEW: Include comment
+                Comment: transaction.Comment
             );
         }
 
@@ -143,7 +180,6 @@ namespace Application.Services
             string updatedBy,
             CancellationToken ct = default)
         {
-            // Verify status exists
             var statusExists = await _statusRepo.Query()
                 .AnyAsync(s => s.Id == newFoodStatusId, ct);
 
@@ -152,7 +188,6 @@ namespace Application.Services
                 throw new ArgumentException($"Invalid food status ID: {newFoodStatusId}");
             }
 
-            // Get transaction (with tracking for update)
             var transaction = await _transactionRepo.Query(asNoTracking: false)
                 .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
 
@@ -161,7 +196,6 @@ namespace Application.Services
                 return false;
             }
 
-            // Update food status
             transaction.FK_FoodStatusId = newFoodStatusId;
             transaction.ModifiedOn = DateTime.UtcNow;
 
@@ -171,9 +205,19 @@ namespace Application.Services
             return true;
         }
 
-        public async Task<KitchenStatsDto> GetKitchenStatsAsync(CancellationToken ct = default)
+        public async Task<KitchenStatsDto> GetKitchenStatsAsync(
+            string? userRole = null,
+            CancellationToken ct = default)
         {
             var tcgCategoryIds = await GetTcgRetailCategoryIds(ct);
+
+            // Get allowed categories for this role
+            var allowedCategoryIds = new List<int>();
+            if (!string.IsNullOrEmpty(userRole) && userRole.ToLower() != "admin" && userRole.ToLower() != "cashier")
+            {
+                allowedCategoryIds = await _roleCategoryService.GetCategoryIdsForRoleAsync(userRole, ct);
+            }
+
             var today = DateTime.UtcNow.Date;
 
             var ordersQuery = _transactionRepo.Query()
@@ -183,18 +227,24 @@ namespace Application.Services
                     ti.Item != null && !tcgCategoryIds.Contains(ti.Item.CategoryId)))
                 .Where(t => t.CreatedOn >= today);
 
-            // Assuming food status IDs: 7=Pending, 8=InProgress, 9=Ready, 10=Served
+            // Filter by role
+            if (allowedCategoryIds.Any())
+            {
+                ordersQuery = ordersQuery.Where(t => t.TransactionItems.Any(ti =>
+                    ti.Item != null && allowedCategoryIds.Contains(ti.Item.CategoryId)));
+            }
+
             var pendingOrders = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 11, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 7, ct);
 
             var inProgressOrders = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 12, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 8, ct);
 
             var readyOrders = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 13, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 9, ct);
 
             var servedToday = await ordersQuery
-                .CountAsync(t => t.FK_FoodStatusId == 14, ct);
+                .CountAsync(t => t.FK_FoodStatusId == 10, ct);
 
             var averagePreparationTime = 0m;
 
@@ -212,7 +262,8 @@ namespace Application.Services
             return await _categoryRepo.Query()
                 .Where(c => c.Name.ToLower().Contains("tcg retail") ||
                            c.Name.ToLower() == "tcg" ||
-                           c.Type.ToLower().Contains("tcg"))
+                           c.Type.ToLower().Contains("tcg") ||
+                           (c.ItemType != null && c.ItemType.ToLower() == "retail"))
                 .Select(c => c.Id)
                 .ToListAsync(ct);
         }

@@ -3,6 +3,7 @@
 using Domain.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 
 namespace Infrastructure.Persistence
 {
@@ -31,6 +32,8 @@ namespace Infrastructure.Persistence
 
         public DbSet<Set> Sets => Set<Set>();
         public DbSet<Discount> Discounts => Set<Discount>();
+        public DbSet<RoleCategory> RoleCategories { get; set; }
+
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
@@ -230,7 +233,26 @@ namespace Infrastructure.Persistence
                  .HasForeignKey(x => x.FK_CategoryId)
                  .OnDelete(DeleteBehavior.Restrict); // or your intended behavior
             });
+            b.Entity<RoleCategory>(entity =>
+            {
+                entity.HasKey(e => e.Id);
 
+                entity.HasIndex(e => e.RoleName);
+
+                entity.HasIndex(e => new { e.RoleName, e.CategoryId })
+                    .IsUnique();
+
+                entity.HasOne(e => e.Category)
+                    .WithMany()
+                    .HasForeignKey(e => e.CategoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedOn)
+                    .HasDefaultValueSql("NOW()");
+            });
         }
     }
 }
