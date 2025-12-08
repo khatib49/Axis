@@ -70,7 +70,7 @@ namespace AxisAPI.Controllers
             var userName = User?.Identity?.Name ?? "Unknown";
 
             // Food Status: 8 = InProgress
-            var success = await _kitchenService.UpdateFoodStatusAsync(transactionId, 8, userName, ct);
+            var success = await _kitchenService.UpdateFoodStatusAsync(transactionId, 12, userName, ct);
 
             if (!success)
             {
@@ -92,7 +92,7 @@ namespace AxisAPI.Controllers
             var userName = User?.Identity?.Name ?? "Unknown";
 
             // Food Status: 9 = Ready
-            var success = await _kitchenService.UpdateFoodStatusAsync(transactionId, 9, userName, ct);
+            var success = await _kitchenService.UpdateFoodStatusAsync(transactionId, 13, userName, ct);
 
             if (!success)
             {
@@ -106,7 +106,7 @@ namespace AxisAPI.Controllers
         /// Waiter/Cashier: Mark order as served to customer (Ready -> Served)
         /// </summary>
         [HttpPost("orders/{transactionId}/served")]
-        [Authorize(Roles = "admin,cashier,gamecashier")]
+        [Authorize(Roles = "chef,admin,cashier,gamecashier")]
         public async Task<ActionResult> MarkOrderServed(
             [FromRoute] int transactionId,
             CancellationToken ct)
@@ -114,7 +114,7 @@ namespace AxisAPI.Controllers
             var userName = User?.Identity?.Name ?? "Unknown";
 
             // Food Status: 10 = Served
-            var success = await _kitchenService.UpdateFoodStatusAsync(transactionId, 10, userName, ct);
+            var success = await _kitchenService.UpdateFoodStatusAsync(transactionId, 14, userName, ct);
 
             if (!success)
             {

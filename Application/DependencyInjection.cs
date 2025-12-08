@@ -44,6 +44,8 @@ namespace Application
 
             services.AddScoped<IProfitService, ProfitService>();
 
+            services.AddScoped<IKitchenService, KitchenService>();
+
             return services;
         }
     }
