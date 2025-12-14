@@ -26,7 +26,7 @@ namespace AxisAPI.Controllers
         /// <param name="ct">Cancellation token</param>
         /// <returns>FNB profit details including revenue, expenses, net profit, and profit margin</returns>
         [HttpGet("fnb")]
-        [Authorize(Roles = "admin,admin_fnb")]
+        //[Authorize(Roles = "admin,admin_fnb")]
         public async Task<ActionResult<ProfitDto>> GetFnbProfit(
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
