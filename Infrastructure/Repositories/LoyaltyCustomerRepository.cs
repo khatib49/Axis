@@ -56,16 +56,22 @@ namespace Infrastructure.Repositories
 
         public async Task<List<LoyaltyCustomer>> GetCustomersWithTicketsInMonthAsync(string drawMonth)
         {
+            // Get customers who have valid tickets for the specified month
             return await _context.LoyaltyCustomers
-                .Include(c => c.Tickets.Where(t => t.DrawMonth == drawMonth && t.IsValid))
-                .Where(c => c.Tickets.Any(t => t.DrawMonth == drawMonth && t.IsValid))
+                .Where(c => _context.LoyaltyTickets
+                    .Any(t => t.CustomerPhone == c.PhoneNumber
+                           && t.DrawMonth == drawMonth
+                           && t.IsValid))
                 .ToListAsync();
+
+            // Note: This doesn't eager-load the tickets navigation property
+            // We'll load tickets separately in the service
         }
 
         public async Task<int> ResetMonthlyTicketsAsync(string currentMonth)
         {
             var customers = await _context.LoyaltyCustomers
-                .Where(c => c.TotalTicketsCurrentMonth > 0)
+                .Where(c => c.TotalTicketsCurrentMonth > 0 || c.PendingBalance > 0)
                 .ToListAsync();
 
             foreach (var customer in customers)
@@ -77,6 +83,7 @@ namespace Infrastructure.Repositories
                     .SumAsync(t => t.TicketsEarned);
 
                 customer.TotalTicketsCurrentMonth = currentMonthTickets;
+                customer.PendingBalance = 0; // RESET PENDING BALANCE FOR NEW MONTH
                 customer.LastUpdated = DateTime.UtcNow;
             }
 

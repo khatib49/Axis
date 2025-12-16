@@ -30,10 +30,26 @@ namespace Application.Services
             _logger = logger;
         }
 
+        // Services/LoyaltyService.cs
         public async Task<CalculateTicketsResponse> CalculateAndAssignTicketsAsync(CalculateTicketsRequest request)
         {
             try
             {
+                // PROGRAM START DATE: December 19, 2024
+                var programStartDate = new DateTime(2024, 12, 15, 0, 0, 0, DateTimeKind.Utc);
+                var now = DateTime.UtcNow;
+
+                // CHECK: Has program started yet?
+                if (now < programStartDate)
+                {
+                    return new CalculateTicketsResponse
+                    {
+                        Success = false,
+                        Message = $"Loyalty program starts on December 19, 2024. Current date: {now:yyyy-MM-dd}",
+                        CustomerPhone = request.CustomerPhone
+                    };
+                }
+
                 // Validate request
                 if (request.TotalAmount <= 0)
                 {
@@ -67,22 +83,6 @@ namespace Application.Services
                     };
                 }
 
-                // Calculate tickets: $10 = 1 ticket, rounded down
-                int ticketsEarned = (int)Math.Floor(request.TotalAmount / DOLLARS_PER_TICKET);
-
-                if (ticketsEarned == 0)
-                {
-                    return new CalculateTicketsResponse
-                    {
-                        Success = true,
-                        TicketsEarned = 0,
-                        TotalTicketsThisMonth = 0,
-                        Message = $"Transaction amount ${request.TotalAmount:F2} is below $10 threshold. No tickets earned.",
-                        CustomerPhone = request.CustomerPhone
-                    };
-                }
-
-                var now = DateTime.UtcNow;
                 var drawMonth = now.ToString("yyyy-MM");
 
                 // Get or create customer
@@ -95,6 +95,7 @@ namespace Application.Services
                         PhoneNumber = request.CustomerPhone,
                         Name = request.CustomerName,
                         TotalTicketsCurrentMonth = 0,
+                        PendingBalance = 0,
                         CreatedAt = now,
                         LastUpdated = now
                     };
@@ -103,37 +104,82 @@ namespace Application.Services
                 else if (!string.IsNullOrWhiteSpace(request.CustomerName) && string.IsNullOrWhiteSpace(customer.Name))
                 {
                     customer.Name = request.CustomerName;
-                    customer = await _customerRepository.UpdateAsync(customer);
                 }
 
-                // Create loyalty ticket record
-                var loyaltyTicket = new LoyaltyTicket
-                {
-                    CustomerPhone = request.CustomerPhone,
-                    TransactionId = request.TransactionId,
-                    TicketsEarned = ticketsEarned,
-                    EarnedDate = now,
-                    DrawMonth = drawMonth,
-                    IsValid = true,
-                    CreatedAt = now
-                };
+                // ========================================
+                // NEW ACCUMULATION LOGIC
+                // ========================================
 
-                await _ticketRepository.CreateAsync(loyaltyTicket);
+                // Add transaction amount to pending balance
+                decimal totalBalance = customer.PendingBalance + request.TotalAmount;
 
-                // Update customer's total tickets for current month
-                customer.TotalTicketsCurrentMonth += ticketsEarned;
+                // Calculate how many tickets can be earned
+                int ticketsEarned = (int)Math.Floor(totalBalance / DOLLARS_PER_TICKET);
+
+                // Calculate remaining balance after tickets
+                decimal newPendingBalance = totalBalance - (ticketsEarned * DOLLARS_PER_TICKET);
+
+                // Log the calculation for transparency
+                _logger.LogInformation(
+                    $"Ticket Calculation - Phone: {request.CustomerPhone}, " +
+                    $"Previous Balance: ${customer.PendingBalance:F2}, " +
+                    $"Transaction: ${request.TotalAmount:F2}, " +
+                    $"Total: ${totalBalance:F2}, " +
+                    $"Tickets Earned: {ticketsEarned}, " +
+                    $"New Balance: ${newPendingBalance:F2}"
+                );
+
+                // Update customer's pending balance
+                customer.PendingBalance = newPendingBalance;
                 customer.LastUpdated = now;
+
+                // Only create ticket record if tickets were earned
+                if (ticketsEarned > 0)
+                {
+                    var loyaltyTicket = new LoyaltyTicket
+                    {
+                        CustomerPhone = request.CustomerPhone,
+                        TransactionId = request.TransactionId,
+                        TicketsEarned = ticketsEarned,
+                        EarnedDate = now,
+                        DrawMonth = drawMonth,
+                        IsValid = true,
+                        CreatedAt = now
+                    };
+
+                    await _ticketRepository.CreateAsync(loyaltyTicket);
+
+                    // Update customer's total tickets for current month
+                    customer.TotalTicketsCurrentMonth += ticketsEarned;
+                }
+
                 await _customerRepository.UpdateAsync(customer);
 
-                _logger.LogInformation($"Assigned {ticketsEarned} tickets to {request.CustomerPhone} for transaction {request.TransactionId}");
+                // Build response message
+                string message;
+                if (ticketsEarned > 0)
+                {
+                    message = $"Earned {ticketsEarned} ticket(s)! Remaining balance: ${newPendingBalance:F2}";
+                }
+                else
+                {
+                    decimal amountNeeded = DOLLARS_PER_TICKET - newPendingBalance;
+                    message = $"Balance: ${newPendingBalance:F2}. Spend ${amountNeeded:F2} more to earn a ticket!";
+                }
+
+                _logger.LogInformation(
+                    $"Processed transaction {request.TransactionId} for {request.CustomerPhone}: " +
+                    $"{ticketsEarned} tickets earned, ${newPendingBalance:F2} pending"
+                );
 
                 return new CalculateTicketsResponse
                 {
                     Success = true,
                     TicketsEarned = ticketsEarned,
                     TotalTicketsThisMonth = customer.TotalTicketsCurrentMonth,
-                    Message = $"Successfully earned {ticketsEarned} ticket(s)!",
-                    CustomerPhone = request.CustomerPhone
+                    Message = message,
+                    CustomerPhone = request.CustomerPhone,
+                    PendingBalance = newPendingBalance // Add this to DTO
                 };
             }
             catch (Exception ex)
@@ -148,6 +194,7 @@ namespace Application.Services
             }
         }
 
+        // Services/LoyaltyService.cs
         public async Task<CustomerBalanceResponse?> GetCustomerBalanceAsync(string phoneNumber)
         {
             try
@@ -162,6 +209,7 @@ namespace Application.Services
                     {
                         CustomerPhone = phoneNumber,
                         TotalTicketsCurrentMonth = 0,
+                        PendingBalance = 0,
                         CurrentMonth = currentMonth,
                         RecentTickets = new List<TicketDetailDTO>()
                     };
@@ -186,6 +234,7 @@ namespace Application.Services
                     CustomerPhone = customer.PhoneNumber,
                     CustomerName = customer.Name,
                     TotalTicketsCurrentMonth = customer.TotalTicketsCurrentMonth,
+                    PendingBalance = customer.PendingBalance, // NEW FIELD
                     CurrentMonth = currentMonth,
                     RecentTickets = ticketDetails
                 };
@@ -196,6 +245,7 @@ namespace Application.Services
                 return null;
             }
         }
+
 
         public async Task<List<LeaderboardEntryDTO>> GetWeeklyLeaderboardAsync()
         {
@@ -372,6 +422,7 @@ namespace Application.Services
             }
         }
 
+        // Services/LoyaltyService.cs
         public async Task<DrawResponse> ConductMonthlyDrawAsync(DrawRequest request)
         {
             try
@@ -395,7 +446,8 @@ namespace Application.Services
                     };
                 }
 
-                // Get all customers with tickets for the month
+                // ✅ FIX: Get customers with valid tickets for the month
+                // Then manually load their tickets
                 var eligibleCustomers = await _customerRepository.GetCustomersWithTicketsInMonthAsync(drawMonth);
 
                 if (!eligibleCustomers.Any())
@@ -409,11 +461,43 @@ namespace Application.Services
                     };
                 }
 
-                // Create weighted list for random selection
-                var weightedList = new List<string>();
+                // ✅ IMPORTANT: Load tickets separately for each customer
+                var customerTicketCounts = new Dictionary<LoyaltyCustomer, int>();
+
                 foreach (var customer in eligibleCustomers)
                 {
-                    var ticketCount = customer.Tickets.Sum(t => t.TicketsEarned);
+                    // Get this customer's valid tickets for the month
+                    var tickets = await _ticketRepository.GetByCustomerAndMonthAsync(
+                        customer.PhoneNumber,
+                        drawMonth
+                    );
+
+                    var ticketCount = tickets.Sum(t => t.TicketsEarned);
+
+                    if (ticketCount > 0)
+                    {
+                        customerTicketCounts[customer] = ticketCount;
+                    }
+                }
+
+                if (!customerTicketCounts.Any())
+                {
+                    return new DrawResponse
+                    {
+                        Success = false,
+                        Message = "No eligible tickets found for this month's draw",
+                        TotalEligibleCustomers = 0,
+                        TotalTicketsInDraw = 0
+                    };
+                }
+
+                // Create weighted list for random selection
+                var weightedList = new List<string>();
+                foreach (var kvp in customerTicketCounts)
+                {
+                    var customer = kvp.Key;
+                    var ticketCount = kvp.Value;
+
                     for (int i = 0; i < ticketCount; i++)
                     {
                         weightedList.Add(customer.PhoneNumber);
@@ -423,8 +507,8 @@ namespace Application.Services
                 // Random selection
                 var random = new Random();
                 var winnerPhone = weightedList[random.Next(weightedList.Count)];
-                var winner = eligibleCustomers.First(c => c.PhoneNumber == winnerPhone);
-                var winnerTicketCount = winner.Tickets.Sum(t => t.TicketsEarned);
+                var winner = customerTicketCounts.Keys.First(c => c.PhoneNumber == winnerPhone);
+                var winnerTicketCount = customerTicketCounts[winner];
 
                 // Create winner record
                 var monthlyWinner = new MonthlyWinner
@@ -454,7 +538,7 @@ namespace Application.Services
                         TicketsHeld = winnerTicketCount,
                         DrawDate = now
                     },
-                    TotalEligibleCustomers = eligibleCustomers.Count,
+                    TotalEligibleCustomers = customerTicketCounts.Count,
                     TotalTicketsInDraw = weightedList.Count
                 };
             }

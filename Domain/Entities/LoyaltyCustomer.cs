@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Models
@@ -17,6 +18,10 @@ namespace Domain.Models
 
         [Column("total_tickets_current_month")]
         public int TotalTicketsCurrentMonth { get; set; } = 0;
+
+        [Column("pending_balance")]
+        [Precision(10, 2)]
+        public decimal PendingBalance { get; set; } = 0;
 
         [Column("last_updated")]
         public DateTime LastUpdated { get; set; } = DateTime.UtcNow;

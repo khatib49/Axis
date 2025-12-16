@@ -35,12 +35,14 @@ namespace Application.Services
         private readonly ILogger<TransactionRecordService> _logger;
         private readonly IBaseRepository<Discount> _repoDiscount;
         private readonly UserManager<AppUser> _userManager;
-
+        private readonly ILoyaltyService _loyaltyService;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
-            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager, IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet,
+            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
+            IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
         IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
         {
+            _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
             _userManager = userManager;
             _repoSetting = repoSetting;
@@ -357,41 +359,77 @@ namespace Application.Services
 
                 return new BaseResponse<TransactionDto>(false, "set in use", "The selected set just became in use. Please choose a different set.");
             }
+            // ========================================
+            // ✅ CALCULATE LOYALTY TICKETS
+            // ========================================
+            if (statusToUse == 6 && userId.HasValue)
+            {
+                try
+                {
+                    var userPhone = await GetUserPhoneNumberAsync(userId.Value, ct);
+                    var userName = await GetUserFullNameAsync(userId.Value, ct);
 
-            #region No need for hangfire now
-            //// schedule a job only if there is a time limit
-            //if (!setting.IsOpenHour && expectedEndOn.HasValue)
-            //{
-            //    // Hangfire will call SessionEndMonitor.EndIfOngoingAsync at expected end
-            //    var jobId = BackgroundJob.Schedule<SessionEndMonitor>(
-            //                    x => x.EndIfOngoingAsync(e.Id, 6, CancellationToken.None),
-            //                    expectedEndOn.Value - DateTime.UtcNow);
+                    if (!string.IsNullOrWhiteSpace(userPhone))
+                    {
+                        var loyaltyRequest = new CalculateTicketsRequest
+                        {
+                            TransactionId = e.Id,
+                            TotalAmount = totalPrice,
+                            CustomerPhone = userPhone,
+                            CustomerName = userName ?? createdBy // Use actual name or fallback to createdBy
+                        };
 
-            //    // store job id
-            //    var tracked = await _repo.GetByIdAsync(e.Id, asNoTracking: false, ct);
-            //    if (tracked != null)
-            //    {
-            //        //tracked.HangfireJobId = jobId;
-            //        await _uow.SaveChangesAsync(ct);
-            //    }
-            //}
-            #endregion
-                e = await _repo.Query()
-                    .Include(x => x.Room)
-                    .Include(x => x.Game)
-                    .Include(x => x.GameType)
-                    .Include(x => x.GameSetting)
-                    .Include(x => x.Discount)
-                    .Include(x => x.Set)
-                    .Include(x => x.TransactionItems)
-                        .ThenInclude(ti => ti.Item)
-                    .Include(x => x.TransactionItems)
-                        .ThenInclude(ti => ti.Item.CoffeeShopOrders)
-                        .AsSplitQuery()
-                    .FirstOrDefaultAsync(x => x.Id == e.Id, ct);
-                TransactionDto transactionDto = _mapper.ToDto(e);
+                        var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
 
-                return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
+                        if (loyaltyResponse.Success)
+                        {
+                            _logger.LogInformation(
+                                "✅ Loyalty tickets assigned: TxId={TxId}, User={UserId}, Phone={Phone}, Tickets={Tickets}, Balance=${Balance:F2}",
+                                e.Id, userId.Value, userPhone, loyaltyResponse.TicketsEarned, loyaltyResponse.PendingBalance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "⚠️ Loyalty calculation failed: TxId={TxId}, User={UserId}, Reason={Message}",
+                                e.Id, userId.Value, loyaltyResponse.Message);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "ℹ️ No phone number for loyalty: TxId={TxId}, User={UserId}",
+                            e.Id, userId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "❌ Error calculating loyalty tickets: TxId={TxId}, User={UserId}",
+                        e.Id, userId.Value);
+                }
+            }
+            // ========================================
+
+
+            e = await _repo.Query()
+                .Include(x => x.Room)
+                .Include(x => x.Game)
+                .Include(x => x.GameType)
+                .Include(x => x.GameSetting)
+                .Include(x => x.Discount)
+                .Include(x => x.Set)
+                .Include(x => x.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .Include(x => x.TransactionItems)
+                    .ThenInclude(ti => ti.Item.CoffeeShopOrders)
+                    .AsSplitQuery()
+                .FirstOrDefaultAsync(x => x.Id == e.Id, ct);
+
+            TransactionDto transactionDto = _mapper.ToDto(e);
+
+            return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
+
+
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct, string comment = "")
@@ -532,9 +570,61 @@ namespace Application.Services
 
                 return new BaseResponse<TransactionDto>(false, "Error happened", "Error happened");
             }
+            // ========================================
+            // ✅ CALCULATE LOYALTY TICKETS
+            // ========================================
+            if (userId.HasValue)
+            {
+                try
+                {
+                    var userPhone = await GetUserPhoneNumberAsync(userId.Value, ct);
+                    var userName = await GetUserFullNameAsync(userId.Value, ct);
 
-                TransactionDto transactionDto =  _mapper.ToDto(trx);
-                return new BaseResponse<TransactionDto>(true, null, "Item Order created successfully.", transactionDto);
+                    if (!string.IsNullOrWhiteSpace(userPhone))
+                    {
+                        var loyaltyRequest = new CalculateTicketsRequest
+                        {
+                            TransactionId = trx.Id,
+                            TotalAmount = totalPrice,
+                            CustomerPhone = userPhone,
+                            CustomerName = userName ?? createdBy
+                        };
+
+                        var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
+
+                        if (loyaltyResponse.Success)
+                        {
+                            _logger.LogInformation(
+                                "✅ Loyalty tickets assigned: TxId={TxId}, User={UserId}, Phone={Phone}, Tickets={Tickets}, Balance=${Balance:F2}",
+                                trx.Id, userId.Value, userPhone, loyaltyResponse.TicketsEarned, loyaltyResponse.PendingBalance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "⚠️ Loyalty calculation failed: TxId={TxId}, User={UserId}, Reason={Message}",
+                                trx.Id, userId.Value, loyaltyResponse.Message);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "ℹ️ No phone number for loyalty: TxId={TxId}, User={UserId}",
+                            trx.Id, userId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "❌ Error calculating loyalty tickets: TxId={TxId}, User={UserId}",
+                        trx.Id, userId.Value);
+                }
+            }
+            // ========================================
+
+
+
+            TransactionDto transactionDto = _mapper.ToDto(trx);
+            return new BaseResponse<TransactionDto>(true, null, "Item Order created successfully.", transactionDto);
         }
 
         public async Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default)
@@ -865,6 +955,57 @@ namespace Application.Services
             {
                 return new BaseResponse<TransactionDto>(false, "db error", "Failed to close the session.");
             }
+            // ========================================
+            // ✅ CALCULATE LOYALTY TICKETS
+            // ========================================
+            if (tracked.UserId.HasValue)
+            {
+                try
+                {
+                    var userPhone = await GetUserPhoneNumberAsync(tracked.UserId.Value, ct);
+                    var userName = await GetUserFullNameAsync(tracked.UserId.Value, ct);
+
+                    if (!string.IsNullOrWhiteSpace(userPhone))
+                    {
+                        var loyaltyRequest = new CalculateTicketsRequest
+                        {
+                            TransactionId = tracked.Id,
+                            TotalAmount = totalPrice,
+                            CustomerPhone = userPhone,
+                            CustomerName = userName ?? updatedBy
+                        };
+
+                        var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
+
+                        if (loyaltyResponse.Success)
+                        {
+                            _logger.LogInformation(
+                                "✅ Loyalty tickets assigned on close: TxId={TxId}, User={UserId}, Phone={Phone}, Tickets={Tickets}, Balance=${Balance:F2}",
+                                tracked.Id, tracked.UserId.Value, userPhone, loyaltyResponse.TicketsEarned, loyaltyResponse.PendingBalance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "⚠️ Loyalty calculation failed on close: TxId={TxId}, User={UserId}, Reason={Message}",
+                                tracked.Id, tracked.UserId.Value, loyaltyResponse.Message);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "ℹ️ No phone number for loyalty on close: TxId={TxId}, User={UserId}",
+                            tracked.Id, tracked.UserId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "❌ Error calculating loyalty tickets on close: TxId={TxId}, User={UserId}",
+                        tracked.Id, tracked.UserId.Value);
+                }
+            }
+            // ========================================
+
 
             var dto = _mapper.ToDto(tracked);
             return new BaseResponse<TransactionDto>(true, null, "Game session closed successfully.", dto);
@@ -914,6 +1055,69 @@ namespace Application.Services
                 null,
                 "Open sessions retrieved successfully.",
                 dtos);
+        }
+
+        /// <summary>
+        /// Get user's phone number from Identity system
+        /// </summary>
+        private async Task<string?> GetUserPhoneNumberAsync(int userId, CancellationToken ct)
+        {
+            try
+            {
+                // Find user by ID
+                var user = await _userManager.FindByIdAsync(userId.ToString());
+
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for loyalty tickets: UserId={UserId}", userId);
+                    return null;
+                }
+
+                // Get phone number
+                var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
+
+                if (string.IsNullOrWhiteSpace(phoneNumber))
+                {
+                    _logger.LogWarning("User has no phone number for loyalty tickets: UserId={UserId}", userId);
+                    return null;
+                }
+
+                return phoneNumber;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting phone number for user {UserId}", userId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get user's full name from Identity system (optional - for better customer records)
+        /// </summary>
+        private async Task<string?> GetUserFullNameAsync(int userId, CancellationToken ct)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId.ToString());
+
+                if (user == null)
+                    return null;
+
+                // Assuming your ApplicationUser has FirstName and LastName properties
+                // Adjust based on your actual User entity structure
+                return $"{user.FirstName} {user.LastName}".Trim();
+
+                // OR if you just have a Name property:
+                // return user.Name;
+
+                // OR if you want to use UserName as fallback:
+                // return user.Name ?? user.UserName;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user name for user {UserId}", userId);
+                return null;
+            }
         }
 
     }

@@ -5317,6 +5317,10 @@
             "type": "integer",
             "format": "int32"
           },
+          "pendingBalance": {
+            "type": "number",
+            "format": "double"
+          },
           "message": {
             "type": "string",
             "nullable": true
@@ -5571,6 +5575,10 @@
           "totalTicketsCurrentMonth": {
             "type": "integer",
             "format": "int32"
+          },
+          "pendingBalance": {
+            "type": "number",
+            "format": "double"
           },
           "currentMonth": {
             "type": "string",

@@ -12,6 +12,7 @@
         public bool Success { get; set; }
         public int TicketsEarned { get; set; }
         public int TotalTicketsThisMonth { get; set; }
+        public decimal PendingBalance { get; set; } // NEW FIELD
         public string Message { get; set; } = string.Empty;
         public string CustomerPhone { get; set; } = string.Empty;
     }
@@ -21,6 +22,7 @@
         public string CustomerPhone { get; set; } = string.Empty;
         public string? CustomerName { get; set; }
         public int TotalTicketsCurrentMonth { get; set; }
+        public decimal PendingBalance { get; set; } // NEW FIELD
         public string CurrentMonth { get; set; } = string.Empty;
         public List<TicketDetailDTO> RecentTickets { get; set; } = new();
     }
