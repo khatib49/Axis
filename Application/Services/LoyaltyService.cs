@@ -311,17 +311,19 @@ namespace Application.Services
             }
         }
 
+
         public async Task<DrawResponse> ConductWeeklyDrawAsync(DrawRequest request)
         {
             try
             {
                 var now = DateTime.UtcNow;
+
+                // Use provided week or calculate current week
                 var drawWeek = string.IsNullOrWhiteSpace(request.DrawWeek)
                     ? GetISOWeekString(now)
                     : request.DrawWeek;
 
-                // Get week range
-                var (weekStart, weekEnd) = GetWeekRange(now);
+                _logger.LogInformation($"Conducting weekly draw for {drawWeek}");
 
                 // Check if draw already conducted for this week
                 var existingDraw = await _weeklyWinnerRepository.GetByDrawWeekAsync(drawWeek);
@@ -331,11 +333,14 @@ namespace Application.Services
                     return new DrawResponse
                     {
                         Success = false,
-                        Message = $"Weekly draw already conducted for week {drawWeek}",
+                        Message = $"Weekly draw already conducted for {drawWeek}",
                         TotalEligibleCustomers = 0,
                         TotalTicketsInDraw = 0
                     };
                 }
+
+                // Get week date range
+                var (weekStart, weekEnd) = GetWeekRangeFromISOWeek(drawWeek);
 
                 // Get all eligible tickets for the week
                 var eligibleTickets = await _ticketRepository.GetByDateRangeAsync(weekStart, weekEnd);
@@ -345,42 +350,42 @@ namespace Application.Services
                     return new DrawResponse
                     {
                         Success = false,
-                        Message = "No eligible tickets for this week's draw",
+                        Message = $"No eligible tickets for week {drawWeek}",
                         TotalEligibleCustomers = 0,
                         TotalTicketsInDraw = 0
                     };
                 }
 
-                // Group by customer and calculate total tickets
+                // Group by customer
                 var customerTickets = eligibleTickets
-                    .GroupBy(t => t.CustomerPhone)
+                    .GroupBy(t => new { t.CustomerPhone, t.Customer?.Name })
                     .Select(g => new
                     {
-                        CustomerPhone = g.Key,
-                        CustomerName = g.First().Customer?.Name,
+                        Phone = g.Key.CustomerPhone,
+                        Name = g.Key.Name,
                         TotalTickets = g.Sum(t => t.TicketsEarned)
                     })
                     .ToList();
 
-                // Create weighted list for random selection
+                // Create weighted list
                 var weightedList = new List<string>();
                 foreach (var customer in customerTickets)
                 {
                     for (int i = 0; i < customer.TotalTickets; i++)
                     {
-                        weightedList.Add(customer.CustomerPhone);
+                        weightedList.Add(customer.Phone);
                     }
                 }
 
                 // Random selection
                 var random = new Random();
                 var winnerPhone = weightedList[random.Next(weightedList.Count)];
-                var winner = customerTickets.First(c => c.CustomerPhone == winnerPhone);
+                var winner = customerTickets.First(c => c.Phone == winnerPhone);
 
                 // Create winner record
                 var weeklyWinner = new WeeklyWinner
                 {
-                    CustomerPhone = winner.CustomerPhone,
+                    CustomerPhone = winner.Phone,
                     PrizeName = request.PrizeName,
                     DrawDate = now,
                     DrawWeek = drawWeek,
@@ -391,7 +396,7 @@ namespace Application.Services
 
                 await _weeklyWinnerRepository.CreateAsync(weeklyWinner);
 
-                _logger.LogInformation($"Weekly draw completed. Winner: {winner.CustomerPhone}, Prize: {request.PrizeName}");
+                _logger.LogInformation($"Weekly draw completed. Winner: {winner.Phone}, Prize: {request.PrizeName}");
 
                 return new DrawResponse
                 {
@@ -399,8 +404,8 @@ namespace Application.Services
                     Message = "Weekly draw completed successfully",
                     Winner = new WinnerDTO
                     {
-                        CustomerPhone = winner.CustomerPhone,
-                        CustomerName = winner.CustomerName,
+                        CustomerPhone = winner.Phone,
+                        CustomerName = winner.Name,
                         PrizeName = request.PrizeName,
                         TicketsHeld = winner.TotalTickets,
                         DrawDate = now
@@ -422,7 +427,6 @@ namespace Application.Services
             }
         }
 
-        // Services/LoyaltyService.cs
         public async Task<DrawResponse> ConductMonthlyDrawAsync(DrawRequest request)
         {
             try
@@ -431,6 +435,8 @@ namespace Application.Services
                 var drawMonth = string.IsNullOrWhiteSpace(request.DrawMonth)
                     ? now.ToString("yyyy-MM")
                     : request.DrawMonth;
+
+                _logger.LogInformation($"Conducting monthly draw for {drawMonth}");
 
                 // Check if draw already conducted for this month
                 var existingDraw = await _monthlyWinnerRepository.GetByDrawMonthAsync(drawMonth);
@@ -446,11 +452,33 @@ namespace Application.Services
                     };
                 }
 
-                // ✅ FIX: Get customers with valid tickets for the month
-                // Then manually load their tickets
-                var eligibleCustomers = await _customerRepository.GetCustomersWithTicketsInMonthAsync(drawMonth);
+                // Get all valid tickets for this month directly
+                var allTickets = await _ticketRepository.GetValidTicketsByDrawMonthAsync(drawMonth);
 
-                if (!eligibleCustomers.Any())
+                if (!allTickets.Any())
+                {
+                    return new DrawResponse
+                    {
+                        Success = false,
+                        Message = $"No eligible tickets found for {drawMonth}",
+                        TotalEligibleCustomers = 0,
+                        TotalTicketsInDraw = 0
+                    };
+                }
+
+                // Group by customer and sum their tickets
+                var customerTickets = allTickets
+                    .GroupBy(t => new { t.CustomerPhone, t.Customer?.Name })
+                    .Select(g => new
+                    {
+                        Phone = g.Key.CustomerPhone,
+                        Name = g.Key.Name,
+                        TotalTickets = g.Sum(t => t.TicketsEarned)
+                    })
+                    .Where(c => c.TotalTickets > 0)
+                    .ToList();
+
+                if (!customerTickets.Any())
                 {
                     return new DrawResponse
                     {
@@ -461,70 +489,36 @@ namespace Application.Services
                     };
                 }
 
-                // ✅ IMPORTANT: Load tickets separately for each customer
-                var customerTicketCounts = new Dictionary<LoyaltyCustomer, int>();
-
-                foreach (var customer in eligibleCustomers)
-                {
-                    // Get this customer's valid tickets for the month
-                    var tickets = await _ticketRepository.GetByCustomerAndMonthAsync(
-                        customer.PhoneNumber,
-                        drawMonth
-                    );
-
-                    var ticketCount = tickets.Sum(t => t.TicketsEarned);
-
-                    if (ticketCount > 0)
-                    {
-                        customerTicketCounts[customer] = ticketCount;
-                    }
-                }
-
-                if (!customerTicketCounts.Any())
-                {
-                    return new DrawResponse
-                    {
-                        Success = false,
-                        Message = "No eligible tickets found for this month's draw",
-                        TotalEligibleCustomers = 0,
-                        TotalTicketsInDraw = 0
-                    };
-                }
-
                 // Create weighted list for random selection
                 var weightedList = new List<string>();
-                foreach (var kvp in customerTicketCounts)
+                foreach (var customer in customerTickets)
                 {
-                    var customer = kvp.Key;
-                    var ticketCount = kvp.Value;
-
-                    for (int i = 0; i < ticketCount; i++)
+                    for (int i = 0; i < customer.TotalTickets; i++)
                     {
-                        weightedList.Add(customer.PhoneNumber);
+                        weightedList.Add(customer.Phone);
                     }
                 }
 
                 // Random selection
                 var random = new Random();
                 var winnerPhone = weightedList[random.Next(weightedList.Count)];
-                var winner = customerTicketCounts.Keys.First(c => c.PhoneNumber == winnerPhone);
-                var winnerTicketCount = customerTicketCounts[winner];
+                var winner = customerTickets.First(c => c.Phone == winnerPhone);
 
                 // Create winner record
                 var monthlyWinner = new MonthlyWinner
                 {
-                    CustomerPhone = winner.PhoneNumber,
+                    CustomerPhone = winner.Phone,
                     PrizeName = request.PrizeName,
                     DrawMonth = drawMonth,
                     DrawDate = now,
-                    TicketsHeld = winnerTicketCount,
+                    TicketsHeld = winner.TotalTickets,
                     Claimed = false,
                     CreatedAt = now
                 };
 
                 await _monthlyWinnerRepository.CreateAsync(monthlyWinner);
 
-                _logger.LogInformation($"Monthly draw completed. Winner: {winner.PhoneNumber}, Prize: {request.PrizeName}");
+                _logger.LogInformation($"Monthly draw completed. Winner: {winner.Phone}, Prize: {request.PrizeName}, Tickets: {winner.TotalTickets}");
 
                 return new DrawResponse
                 {
@@ -532,13 +526,13 @@ namespace Application.Services
                     Message = "Monthly draw completed successfully",
                     Winner = new WinnerDTO
                     {
-                        CustomerPhone = winner.PhoneNumber,
+                        CustomerPhone = winner.Phone,
                         CustomerName = winner.Name,
                         PrizeName = request.PrizeName,
-                        TicketsHeld = winnerTicketCount,
+                        TicketsHeld = winner.TotalTickets,
                         DrawDate = now
                     },
-                    TotalEligibleCustomers = customerTicketCounts.Count,
+                    TotalEligibleCustomers = customerTickets.Count,
                     TotalTicketsInDraw = weightedList.Count
                 };
             }
@@ -554,6 +548,25 @@ namespace Application.Services
                 };
             }
         }
+
+
+        private (DateTime weekStart, DateTime weekEnd) GetWeekRangeFromISOWeek(string isoWeek)
+        {
+            // Parse "2024-W50" format
+            var parts = isoWeek.Split('-');
+            var year = int.Parse(parts[0]);
+            var week = int.Parse(parts[1].Replace("W", ""));
+
+            var jan1 = new DateTime(year, 1, 1);
+            var daysOffset = DayOfWeek.Monday - jan1.DayOfWeek;
+            var firstMonday = jan1.AddDays(daysOffset);
+
+            var weekStart = firstMonday.AddDays((week - 1) * 7);
+            var weekEnd = weekStart.AddDays(7);
+
+            return (weekStart, weekEnd);
+        }
+
 
         public async Task InvalidateExpiredTicketsAsync()
         {

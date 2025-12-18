@@ -369,7 +369,7 @@ namespace Application.Services
                     var userPhone = await GetUserPhoneNumberAsync(userId.Value, ct);
                     var userName = await GetUserFullNameAsync(userId.Value, ct);
 
-                    if (!string.IsNullOrWhiteSpace(userPhone))
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(userId.Value, ct))
                     {
                         var loyaltyRequest = new CalculateTicketsRequest
                         {
@@ -573,14 +573,15 @@ namespace Application.Services
             // ========================================
             // ✅ CALCULATE LOYALTY TICKETS
             // ========================================
+            string userName = "";
             if (userId.HasValue)
             {
                 try
                 {
                     var userPhone = await GetUserPhoneNumberAsync(userId.Value, ct);
-                    var userName = await GetUserFullNameAsync(userId.Value, ct);
+                    userName = await GetUserFullNameAsync(userId.Value, ct);
 
-                    if (!string.IsNullOrWhiteSpace(userPhone))
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(userId.Value, ct))
                     {
                         var loyaltyRequest = new CalculateTicketsRequest
                         {
@@ -965,7 +966,7 @@ namespace Application.Services
                     var userPhone = await GetUserPhoneNumberAsync(tracked.UserId.Value, ct);
                     var userName = await GetUserFullNameAsync(tracked.UserId.Value, ct);
 
-                    if (!string.IsNullOrWhiteSpace(userPhone))
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(tracked.UserId.Value, ct) )
                     {
                         var loyaltyRequest = new CalculateTicketsRequest
                         {
@@ -1117,6 +1118,24 @@ namespace Application.Services
             {
                 _logger.LogError(ex, "Error getting user name for user {UserId}", userId);
                 return null;
+            }
+        }
+        private async Task<bool> IsClientUserAsync(int userId, CancellationToken ct)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId.ToString());
+                if (user == null)
+                    return false;
+
+                var roles = await _userManager.GetRolesAsync(user);
+
+                return roles.Any(r => r.Equals("client", StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking role for user {UserId}", userId);
+                return false;
             }
         }
 
