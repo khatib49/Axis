@@ -2437,6 +2437,43 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "AddItemsToOpenInvoice",
+    "RelativePath": "api/transactions/AddItemsToOpenInvoice/{invoiceId}",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "invoiceId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemsRequest",
+        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.OrderItemRequest, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "CloseOpenInvoice",
+    "RelativePath": "api/transactions/CloseOpenInvoice/{invoiceId}",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "invoiceId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
     "Method": "CreateCoffeeShopOrder",
     "RelativePath": "api/transactions/CreateCoffeeShopOrder",
     "HttpMethod": "POST",
@@ -2444,24 +2481,9 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "userId",
-        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
-        "IsRequired": false
-      },
-      {
-        "Name": "itemsRequest",
-        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.OrderItemRequest, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "Name": "request",
+        "Type": "Application.DTOs.CreateCoffeeShopOrderRequest",
         "IsRequired": true
-      },
-      {
-        "Name": "discountId",
-        "Type": "System.Int32",
-        "IsRequired": false
-      },
-      {
-        "Name": "comment",
-        "Type": "System.String",
-        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -2547,6 +2569,16 @@
     "ContainingType": "AxisAPI.Controllers.TransactionsController",
     "Method": "GetOpenBoardGameSessions",
     "RelativePath": "api/transactions/GetOpenBoardGameSessions",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "GetOpenFnbInvoices",
+    "RelativePath": "api/transactions/GetOpenFnbInvoices",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
