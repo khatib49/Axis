@@ -4044,6 +4044,48 @@
         }
       }
     },
+    "/api/transactions/UpdateOpenInvoiceSet/{invoiceId}": {
+      "put": {
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSetRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSetRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/transactions/CreateCoffeeShopOrder": {
       "post": {
         "tags": [
@@ -5633,6 +5675,11 @@
           },
           "isOpenInvoice": {
             "type": "boolean"
+          },
+          "setId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           },
           "comment": {
             "type": "string",
@@ -7467,6 +7514,17 @@
           "newFoodStatusId": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateSetRequest": {
+        "type": "object",
+        "properties": {
+          "setId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false

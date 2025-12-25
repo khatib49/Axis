@@ -433,7 +433,8 @@ namespace Application.Services
 
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false)
+        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest,
+            string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null)
             {
 
             var reqId = GetReqId();
@@ -518,7 +519,7 @@ namespace Application.Services
                 {
                 
                     RoomId = null,
-                    SetId = null,
+                    SetId = setId,
                     GameTypeId = null,
                     GameId = null,
                     GameSettingId = null,
@@ -1466,6 +1467,63 @@ namespace Application.Services
             var dto = _mapper.ToDto(trx);
             return new BaseResponse<TransactionDto>(true, null,
                 "Invoice closed successfully.", dto);
+        }
+
+        public async Task<BaseResponse<TransactionDto>> UpdateOpenInvoiceSet(int invoiceId, int? setId, string updatedBy, CancellationToken ct)
+        {
+            var reqId = GetReqId();
+
+            var trx = await _repo.Query(asNoTracking: false)
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (trx is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice",
+                    "The specified invoice does not exist.");
+
+            if (trx.StatusId != 7)
+                return new BaseResponse<TransactionDto>(false, "Invoice closed",
+                    "Cannot update set for closed invoices.");
+
+            trx.SetId = setId;
+            trx.ModifiedOn = DateTime.UtcNow;
+            trx.CreatedBy = updatedBy ?? trx.CreatedBy;
+
+            try
+            {
+                _logger.LogInformation(
+                    "FNB/UpdateSet BEFORE_SAVE ReqId={ReqId} InvoiceId={InvoiceId} SetId={SetId}",
+                    reqId, invoiceId, setId);
+
+                await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                var (prov, code) = ExtractDbCode(ex);
+                _logger.LogError(ex,
+                    "FNB/UpdateSet ERROR ReqId={ReqId} DB={Prov}:{Code} InvoiceId={InvoiceId}",
+                    reqId, prov, code, invoiceId);
+
+                return new BaseResponse<TransactionDto>(false, "db error",
+                    "Failed to update set. Please try again.");
+            }
+
+            // Reload with includes
+            var reloaded = await _repo.Query()
+                .AsNoTracking()
+                .Include(t => t.Set)
+                .Include(t => t.User)
+                .Include(t => t.Discount)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (reloaded == null)
+                return new BaseResponse<TransactionDto>(false, "error",
+                    "Set updated but could not reload.");
+
+            var dto = _mapper.ToDto(reloaded);
+            return new BaseResponse<TransactionDto>(true, null,
+                "Set updated successfully.", dto);
         }
 
     }

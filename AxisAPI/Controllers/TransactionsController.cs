@@ -86,6 +86,18 @@ namespace AxisAPI.Controllers
             return created.Success ? Ok(created) : BadRequest(created);
         }
 
+        [Route("UpdateOpenInvoiceSet/{invoiceId}")]
+        //[Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        [HttpPut]
+        [LogOnError]
+        public async Task<IActionResult> UpdateOpenInvoiceSet(int invoiceId, [FromBody] UpdateSetRequest request, CancellationToken ct)
+        {
+            var updatedBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            var result = await _transactionService.UpdateOpenInvoiceSet(
+                invoiceId, request.SetId, updatedBy, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
         [Route("CreateCoffeeShopOrder")]
        // [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
         [HttpPost]
@@ -93,7 +105,7 @@ namespace AxisAPI.Controllers
         public async Task<IActionResult> CreateCoffeeShopOrder([FromBody] CreateCoffeeShopOrderRequest request, CancellationToken ct )
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var created = await _transactionService.CreateCoffeeShopOrder(request.UserId, request.DiscountId, request.ItemsRequest, createdBy, ct, request.Comment, request.IsOpenInvoice);
+            var created = await _transactionService.CreateCoffeeShopOrder(request.UserId, request.DiscountId, request.ItemsRequest, createdBy, ct, request.Comment, request.IsOpenInvoice, request.setId);
             return created.Success ? Ok(created) : BadRequest(created);
         }
 

@@ -2622,6 +2622,27 @@
     ]
   },
   {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "UpdateOpenInvoiceSet",
+    "RelativePath": "api/transactions/UpdateOpenInvoiceSet/{invoiceId}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "invoiceId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "Application.DTOs.UpdateSetRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "AxisAPI.Controllers.TransactionsReportsController",
     "Method": "GetClientUsersCount",
     "RelativePath": "api/TransactionsReports/clients/count",

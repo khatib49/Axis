@@ -37,12 +37,13 @@
         string? UserName
      );
 
-
+    public record UpdateSetRequest(int? SetId);
     public record CreateCoffeeShopOrderRequest(
     int? UserId,
     List<OrderItemRequest> ItemsRequest,
     int DiscountId,
     bool IsOpenInvoice,
+    int? setId,
     string? Comment
 );
 
