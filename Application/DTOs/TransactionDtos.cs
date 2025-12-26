@@ -27,13 +27,25 @@
         List<TransactionItemDto> Items,
         int? SetId,
         string Set,
-        int? DiscountId,          // <-- added
+        int? DiscountId,
+        int? DiscountPercentage,
         string? DiscountName,      // <-- added
         int numberOfPersons,
         bool IsDayPass,
-        string? Comment
+        string? Comment,
+        int? UserId,        
+        string? UserName
      );
 
+    public record UpdateSetRequest(int? SetId);
+    public record CreateCoffeeShopOrderRequest(
+    int? UserId,
+    List<OrderItemRequest> ItemsRequest,
+    int DiscountId,
+    bool IsOpenInvoice,
+    int? setId,
+    string? Comment
+);
 
     public record TransactionCreateDto(
         int SetId,

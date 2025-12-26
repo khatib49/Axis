@@ -1,8 +1,8 @@
 ﻿using Application.IServices;
 using Application.Mapping;
 using Application.Services;
+using Application.Services.HangFire;
 using Application.Services.SignalR;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application
@@ -45,6 +45,12 @@ namespace Application
             services.AddScoped<IProfitService, ProfitService>();
 
             services.AddScoped<IKitchenService, KitchenService>();
+
+
+            // Register Loyalty Service
+            services.AddScoped<ILoyaltyService, LoyaltyService>();
+            services.AddScoped<LoyaltyJobs>();
+
 
             return services;
         }

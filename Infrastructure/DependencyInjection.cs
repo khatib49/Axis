@@ -19,6 +19,12 @@ namespace Infrastructure
                 // opt.UseSnakeCaseNamingConvention();
             });
 
+            // Register Loyalty Repositories
+            services.AddScoped<ILoyaltyTicketRepository, LoyaltyTicketRepository>();
+            services.AddScoped<ILoyaltyCustomerRepository, LoyaltyCustomerRepository>();
+            services.AddScoped<IWeeklyWinnerRepository, WeeklyWinnerRepository>();
+            services.AddScoped<IMonthlyWinnerRepository, MonthlyWinnerRepository>();
+
             services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 

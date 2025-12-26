@@ -1733,6 +1733,537 @@
         }
       }
     },
+    "/api/Kitchen/orders": {
+      "get": {
+        "tags": [
+          "Kitchen"
+        ],
+        "parameters": [
+          {
+            "name": "foodStatusId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KitchenOrderDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KitchenOrderDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KitchenOrderDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Kitchen/orders/{transactionId}": {
+      "get": {
+        "tags": [
+          "Kitchen"
+        ],
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenOrderDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenOrderDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenOrderDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Kitchen/orders/{transactionId}/start": {
+      "post": {
+        "tags": [
+          "Kitchen"
+        ],
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Kitchen/orders/{transactionId}/ready": {
+      "post": {
+        "tags": [
+          "Kitchen"
+        ],
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Kitchen/orders/{transactionId}/served": {
+      "post": {
+        "tags": [
+          "Kitchen"
+        ],
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Kitchen/orders/status": {
+      "put": {
+        "tags": [
+          "Kitchen"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFoodStatusDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFoodStatusDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFoodStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Kitchen/stats": {
+      "get": {
+        "tags": [
+          "Kitchen"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStatsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStatsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStatsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Loyalty/calculate-tickets": {
+      "post": {
+        "tags": [
+          "Loyalty"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateTicketsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateTicketsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateTicketsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateTicketsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateTicketsResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateTicketsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Loyalty/customer/{phone}/balance": {
+      "get": {
+        "tags": [
+          "Loyalty"
+        ],
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBalanceResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBalanceResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBalanceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Loyalty/leaderboard/weekly": {
+      "get": {
+        "tags": [
+          "Loyalty"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderboardEntryDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderboardEntryDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderboardEntryDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Loyalty/leaderboard/monthly": {
+      "get": {
+        "tags": [
+          "Loyalty"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderboardEntryDTO"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderboardEntryDTO"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderboardEntryDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Loyalty/admin/draw/weekly": {
+      "post": {
+        "tags": [
+          "Loyalty"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrawRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrawRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrawRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrawResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrawResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrawResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Loyalty/admin/draw/monthly": {
+      "post": {
+        "tags": [
+          "Loyalty"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrawRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrawRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrawRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrawResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrawResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrawResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Loyalty/admin/invalidate-expired": {
+      "post": {
+        "tags": [
+          "Loyalty"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Loyalty/admin/unclaimed-prizes": {
+      "get": {
+        "tags": [
+          "Loyalty"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Loyalty/admin/claim-prize": {
+      "post": {
+        "tags": [
+          "Loyalty"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimPrizeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimPrizeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimPrizeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/Menu/categories": {
       "get": {
         "tags": [
@@ -2003,6 +2534,471 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Profit/fnb": {
+      "get": {
+        "tags": [
+          "Profit"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Profit/gaming": {
+      "get": {
+        "tags": [
+          "Profit"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Profit/tcg-retail": {
+      "get": {
+        "tags": [
+          "Profit"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Profit/overall": {
+      "get": {
+        "tags": [
+          "Profit"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedOverallProfitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedOverallProfitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedOverallProfitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RoleCategory": {
+      "get": {
+        "tags": [
+          "RoleCategory"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleCategoryDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleCategoryDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleCategoryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RoleCategory/configurations": {
+      "get": {
+        "tags": [
+          "RoleCategory"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllRoleConfigurationsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllRoleConfigurationsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllRoleConfigurationsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RoleCategory/configurations/{roleName}": {
+      "get": {
+        "tags": [
+          "RoleCategory"
+        ],
+        "parameters": [
+          {
+            "name": "roleName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleConfigurationDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleConfigurationDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleConfigurationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RoleCategory/assign": {
+      "post": {
+        "tags": [
+          "RoleCategory"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCategoryCreateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCategoryCreateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCategoryCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleCategoryDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleCategoryDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleCategoryDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RoleCategory/bulk-assign": {
+      "post": {
+        "tags": [
+          "RoleCategory"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCategoryBulkAssignDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCategoryBulkAssignDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCategoryBulkAssignDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleCategoryDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleCategoryDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleCategoryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/RoleCategory/{mappingId}": {
+      "delete": {
+        "tags": [
+          "RoleCategory"
+        ],
+        "parameters": [
+          {
+            "name": "mappingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/RoleCategory/role/{roleName}": {
+      "delete": {
+        "tags": [
+          "RoleCategory"
+        ],
+        "parameters": [
+          {
+            "name": "roleName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -3048,34 +4044,19 @@
         }
       }
     },
-    "/api/transactions/CreateCoffeeShopOrder": {
-      "post": {
+    "/api/transactions/UpdateOpenInvoiceSet/{invoiceId}": {
+      "put": {
         "tags": [
           "Transactions"
         ],
         "parameters": [
           {
-            "name": "userId",
-            "in": "query",
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "integer",
               "format": "int32"
-            }
-          },
-          {
-            "name": "discountId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "comment",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "default": ""
             }
           }
         ],
@@ -3083,26 +4064,48 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/OrderItemRequest"
-                }
+                "$ref": "#/components/schemas/UpdateSetRequest"
               }
             },
             "text/json": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/OrderItemRequest"
-                }
+                "$ref": "#/components/schemas/UpdateSetRequest"
               }
             },
             "application/*+json": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/OrderItemRequest"
-                }
+                "$ref": "#/components/schemas/UpdateSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transactions/CreateCoffeeShopOrder": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCoffeeShopOrderRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCoffeeShopOrderRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCoffeeShopOrderRequest"
               }
             }
           }
@@ -3174,6 +4177,92 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/transactions/GetOpenFnbInvoices": {
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transactions/AddItemsToOpenInvoice/{invoiceId}": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OrderItemRequest"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OrderItemRequest"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OrderItemRequest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transactions/CloseOpenInvoice/{invoiceId}": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -4272,6 +5361,70 @@
   },
   "components": {
     "schemas": {
+      "AllRoleConfigurationsDto": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleConfigurationDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CalculateTicketsRequest": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CalculateTicketsResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "ticketsEarned": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalTicketsThisMonth": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingBalance": {
+            "type": "number",
+            "format": "double"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CardCreateDto": {
         "type": "object",
         "properties": {
@@ -4340,6 +5493,28 @@
         },
         "additionalProperties": false
       },
+      "CategorySummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CategoryUpdateDto": {
         "type": "object",
         "properties": {
@@ -4354,6 +5529,20 @@
           "itemType": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClaimPrizeRequest": {
+        "type": "object",
+        "properties": {
+          "drawType": {
+            "type": "string",
+            "nullable": true
+          },
+          "winnerId": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -4465,6 +5654,73 @@
         },
         "additionalProperties": false
       },
+      "CreateCoffeeShopOrderRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "itemsRequest": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemRequest"
+            },
+            "nullable": true
+          },
+          "discountId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isOpenInvoice": {
+            "type": "boolean"
+          },
+          "setId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerBalanceResponse": {
+        "type": "object",
+        "properties": {
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalTicketsCurrentMonth": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingBalance": {
+            "type": "number",
+            "format": "double"
+          },
+          "currentMonth": {
+            "type": "string",
+            "nullable": true
+          },
+          "recentTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketDetailDTO"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DailySalesDto": {
         "type": "object",
         "properties": {
@@ -4483,6 +5739,47 @@
           "grandTotal": {
             "type": "number",
             "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DetailedOverallProfitDto": {
+        "type": "object",
+        "properties": {
+          "fnbProfit": {
+            "$ref": "#/components/schemas/ProfitDto"
+          },
+          "gamingProfit": {
+            "$ref": "#/components/schemas/ProfitDto"
+          },
+          "tcgRetailProfit": {
+            "$ref": "#/components/schemas/ProfitDto"
+          },
+          "totalRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalExpenses": {
+            "type": "number",
+            "format": "double"
+          },
+          "netProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "overallProfitMargin": {
+            "type": "number",
+            "format": "double"
+          },
+          "fromDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "toDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -4573,6 +5870,48 @@
           "isActive": {
             "type": "boolean",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DrawRequest": {
+        "type": "object",
+        "properties": {
+          "prizeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "drawMonth": {
+            "type": "string",
+            "nullable": true
+          },
+          "drawWeek": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DrawResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "winner": {
+            "$ref": "#/components/schemas/WinnerDTO"
+          },
+          "totalEligibleCustomers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalTicketsInDraw": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -5151,6 +6490,139 @@
         },
         "additionalProperties": false
       },
+      "KitchenOrderDto": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "orderTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orderedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "foodStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "foodStatusName": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenOrderItemDto"
+            },
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "roomId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "roomName": {
+            "type": "string",
+            "nullable": true
+          },
+          "setId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "setName": {
+            "type": "string",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "KitchenOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemName": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialInstructions": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "KitchenStatsDto": {
+        "type": "object",
+        "properties": {
+          "pendingOrders": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inProgressOrders": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "readyOrders": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "servedToday": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averagePreparationTime": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LeaderboardEntryDTO": {
+        "type": "object",
+        "properties": {
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalTickets": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -5259,6 +6731,42 @@
         },
         "additionalProperties": false
       },
+      "ProfitDto": {
+        "type": "object",
+        "properties": {
+          "totalRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalExpenses": {
+            "type": "number",
+            "format": "double"
+          },
+          "netProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "profitMargin": {
+            "type": "number",
+            "format": "double"
+          },
+          "transactionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fromDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "toDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "RegisterRequest": {
         "type": "object",
         "properties": {
@@ -5281,6 +6789,99 @@
           "statusId": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RoleCategoryBulkAssignDto": {
+        "type": "object",
+        "properties": {
+          "roleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RoleCategoryCreateDto": {
+        "type": "object",
+        "properties": {
+          "roleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RoleCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryType": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RoleConfigurationDto": {
+        "type": "object",
+        "properties": {
+          "roleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignedCategories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategorySummaryDto"
+            },
+            "nullable": true
+          },
+          "availableCategories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategorySummaryDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5550,6 +7151,28 @@
         },
         "additionalProperties": false
       },
+      "TicketDetailDTO": {
+        "type": "object",
+        "properties": {
+          "ticketId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "transactionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketsEarned": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "earnedDate": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
       "TransactionCreateDto": {
         "type": "object",
         "properties": {
@@ -5703,6 +7326,11 @@
             "format": "int32",
             "nullable": true
           },
+          "discountPercentage": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
           "discountName": {
             "type": "string",
             "nullable": true
@@ -5715,6 +7343,15 @@
             "type": "boolean"
           },
           "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "userName": {
             "type": "string",
             "nullable": true
           }
@@ -5867,6 +7504,31 @@
         },
         "additionalProperties": false
       },
+      "UpdateFoodStatusDto": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "newFoodStatusId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateSetRequest": {
+        "type": "object",
+        "properties": {
+          "setId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UserCardCreateDto": {
         "type": "object",
         "properties": {
@@ -5979,6 +7641,32 @@
           "password": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WinnerDTO": {
+        "type": "object",
+        "properties": {
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "prizeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ticketsHeld": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "drawDate": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
