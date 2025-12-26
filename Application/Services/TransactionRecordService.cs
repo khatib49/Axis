@@ -315,7 +315,10 @@ namespace Application.Services
 
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
             int statusToUse = (game.CategoryId == 2 || game.CategoryId== 6) || isDayPass ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
-           
+           if(setting.IsDayPass == true)
+            {
+                statusToUse = 6;
+            }
             #endregion
 
 
