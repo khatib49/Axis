@@ -516,7 +516,10 @@ namespace Application.Services
         {
             try
             {
-                var cutoffDate = asOfDate ?? DateTime.UtcNow;
+                // ✅ FIX: Ensure date is UTC
+                var cutoffDate = asOfDate.HasValue
+                    ? DateTime.SpecifyKind(asOfDate.Value, DateTimeKind.Utc)
+                    : DateTime.UtcNow;
 
                 var accounts = await _accountRepo.Query()
                     .Include(a => a.AccountType)
@@ -565,7 +568,7 @@ namespace Application.Services
                     }
                 }
 
-                var isBalanced = Math.Abs(totalDebits - totalCredits) < 0.01m; // Allow for rounding
+                var isBalanced = Math.Abs(totalDebits - totalCredits) < 0.01m;
 
                 var result = new TrialBalanceDto(
                     cutoffDate,
@@ -585,48 +588,54 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<GeneralLedgerDto>> GetGeneralLedgerAsync(
-            int accountId,
-            DateTime? fromDate = null,
-            DateTime? toDate = null,
-            CancellationToken ct = default)
+    int accountId,
+    DateTime? fromDate = null,
+    DateTime? toDate = null,
+    CancellationToken ct = default)
         {
             try
             {
+                // Set longer timeout for this query
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
                 var account = await _accountRepo.Query()
                     .Include(a => a.AccountType)
-                    .FirstOrDefaultAsync(a => a.Id == accountId, ct);
+                    .FirstOrDefaultAsync(a => a.Id == accountId, linkedCts.Token);
 
                 if (account == null)
                     return new BaseResponse<GeneralLedgerDto>(false, "Account not found", null);
 
-                var startDate = fromDate ?? DateTime.UtcNow.AddYears(-1);
-                var endDate = toDate ?? DateTime.UtcNow;
+                // ✅ FIX: Ensure all dates are UTC
+                var startDate = fromDate.HasValue
+                    ? DateTime.SpecifyKind(fromDate.Value, DateTimeKind.Utc)
+                    : DateTime.UtcNow.AddYears(-1);
 
-                // Get opening balance
-                var openingLines = await _journalLineRepo.Query()
+                var endDate = toDate.HasValue
+                    ? DateTime.SpecifyKind(toDate.Value, DateTimeKind.Utc)
+                    : DateTime.UtcNow;
+
+                // OPTIMIZED: Single query with conditional aggregation
+                var allLines = await _journalLineRepo.Query()
+                    .Include(l => l.JournalEntry)
                     .Where(l => l.AccountId == accountId &&
                                l.JournalEntry.IsPosted &&
                                !l.JournalEntry.IsVoided &&
-                               l.JournalEntry.EntryDate < startDate)
-                    .ToListAsync(ct);
+                               l.JournalEntry.EntryDate < endDate)
+                    .OrderBy(l => l.JournalEntry.EntryDate)
+                    .ThenBy(l => l.JournalEntry.EntryNumber)
+                    .ToListAsync(linkedCts.Token);
 
+                // Calculate opening balance from in-memory data
+                var openingLines = allLines.Where(l => l.JournalEntry.EntryDate < startDate).ToList();
                 var openingDebits = openingLines.Sum(l => l.DebitAmount);
                 var openingCredits = openingLines.Sum(l => l.CreditAmount);
                 var openingBalance = account.AccountType.NormalBalance == "Debit"
                     ? openingDebits - openingCredits
                     : openingCredits - openingDebits;
 
-                // Get transactions in period
-                var periodLines = await _journalLineRepo.Query()
-                    .Include(l => l.JournalEntry)
-                    .Where(l => l.AccountId == accountId &&
-                               l.JournalEntry.IsPosted &&
-                               !l.JournalEntry.IsVoided &&
-                               l.JournalEntry.EntryDate >= startDate &&
-                               l.JournalEntry.EntryDate <= endDate)
-                    .OrderBy(l => l.JournalEntry.EntryDate)
-                    .ThenBy(l => l.JournalEntry.EntryNumber)
-                    .ToListAsync(ct);
+                // Get period transactions from in-memory data
+                var periodLines = allLines.Where(l => l.JournalEntry.EntryDate >= startDate).ToList();
 
                 var runningBalance = openingBalance;
                 var transactions = new List<GeneralLedgerLineDto>();
@@ -661,12 +670,19 @@ namespace Application.Services
 
                 return new BaseResponse<GeneralLedgerDto>(true, null, null, result);
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("General ledger query was canceled for account {AccountId}", accountId);
+                return new BaseResponse<GeneralLedgerDto>(false, "Request was canceled or timed out", null);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating general ledger for account {AccountId}", accountId);
                 return new BaseResponse<GeneralLedgerDto>(false, "Error generating general ledger", null);
             }
         }
+
+
 
         // ============================================
         // VALIDATION
