@@ -4,6 +4,7 @@ using Application.Mapping;
 using Domain.Entities;
 using Infrastructure.IRepositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services
 {
@@ -12,12 +13,17 @@ namespace Application.Services
         private readonly IBaseRepository<Expense> _expenseRepo;
         private readonly IBaseRepository<ExpenseCategory> _catRepo;
         private readonly IUnitOfWork _uow;
+        private readonly IJournalService _journalService; 
+        private readonly ILogger<ExpenseService> _logger;
 
-        public ExpenseService(IBaseRepository<Expense> expenseRepo, IBaseRepository<ExpenseCategory> catRepo, IUnitOfWork unitOfWork)
+        public ExpenseService(IBaseRepository<Expense> expenseRepo, IBaseRepository<ExpenseCategory> catRepo,
+            IUnitOfWork unitOfWork, IJournalService journalService, ILogger<ExpenseService> logger)
         {
             _expenseRepo = expenseRepo;
             _catRepo = catRepo;
             _uow = unitOfWork;
+            _logger = logger;
+            _journalService = journalService;
         }
 
         public async Task<ExpenseDto> CreateAsync(ExpenseCreateDto dto, int? createdBy, CancellationToken ct)
@@ -42,6 +48,35 @@ namespace Application.Services
             await _expenseRepo.AddAsync(entity, ct);
 
             await _uow.SaveChangesAsync(ct);
+            try
+            {
+                var journalResult = await _journalService.CreateJournalEntryFromExpenseAsync(
+                    entity.Id,
+                    ct);
+
+                if (journalResult.Success)
+                {
+                    _logger.LogInformation(
+                        "Journal entry {EntryNumber} created for expense {ExpenseId}",
+                        journalResult.Data?.EntryNumber,
+                        entity.Id);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Failed to create journal entry for expense {ExpenseId}: {Error}",
+                        entity.Id,
+                        journalResult.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Exception creating journal entry for expense {ExpenseId}",
+                    entity.Id);
+                // Don't fail the expense creation, just log the error
+            }
+
             // Load category name for DTO
             var catName = (await _catRepo.Query().Where(c => c.Id == entity.FK_CategoryId)
                                     .Select(c => c.Name).FirstAsync(ct));

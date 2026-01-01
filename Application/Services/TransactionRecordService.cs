@@ -34,13 +34,14 @@ namespace Application.Services
         private readonly IHttpContextAccessor _http;
         private readonly ILogger<TransactionRecordService> _logger;
         private readonly IBaseRepository<Discount> _repoDiscount;
+        private readonly IJournalService _journalService;
         private readonly UserManager<AppUser> _userManager;
         private readonly ILoyaltyService _loyaltyService;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
             IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
-        IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
+        IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor, IJournalService journalService)
         {
             _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -54,6 +55,7 @@ namespace Application.Services
             _repoDiscount = repoDiscount;
             _repoSet = repoSet;
             _logger = logger;
+            _journalService = journalService;
             _http = httpContextAccessor;
         }
 
@@ -96,8 +98,6 @@ namespace Application.Services
                 Unavailable = unavailable.OrderBy(x => x.Name).ToList()
             };
         }
-
-
         public async Task<TransactionDto?> GetAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()
@@ -430,6 +430,38 @@ namespace Application.Services
                 .FirstOrDefaultAsync(x => x.Id == e.Id, ct);
 
             TransactionDto transactionDto = _mapper.ToDto(e);
+            if (transactionDto.StatusId == 6) // Paid
+            {
+                try
+                {
+                    var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(
+                        transactionDto.Id,
+                        ct);
+
+                    if (journalResult.Success)
+                    {
+                        _logger.LogInformation(
+                            "Journal entry {EntryNumber} created for transaction {TxId}",
+                            journalResult.Data?.EntryNumber,
+                            transactionDto.Id);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Failed to create journal entry for transaction {TxId}: {Error}",
+                            transactionDto.Id,
+                            journalResult.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Exception creating journal entry for transaction {TxId}",
+                        transactionDto.Id);
+                    // Don't fail the transaction, just log the error
+                }
+            }
+
 
             return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
 
@@ -647,6 +679,36 @@ namespace Application.Services
                     "Transaction saved but could not reload.");
 
             TransactionDto transactionDto = _mapper.ToDto(reloaded);
+            try
+            {
+                var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(
+                    transactionDto.Id,
+                    ct);
+
+                if (journalResult.Success)
+                {
+                    _logger.LogInformation(
+                        "Journal entry {EntryNumber} created for FNB transaction {TxId}",
+                        journalResult.Data?.EntryNumber,
+                        transactionDto.Id);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Failed to create journal entry for FNB transaction {TxId}: {Error}",
+                        transactionDto.Id,
+                        journalResult.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Exception creating journal entry for FNB transaction {TxId}",
+                    transactionDto.Id);
+                // Don't fail the transaction, just log the error
+            }
+
+
             return new BaseResponse<TransactionDto>(true, null, "Item Order created successfully.", transactionDto);
         }
 
@@ -1031,6 +1093,35 @@ namespace Application.Services
 
 
             var dto = _mapper.ToDto(tracked);
+            try
+            {
+                var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(
+                    dto.Id,
+                    ct);
+
+                if (journalResult.Success)
+                {
+                    _logger.LogInformation(
+                        "Journal entry {EntryNumber} created for closed session {TxId}",
+                        journalResult.Data?.EntryNumber,
+                        dto.Id);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Failed to create journal entry for closed session {TxId}: {Error}",
+                        dto.Id,
+                        journalResult.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Exception creating journal entry for closed session {TxId}",
+                    dto.Id);
+                // Don't fail the session close, just log the error
+            }
+
             return new BaseResponse<TransactionDto>(true, null, "Game session closed successfully.", dto);
         }
 

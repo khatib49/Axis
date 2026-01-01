@@ -5,6 +5,7 @@ using Domain.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection.Emit;
+using System.Security.Principal;
 
 namespace Infrastructure.Persistence
 {
@@ -13,6 +14,11 @@ namespace Infrastructure.Persistence
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options) { }
 
+        // ADD THESE LINES TO ApplicationDbContext.cs
+        public DbSet<AccountType> AccountTypes => Set<AccountType>();
+        public DbSet<Account> Accounts => Set<Account>();
+        public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+        public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
         public DbSet<Card> Cards => Set<Card>();
         public DbSet<UserCard> UserCards => Set<UserCard>();
         public DbSet<Game> Games => Set<Game>();
@@ -83,6 +89,90 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.PassType).WithMany(x => x.GameSessions)
               .HasForeignKey(x => x.PassTypeId)
               .OnDelete(DeleteBehavior.Restrict);
+
+            // AccountType configuration
+            b.Entity<AccountType>(entity =>
+            {
+                entity.ToTable("account_types");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.TypeName).IsUnique();
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+            });
+
+            // Account configuration
+            b.Entity<Account>(entity =>
+            {
+                entity.ToTable("accounts");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.AccountNumber).IsUnique();
+                entity.HasIndex(e => e.AccountName);
+                entity.HasIndex(e => e.AccountTypeId);
+                entity.HasIndex(e => e.ParentAccountId);
+                entity.HasIndex(e => e.IsActive);
+
+                entity.Property(e => e.CurrentBalance)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.IsSystemAccount).HasDefaultValue(false);
+                entity.Property(e => e.AllowManualEntry).HasDefaultValue(true);
+
+                // Self-referencing relationship
+                entity.HasOne(e => e.ParentAccount)
+                    .WithMany(p => p.ChildAccounts)
+                    .HasForeignKey(e => e.ParentAccountId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // AccountType relationship
+                entity.HasOne(e => e.AccountType)
+                    .WithMany(at => at.Accounts)
+                    .HasForeignKey(e => e.AccountTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // JournalEntry configuration
+            b.Entity<JournalEntry>(entity =>
+            {
+                entity.ToTable("journal_entries");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.EntryNumber).IsUnique();
+                entity.HasIndex(e => e.EntryDate);
+                entity.HasIndex(e => new { e.ReferenceType, e.ReferenceId });
+                entity.HasIndex(e => e.IsPosted);
+                entity.HasIndex(e => e.IsVoided);
+
+                entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
+                entity.Property(e => e.IsPosted).HasDefaultValue(false);
+                entity.Property(e => e.IsVoided).HasDefaultValue(false);
+            });
+
+            // JournalEntryLine configuration
+            b.Entity<JournalEntryLine>(entity =>
+            {
+                entity.ToTable("journal_entry_lines");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.JournalEntryId);
+                entity.HasIndex(e => e.AccountId);
+
+                entity.Property(e => e.DebitAmount)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0);
+                entity.Property(e => e.CreditAmount)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0);
+
+                // Relationships
+                entity.HasOne(e => e.JournalEntry)
+                    .WithMany(je => je.Lines)
+                    .HasForeignKey(e => e.JournalEntryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Account)
+                    .WithMany(a => a.JournalEntryLines)
+                    .HasForeignKey(e => e.AccountId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
 
             b.Entity<TransactionRecord>(e =>
             {

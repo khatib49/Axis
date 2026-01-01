@@ -51,6 +51,14 @@ namespace Application
             services.AddScoped<ILoyaltyService, LoyaltyService>();
             services.AddScoped<LoyaltyJobs>();
 
+            services.AddSingleton<AccountingMapper>(); // ⭐ NEW
+
+            // ... your existing service registrations ...
+
+            // ADD THESE LINES:
+            services.AddScoped<IAccountService, AccountService>(); // ⭐ NEW
+            services.AddScoped<IJournalService, JournalService>();
+
 
             return services;
         }
