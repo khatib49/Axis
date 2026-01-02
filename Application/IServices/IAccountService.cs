@@ -1,9 +1,12 @@
 ﻿using Application.DTOs;
+using Application.Services;
 
 namespace Application.IServices
 {
     public interface IAccountService
     {
+
+        Task<List<ExpenseAccountDto>> GetExpenseAccountsAsync(CancellationToken ct);
         Task<BaseResponse<IReadOnlyList<AccountTypeDto>>> GetAllAccountTypesAsync(CancellationToken ct = default);
 
         Task<BaseResponse<AccountTypeDto>> GetAccountTypeByIdAsync(int id, CancellationToken ct = default);

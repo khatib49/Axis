@@ -231,5 +231,19 @@ namespace AxisAPI.Controllers
 
             return Ok(validation);
         }
+        [HttpGet("expense-accounts")]
+        public async Task<IActionResult> GetExpenseAccounts(CancellationToken ct)
+        {
+            try
+            {
+                var accounts = await _accountService.GetExpenseAccountsAsync(ct);
+                return Ok(accounts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting expense accounts");
+                return StatusCode(500, "Error getting expense accounts");
+            }
+        }
     }
 }

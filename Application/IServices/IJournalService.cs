@@ -1,4 +1,5 @@
 ﻿using Application.DTOs;
+using Application.Services;
 
 namespace Application.IServices
 {
@@ -53,7 +54,7 @@ namespace Application.IServices
             int transactionId,
             CancellationToken ct = default);
 
-        Task<BaseResponse<JournalEntryDto>> CreateJournalEntryFromExpenseAsync(
+        Task<BaseResponse<JournalEntryOneDto>> CreateJournalEntryFromExpenseAsync(
             int expenseId,
             CancellationToken ct = default);
 

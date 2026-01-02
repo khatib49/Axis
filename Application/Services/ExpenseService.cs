@@ -26,11 +26,16 @@ namespace Application.Services
             _journalService = journalService;
         }
 
-        public async Task<ExpenseDto> CreateAsync(ExpenseCreateDto dto, int? createdBy, CancellationToken ct)
+        // In ExpenseService.cs - Update CreateJournalEntryFromExpenseAsync call
+        public async Task<ExpenseDto> CreateAsync(
+            ExpenseCreateDto dto,
+            int? createdBy,
+            CancellationToken ct)
         {
             await EnsureCategoryExists(dto.CategoryId, ct);
             ValidateDates(dto.FromDate, dto.ToDate);
-            if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
+            if (dto.Amount <= 0)
+                throw new ArgumentException("Amount must be greater than 0.");
 
             var entity = new Expense
             {
@@ -42,17 +47,15 @@ namespace Application.Services
                 ToDate = dto.ToDate.Date,
                 CreatedBy = createdBy,
                 CreatedOn = DateTime.UtcNow,
-
             };
 
             await _expenseRepo.AddAsync(entity, ct);
-
             await _uow.SaveChangesAsync(ct);
+
             try
             {
-                var journalResult = await _journalService.CreateJournalEntryFromExpenseAsync(
-                    entity.Id,
-                    ct);
+                var journalResult = await _journalService
+                    .CreateJournalEntryFromExpenseAsync(entity.Id, ct);
 
                 if (journalResult.Success)
                 {
@@ -74,12 +77,12 @@ namespace Application.Services
                 _logger.LogError(ex,
                     "Exception creating journal entry for expense {ExpenseId}",
                     entity.Id);
-                // Don't fail the expense creation, just log the error
             }
 
-            // Load category name for DTO
-            var catName = (await _catRepo.Query().Where(c => c.Id == entity.FK_CategoryId)
-                                    .Select(c => c.Name).FirstAsync(ct));
+            var catName = await _catRepo.Query()
+                .Where(c => c.Id == entity.FK_CategoryId)
+                .Select(c => c.Name)
+                .FirstAsync(ct);
 
             return Map(entity, catName);
         }

@@ -11,7 +11,7 @@ namespace Application.Services
     public class JournalService : IJournalService
     {
         private readonly IBaseRepository<JournalEntry> _journalRepo;
-        private readonly IBaseRepository<JournalEntryLine> _lineRepo;
+        private readonly IBaseRepository<JournalEntryLine> _journalLineRepo;
         private readonly IBaseRepository<Account> _accountRepo;
         private readonly IBaseRepository<TransactionRecord> _transactionRepo;
         private readonly IBaseRepository<Expense> _expenseRepo;
@@ -32,7 +32,7 @@ namespace Application.Services
             ILogger<JournalService> logger)
         {
             _journalRepo = journalRepo;
-            _lineRepo = lineRepo;
+            _journalLineRepo = lineRepo;
             _accountRepo = accountRepo;
             _transactionRepo = transactionRepo;
             _expenseRepo = expenseRepo;
@@ -94,7 +94,7 @@ namespace Application.Services
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    await _lineRepo.AddAsync(line, ct);
+                    await _journalLineRepo.AddAsync(line, ct);
                 }
 
                 await _uow.SaveChangesAsync(ct);
@@ -174,7 +174,7 @@ namespace Application.Services
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    await _lineRepo.AddAsync(line, ct);
+                    await _journalLineRepo.AddAsync(line, ct);
                 }
 
                 await _uow.SaveChangesAsync(ct);
@@ -619,95 +619,163 @@ namespace Application.Services
             }
         }
 
-        public async Task<BaseResponse<JournalEntryDto>> CreateJournalEntryFromExpenseAsync(
+        public async Task<BaseResponse<JournalEntryOneDto>> CreateJournalEntryFromExpenseAsync(
             int expenseId,
             CancellationToken ct = default)
         {
             try
             {
                 var expense = await _expenseRepo.Query()
-                    .Include(e => e.Category)
+                    .Include(e => e.Category)  // Include category
+                    .ThenInclude(c => c.Account)  // Include mapped account
                     .FirstOrDefaultAsync(e => e.Id == expenseId, ct);
 
                 if (expense == null)
-                    return new BaseResponse<JournalEntryDto>(false, "Expense not found", "", null);
+                    return new BaseResponse<JournalEntryOneDto>(
+                        false, "Expense not found", null);
 
-                // Check if journal entry already exists
-                var existingEntry = await _journalRepo.Query()
-                    .FirstOrDefaultAsync(e => e.ReferenceType == "Expense" && e.ReferenceId == expenseId, ct);
-
-                if (existingEntry != null)
-                    return new BaseResponse<JournalEntryDto>(false, "Journal entry already exists for this expense", "", null);
-
-                var lines = new List<JournalEntryLineCreateDto>();
-
-                // DEBIT: Expense account
-                var categoryName = expense.Category?.Name?.ToLower() ?? "";
-                string expenseAccountNumber = categoryName switch
-                {
-                    var cat when cat.Contains("rent") => "5100",
-                    var cat when cat.Contains("utilities") || cat.Contains("electric") || cat.Contains("water") => "5200",
-                    var cat when cat.Contains("internet") || cat.Contains("telecom") || cat.Contains("phone") => "5300",
-                    var cat when cat.Contains("salary") || cat.Contains("wages") || cat.Contains("payroll") => "5400",
-                    var cat when cat.Contains("marketing") || cat.Contains("advertising") => "5500",
-                    var cat when cat.Contains("maintenance") || cat.Contains("repair") => "5600",
-                    var cat when cat.Contains("office") || cat.Contains("supplies") => "5800",
-                    _ => "5900" // Miscellaneous
-                };
-
-                var expenseAccount = await _accountRepo.Query()
-                    .FirstOrDefaultAsync(a => a.AccountNumber == expenseAccountNumber, ct);
-
-                if (expenseAccount == null)
-                    return new BaseResponse<JournalEntryDto>(false, $"Expense account ({expenseAccountNumber}) not found", "", null);
-
-                lines.Add(new JournalEntryLineCreateDto(
-                    expenseAccount.Id,
-                    expense.Amount,
-                    0,
-                    expense.Comment ?? expense.Category?.Name ?? "Expense"
-                ));
-
-                // CREDIT: Cash on Hand (1000)
                 var cashAccount = await _accountRepo.Query()
-                    .FirstOrDefaultAsync(a => a.AccountNumber == "1000", ct);
+                    .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
 
                 if (cashAccount == null)
-                    return new BaseResponse<JournalEntryDto>(false, "Cash account (1000) not found", "", null);
+                    return new BaseResponse<JournalEntryOneDto>(
+                        false, "Cash account (1000) not found", null);
 
-                lines.Add(new JournalEntryLineCreateDto(
-                    cashAccount.Id,
-                    0,
-                    expense.Amount,
-                    "Cash paid"
-                ));
+                // Get expense account - USE MAPPING if available
+                Account? expenseAccount = null;
 
-                // Create journal entry
-                var entryDto = new JournalEntryCreateDto(
-                    expense.CreatedOn,
-                    $"Expense #{expenseId} - {expense.Category?.Name ?? "Expense"}",
-                    "Expense",
-                    expenseId,
-                    lines
-                );
-
-                var result = await CreateJournalEntryAsync(entryDto, null, ct);
-
-                if (result.Success)
+                if (expense.Category.AccountId.HasValue)
                 {
-                    // Auto-post the entry
-                    await PostJournalEntryAsync(result.Data!.Id, null, ct);
-                    _logger.LogInformation("Auto-posted journal entry for expense {ExpenseId}", expenseId);
+                    // Use mapped account
+                    expenseAccount = await _accountRepo.Query()
+                        .FirstOrDefaultAsync(
+                            a => a.Id == expense.Category.AccountId.Value && a.IsActive,
+                            ct);
                 }
 
-                return result;
+                // Fallback to keyword matching if no mapping
+                if (expenseAccount == null)
+                {
+                    expenseAccount = await DetermineExpenseAccountAsync(
+                        expense.Category.Name,
+                        ct);
+                }
+
+                // Final fallback to miscellaneous
+                if (expenseAccount == null)
+                {
+                    expenseAccount = await _accountRepo.Query()
+                        .FirstOrDefaultAsync(
+                            a => a.AccountNumber == "5900" && a.IsActive,
+                            ct);
+                }
+
+                if (expenseAccount == null)
+                    return new BaseResponse<JournalEntryOneDto>(
+                        false, "No suitable expense account found", null);
+
+                // Create journal entry...
+                var entryNumber = await GenerateEntryNumberAsync(ct);
+                var entry = new JournalEntry
+                {
+                    EntryNumber = entryNumber,
+                    EntryDate = expense.CreatedOn,
+                    Description = $"Expense #{expense.Id} - {expense.Category.Name}",
+                    ReferenceType = "Expense",
+                    ReferenceId = expense.Id,
+                    TotalAmount = expense.Amount,
+                    IsPosted = true,
+                    IsVoided = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _journalRepo.AddAsync(entry, ct);
+                await _uow.SaveChangesAsync(ct);
+
+                // DEBIT Expense
+                var debitLine = new JournalEntryLine
+                {
+                    JournalEntryId = entry.Id,
+                    AccountId = expenseAccount.Id,
+                    DebitAmount = expense.Amount,
+                    CreditAmount = 0,
+                    Description = expense.Comment ?? expense.Category.Name,
+                    LineNumber = 1,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // CREDIT Cash
+                var creditLine = new JournalEntryLine
+                {
+                    JournalEntryId = entry.Id,
+                    AccountId = cashAccount.Id,
+                    DebitAmount = 0,
+                    CreditAmount = expense.Amount,
+                    Description = "Cash paid",
+                    LineNumber = 2,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _journalLineRepo.AddAsync(debitLine, ct);
+                await _journalLineRepo.AddAsync(creditLine, ct);
+                await _uow.SaveChangesAsync(ct);
+
+                // Update balances
+                expenseAccount.CurrentBalance += expense.Amount;
+                cashAccount.CurrentBalance -= expense.Amount;
+                _accountRepo.Update(expenseAccount);
+                _accountRepo.Update(cashAccount);
+                await _uow.SaveChangesAsync(ct);
+
+                return new BaseResponse<JournalEntryOneDto>(
+                    true, null, null,
+                    await MapToDto(entry, ct));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating journal entry from expense {ExpenseId}", expenseId);
-                return new BaseResponse<JournalEntryDto>(false, "Error creating journal entry from expense", "", null);
+                _logger.LogError(ex,
+                    "Error creating journal entry from expense {ExpenseId}",
+                    expenseId);
+                return new BaseResponse<JournalEntryOneDto>(
+                    false, "Error creating journal entry", null);
             }
         }
+
+        // Fallback keyword matching
+        private async Task<Account?> DetermineExpenseAccountAsync(
+            string categoryName,
+            CancellationToken ct)
+        {
+            var lowerName = categoryName.ToLower();
+
+            if (lowerName.Contains("rent"))
+                return await GetAccountByNumberAsync("5100", ct);
+            if (lowerName.Contains("utilit") || lowerName.Contains("electric"))
+                return await GetAccountByNumberAsync("5200", ct);
+            if (lowerName.Contains("internet") || lowerName.Contains("telecom"))
+                return await GetAccountByNumberAsync("5300", ct);
+            if (lowerName.Contains("salary") || lowerName.Contains("wage"))
+                return await GetAccountByNumberAsync("5400", ct);
+            if (lowerName.Contains("marketing") || lowerName.Contains("social"))
+                return await GetAccountByNumberAsync("5500", ct);
+            if (lowerName.Contains("maintenance") || lowerName.Contains("repair"))
+                return await GetAccountByNumberAsync("5600", ct);
+            if (lowerName.Contains("office") || lowerName.Contains("supplies"))
+                return await GetAccountByNumberAsync("5800", ct);
+
+            return null;
+        }
+
+        private async Task<Account?> GetAccountByNumberAsync(
+            string accountNumber,
+            CancellationToken ct)
+        {
+            return await _accountRepo.Query()
+                .FirstOrDefaultAsync(
+                    a => a.AccountNumber == accountNumber && a.IsActive,
+                    ct);
+        }
+
 
         // ============================================
         // VALIDATION
@@ -875,7 +943,7 @@ namespace Application.Services
 
                 foreach (var account in accounts)
                 {
-                    var lines = await _lineRepo.Query()
+                    var lines = await _journalLineRepo.Query()
                         .Where(l => l.AccountId == account.Id &&
                                    l.JournalEntry.IsPosted &&
                                    !l.JournalEntry.IsVoided)
@@ -901,5 +969,72 @@ namespace Application.Services
                 return new BaseResponse(false, "Error recalculating account balances");
             }
         }
+        // Add this method to your JournalService class
+
+        private async Task<JournalEntryOneDto> MapToDto(JournalEntry entry, CancellationToken ct)
+        {
+            // Load the full entry with related data
+            var fullEntry = await _journalRepo.Query()
+                .Include(e => e.Lines)
+                    .ThenInclude(l => l.Account)
+                .FirstOrDefaultAsync(e => e.Id == entry.Id, ct);
+
+            if (fullEntry == null)
+                throw new InvalidOperationException("Journal entry not found");
+
+            var lines = fullEntry.Lines
+                .OrderBy(l => l.LineNumber)
+                .Select(l => new JournalEntryLineOneDto(
+                    l.Id,
+                    l.AccountId,
+                    l.Account.AccountNumber,
+                    l.Account.AccountName,
+                    l.DebitAmount,
+                    l.CreditAmount,
+                    l.Description,
+                    l.LineNumber
+                ))
+                .ToList();
+
+            return new JournalEntryOneDto(
+                fullEntry.Id,
+                fullEntry.EntryNumber,
+                fullEntry.EntryDate,
+                fullEntry.Description,
+                fullEntry.ReferenceType,
+                fullEntry.ReferenceId,
+                fullEntry.TotalAmount,
+                fullEntry.IsPosted,
+                fullEntry.IsVoided,
+                fullEntry.CreatedAt,
+                lines
+            );
+        }
+
     }
+    // Application/DTOs/JournalEntryDto.cs
+    public record JournalEntryOneDto(
+        int Id,
+        string EntryNumber,
+        DateTime EntryDate,
+        string Description,
+        string? ReferenceType,
+        int? ReferenceId,
+        decimal TotalAmount,
+        bool IsPosted,
+        bool IsVoided,
+        DateTime CreatedAt,
+        List<JournalEntryLineOneDto> Lines
+    );
+
+    public record JournalEntryLineOneDto(
+        int Id,
+        int AccountId,
+        string AccountNumber,
+        string AccountName,
+        decimal DebitAmount,
+        decimal CreditAmount,
+        string? Description,
+        int LineNumber
+    );
 }

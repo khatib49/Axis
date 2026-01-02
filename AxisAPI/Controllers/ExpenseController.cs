@@ -58,5 +58,6 @@ namespace AxisAPI.Controllers
             var ok = await _svc.DeleteAsync(id, ct);
             return ok ? NoContent() : NotFound();
         }
+
     }
 }

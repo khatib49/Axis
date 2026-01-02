@@ -749,5 +749,28 @@ namespace Application.Services
                 parentValid
             );
         }
+
+        public async Task<List<ExpenseAccountDto>> GetExpenseAccountsAsync(CancellationToken ct)
+        {
+            var accounts = await _accountRepo.Query()
+                .Where(a => a.AccountNumber.StartsWith("5") && a.IsActive)
+                .OrderBy(a => a.AccountNumber)
+                .Select(a => new ExpenseAccountDto
+                {
+                    Id = a.Id,
+                    AccountNumber = a.AccountNumber,
+                    AccountName = a.AccountName
+                })
+                .ToListAsync(ct);
+
+            return accounts;
+        }
+
+    }
+    public class ExpenseAccountDto
+    {
+        public int Id { get; set; }
+        public string AccountNumber { get; set; }
+        public string AccountName { get; set; }
     }
 }
