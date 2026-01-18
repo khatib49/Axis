@@ -200,6 +200,7 @@ namespace Application.Services
                 var entry = await _journalRepo.Query(asNoTracking: false)
                     .Include(e => e.Lines)
                         .ThenInclude(l => l.Account)
+                        .ThenInclude (c => c.AccountType)
                     .FirstOrDefaultAsync(e => e.Id == id, ct);
 
                 if (entry == null)

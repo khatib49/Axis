@@ -212,6 +212,7 @@ app.UseSwaggerUI(ui =>
 
 // your hub (below)
 app.MapHub<ReceptionHub>("/hubs/reception");
+app.MapHub<KitchenBarHub>("/hubs/kitchenbar");
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {

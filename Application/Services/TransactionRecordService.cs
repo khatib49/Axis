@@ -9,6 +9,7 @@ using Hangfire;
 using Infrastructure.IRepositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -37,16 +38,21 @@ namespace Application.Services
         private readonly IJournalService _journalService;
         private readonly UserManager<AppUser> _userManager;
         private readonly ILoyaltyService _loyaltyService;
+        private readonly IBaseRepository<KitchenBarOrder> _repoKitchenBar;
+        private readonly IHubContext<KitchenBarHub> _hubContext;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
             IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
-        IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor, IJournalService journalService)
+        IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor,
+        IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext)
         {
+            _hubContext = hubContext;
             _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
             _userManager = userManager;
             _repoSetting = repoSetting;
+            _repoKitchenBar = repoKitchenBar;
             _repoRoom = repoRoom;
             _repoGame = repoGame;
             _repoItem = repoItem;
@@ -112,7 +118,7 @@ namespace Application.Services
                     .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
-        public async Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default)    
+        public async Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()
                 .Include(s => s.Game)
@@ -221,9 +227,9 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, 
+        public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId,
                 string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false, string comment = "")
-            {
+        {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
 
@@ -239,7 +245,7 @@ namespace Application.Services
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.CategoryId == game.CategoryId, ct);
 
-            
+
             if (room is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid room ID", "No available room for the selected game type.");
 
@@ -247,52 +253,52 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(false, "Invalid set selection", "This game requires open set.");
 
             if (!room.IsOpenSet)
-                {
+            {
                 // 3) Validate the chosen RoomSet belongs to this room
                 var set = room.Sets.FirstOrDefault(s => s.Id == roomSetId);
                 if (set is null)
                     return new BaseResponse<TransactionDto>(false, "invalid set id", "Invalid set ID for the selected room.");
 
-                    // 4) Ensure this set is not already in use for an ongoing transaction
-                    var isSetInUse = await _repo.Query().AsNoTracking()
-                        .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
-                    if (isSetInUse)
-                        return new BaseResponse<TransactionDto>(false, "set in use", "The selected set is currently in use. Please choose a different set.");
-                    
-                    
-                    Set setToUpdate = new Set { Id = set.Id };
+                // 4) Ensure this set is not already in use for an ongoing transaction
+                var isSetInUse = await _repo.Query().AsNoTracking()
+                    .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
+                if (isSetInUse)
+                    return new BaseResponse<TransactionDto>(false, "set in use", "The selected set is currently in use. Please choose a different set.");
 
-                    _repoSet.Attach(setToUpdate);
-                    setToUpdate.StatusId = 10;
-                    await _uow.SaveChangesAsync(ct);
+
+                Set setToUpdate = new Set { Id = set.Id };
+
+                _repoSet.Attach(setToUpdate);
+                setToUpdate.StatusId = 10;
+                await _uow.SaveChangesAsync(ct);
 
             }
 
             // 5) Price calc from Setting
             var setting = await _repoSetting.Query().AsNoTracking()
                 .Where(s => s.Id == gameSettingId)
-                .Select(s => new { s.Hours, s.Price, s.IsOpenHour , s.IsDayPass })
+                .Select(s => new { s.Hours, s.Price, s.IsOpenHour, s.IsDayPass })
                 .FirstOrDefaultAsync(ct);
-            
-            if(setting is null)
+
+            if (setting is null)
             {
                 return new BaseResponse<TransactionDto>(false, "Invalid game setting", "The specified game setting does not exist.");
             }
 
-                DateTime? expectedEndOn = null;
+            DateTime? expectedEndOn = null;
 
-                decimal totalPrice = 0.0M;
+            decimal totalPrice = 0.0M;
 
-                if (setting.IsOpenHour || setting.IsDayPass)
-                {
-                    totalPrice = setting.Price;
-                }
+            if (setting.IsOpenHour || setting.IsDayPass)
+            {
+                totalPrice = setting.Price;
+            }
 
             if (numberOfPersons > 0)
             {
                 totalPrice = totalPrice * numberOfPersons;
             }
-            
+
             Discount? discount = null;
             if (discountId != 0)
             {
@@ -314,8 +320,8 @@ namespace Application.Services
             }
 
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
-            int statusToUse = (game.CategoryId == 2 || game.CategoryId== 6) || isDayPass ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
-           if(setting.IsDayPass == true)
+            int statusToUse = (game.CategoryId == 2 || game.CategoryId == 6) || isDayPass ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
+            if (setting.IsDayPass == true)
             {
                 statusToUse = 6;
             }
@@ -335,14 +341,14 @@ namespace Application.Services
                     UserId: userId,
                     CreatedOn: DateTime.UtcNow,
                     CreatedBy: createdBy ?? string.Empty,
-                    DiscountId: discount?.Id ,
+                    DiscountId: discount?.Id,
                     numberOfPersons: numberOfPersons,
                     Comment: comment
                 );
 
-                var e = _mapper.ToEntity(createDto);
-                if (e.SetId == 0)
-                    e.SetId = null;
+            var e = _mapper.ToEntity(createDto);
+            if (e.SetId == 0)
+                e.SetId = null;
 
             //e.ExpectedEndOn = expectedEndOn;
 
@@ -470,59 +476,59 @@ namespace Application.Services
 
         public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest,
             string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null)
-            {
+        {
 
             var reqId = GetReqId();
             var sig = itemsRequest is null ? "-" : ItemsSignature(itemsRequest);
 
             if (itemsRequest is null || itemsRequest.Count == 0)
-                    return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
+                return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
 
-            
-                var requested = itemsRequest
-                    .GroupBy(x => x.ItemId)
-                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
-            
-                var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
-                if (invalidQty.Any())
-                    return new BaseResponse<TransactionDto>(false, "Invalid quantity", 
-                        $"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
+            var requested = itemsRequest
+                .GroupBy(x => x.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
-                var ids = requested.Keys.ToList();
 
-            
-                var dbItems = await _repoItem.Query(false)
-                    .Where(i => ids.Contains(i.Id))
-                    .ToListAsync(ct); 
+            var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
+            if (invalidQty.Any())
+                return new BaseResponse<TransactionDto>(false, "Invalid quantity",
+                    $"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
 
-            
-                if (dbItems.Count != ids.Count)
-                {
-                    var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
-                    return new BaseResponse<TransactionDto>(false, "Invalid items", 
-                        $"The following item IDs do not exist: {string.Join(", ", missing)}");
+            var ids = requested.Keys.ToList();
+
+
+            var dbItems = await _repoItem.Query(false).Include(i => i.Category)
+                .Where(i => ids.Contains(i.Id))
+                .ToListAsync(ct);
+
+
+            if (dbItems.Count != ids.Count)
+            {
+                var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
+                return new BaseResponse<TransactionDto>(false, "Invalid items",
+                    $"The following item IDs do not exist: {string.Join(", ", missing)}");
             }
 
-            
-                var outOfStock = new List<string>();
-                foreach (var it in dbItems)
-                {
-                    var need = requested[it.Id];
-                    if (it.Quantity < need)
-                        outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})"); 
-                }
-                if (outOfStock.Any())
-                    return new BaseResponse<TransactionDto>(false, "Out of stock", 
-                        $"The following items are out of stock or insufficient: {string.Join("; ", outOfStock)}");
+
+            var outOfStock = new List<string>();
+            foreach (var it in dbItems)
+            {
+                var need = requested[it.Id];
+                if (it.Quantity < need)
+                    outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})");
+            }
+            if (outOfStock.Any())
+                return new BaseResponse<TransactionDto>(false, "Out of stock",
+                    $"The following items are out of stock or insufficient: {string.Join("; ", outOfStock)}");
 
             // Compute total
             decimal totalPrice = 0m;
-                foreach (var it in dbItems)
-                {
-                    var qty = requested[it.Id];
-                    totalPrice += (it.Price * qty);
-                }
+            foreach (var it in dbItems)
+            {
+                var qty = requested[it.Id];
+                totalPrice += (it.Price * qty);
+            }
 
             Discount? discount = null;
             if (discountId != 0)
@@ -551,51 +557,55 @@ namespace Application.Services
             int statusId = isOpenInvoice ? 7 : 6;
             // Create transaction
             var trx = new TransactionRecord
-                {
-                
-                    RoomId = null,
-                    SetId = setId,
-                    GameTypeId = null,
-                    GameId = null,
-                    GameSettingId = null,
-                    Hours = 0,
-                    TotalPrice = totalPrice,
-                    StatusId = statusId,
-                    UserId = userId,
-                    CreatedBy = createdBy ?? "",
-                    CreatedOn = DateTime.UtcNow,
-                    DiscountId = discount?.Id,
-                    Comment = comment,
-                    FK_FoodStatusId = 11,
+            {
+
+                RoomId = null,
+                SetId = setId,
+                GameTypeId = null,
+                GameId = null,
+                GameSettingId = null,
+                Hours = 0,
+                TotalPrice = totalPrice,
+                StatusId = statusId,
+                UserId = userId,
+                CreatedBy = createdBy ?? "",
+                CreatedOn = DateTime.UtcNow,
+                DiscountId = discount?.Id,
+                Comment = comment,
+                FK_FoodStatusId = 11,
             };
 
-            
-                var trxItems = new List<TransactionItem>();
-                foreach (var it in dbItems)
-                {
-                    var qty = requested[it.Id];
-                    trxItems.Add(new TransactionItem
-                    {
-                        TransactionRecord = trx,
-                    
-                        ItemId = it.Id,
-                        Quantity = qty,
-                    });
 
-                
-                    it.Quantity -= qty;
-                }
+            var trxItems = new List<TransactionItem>();
+            foreach (var it in dbItems)
+            {
+                var qty = requested[it.Id];
+                trxItems.Add(new TransactionItem
+                {
+                    TransactionRecord = trx,
+
+                    ItemId = it.Id,
+                    Quantity = qty,
+                });
+
+
+                it.Quantity -= qty;
+            }
 
 
 
             try
             {
-                _logger.LogInformation("CS/Order BEFORE_SAVE ReqId={ReqId} Total={Total} Items={Count}",reqId, totalPrice, trxItems.Count);
+                _logger.LogInformation("CS/Order BEFORE_SAVE ReqId={ReqId} Total={Total} Items={Count}", reqId, totalPrice, trxItems.Count);
 
 
                 await _repo.AddAsync(trx, ct);
                 await _repoTrxItem.AddRangeAsync(trxItems, ct);
 
+                await _uow.SaveChangesAsync(ct);
+
+                await CreateKitchenBarOrdersAsync(trx, trxItems, createdBy,
+                    tableNumber: null, guestName: null, ct);
 
                 await _uow.SaveChangesAsync(ct);
             }
@@ -1050,7 +1060,7 @@ namespace Application.Services
                     var userPhone = await GetUserPhoneNumberAsync(tracked.UserId.Value, ct);
                     var userName = await GetUserFullNameAsync(tracked.UserId.Value, ct);
 
-                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(tracked.UserId.Value, ct) )
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(tracked.UserId.Value, ct))
                     {
                         var loyaltyRequest = new CalculateTicketsRequest
                         {
@@ -1456,7 +1466,7 @@ namespace Application.Services
                 "Items added to invoice successfully.", dto);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CloseOpenInvoice( int invoiceId, string updatedBy,  CancellationToken ct)
+        public async Task<BaseResponse<TransactionDto>> CloseOpenInvoice(int invoiceId, string updatedBy, CancellationToken ct)
         {
             var reqId = GetReqId();
 
@@ -1620,5 +1630,88 @@ namespace Application.Services
                 "Set updated successfully.", dto);
         }
 
+        private async Task CreateKitchenBarOrdersAsync(
+    TransactionRecord trx,
+    List<TransactionItem> trxItems,
+    string createdBy,
+    string? tableNumber = null,
+    string? guestName = null,
+    CancellationToken ct = default)
+        {
+            var kitchenBarOrders = new List<KitchenBarOrder>();
+            var now = DateTime.UtcNow;
+
+            foreach (var trxItem in trxItems)
+            {
+                var item = trxItem.Item;
+                if (item?.Category == null) continue;
+
+                string? station = item.Category.ItemType switch
+                {
+                    "Food" => "Kitchen",
+                    "Bar" => "Bar",
+                    _ => null
+                };
+
+                if (station != null)
+                {
+                    kitchenBarOrders.Add(new KitchenBarOrder
+                    {
+                        TransactionId = trx.Id,
+                        TransactionItemId = trxItem.ItemId,
+                        ItemId = item.Id,
+                        Station = station,
+                        Status = "Pending",
+                        OrderedAt = now,
+                        TableNumber = tableNumber,
+                        GuestName = guestName,
+                        ItemComment = null,
+                        Quantity = trxItem.Quantity,
+                        ItemName = item.Name,
+                        ItemPrice = item.Price,
+                        CreatedByUsername = createdBy,
+                        CreatedAt = now
+                    });
+                }
+            }
+
+            if (kitchenBarOrders.Any())
+            {
+                await _repoKitchenBar.AddRangeAsync(kitchenBarOrders, ct);
+                await _uow.SaveChangesAsync(ct); // Save first to get IDs
+
+                _logger.LogInformation(
+                    "Created {Count} kitchen/bar orders for Transaction {TrxId}",
+                    kitchenBarOrders.Count, trx.Id);
+
+                // NEW: Send SignalR notifications to Kitchen and Bar
+                foreach (var order in kitchenBarOrders)
+                {
+                    var orderDto = new KitchenBarOrderDto(
+                        order.Id,
+                        order.TransactionId,
+                        order.ItemId,
+                        order.ItemName,
+                        order.Quantity,
+                        order.ItemPrice,
+                        order.Station,
+                        order.Status,
+                        order.OrderedAt,
+                        null,
+                        null,
+                        null,
+                        null,
+                        order.TableNumber,
+                        order.GuestName,
+                        order.ItemComment,
+                        order.CreatedByUsername,
+                        order.CreatedAt
+                    );
+
+                    await _hubContext.Clients.Group(order.Station)
+                        .SendAsync("NewOrder", orderDto, ct);
+                }
+            }
+        }
     }
 }

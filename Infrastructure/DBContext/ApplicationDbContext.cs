@@ -36,6 +36,7 @@ namespace Infrastructure.Persistence
         public DbSet<Status> Status => Set<Status>();
 
         public DbSet<TransactionItem> TransactionItems => Set<TransactionItem>();
+        public DbSet<KitchenBarOrder> KitchenBarOrders { get; set; }
 
         public DbSet<Set> Sets => Set<Set>();
         public DbSet<Discount> Discounts => Set<Discount>();
@@ -48,6 +49,37 @@ namespace Infrastructure.Persistence
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
+
+            // KitchenBarOrder Configuration
+            b.Entity<KitchenBarOrder>(entity =>
+            {
+                entity.ToTable("KitchenBarOrders");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.ItemPrice).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.OrderedAt).HasDefaultValueSql("NOW()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
+
+                entity.HasOne(e => e.Transaction)
+                    .WithMany()
+                    .HasForeignKey(e => e.TransactionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Item)
+                    .WithMany()
+                    .HasForeignKey(e => e.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.PreparedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.PreparedBy)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasIndex(e => new { e.Station, e.Status });
+                entity.HasIndex(e => e.TransactionId);
+                entity.HasIndex(e => e.OrderedAt);
+                entity.HasIndex(e => e.Status);
+            });
 
             // Relationships (keep only what you need; these are safe)
             b.Entity<UserCard>()
