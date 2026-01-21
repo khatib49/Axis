@@ -1649,7 +1649,7 @@ namespace Application.Services
                 string? station = item.Category.ItemType switch
                 {
                     "Food" => "Kitchen",
-                    "Bar" => "Bar",
+                    "Drinks" => "Bar",
                     _ => null
                 };
 
