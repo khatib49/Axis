@@ -18,7 +18,7 @@ namespace Application.Services.SignalR
         /// </summary>
         public async Task JoinStation(string station)
         {
-            if (station != "Kitchen" && station != "Bar")
+            if (station != "Kitchen" && station != "Bar" && station != "Tobacco")
             {
                 _logger.LogWarning("Invalid station join attempt: {Station}", station);
                 return;

@@ -1650,6 +1650,7 @@ namespace Application.Services
                 {
                     "Food" => "Kitchen",
                     "Drinks" => "Bar",
+                    "Tobacco" => "Bar",
                     _ => null
                 };
 
