@@ -211,17 +211,21 @@ namespace Application.Services
             return new PaginatedResponse<GameTransactionDetailsDto>(total, data, page, size, totalInvoices);
         }
 
-        public async Task<PeriodTotalsDto> GetTotalsAsync(DateTime? from,DateTime? to,string? categoryIds,CancellationToken ct = default)
+        public async Task<PeriodTotalsDto> GetTotalsAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
         {
-            var q = _repo.Query(); // IQueryable<TransactionRecord>
+            var q = _repo.Query();
 
-            // date filter  [from .. to]
+            // Date filter
             var toExclusive = to?.Date.AddDays(1);
-            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
-            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue)
+                q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue)
+                q = q.Where(t => t.CreatedOn < toExclusive.Value);
 
-            q = q.Where(t => t.StatusId == 6); // only completed transactions
-            // category filter
+            // Only completed transactions
+            q = q.Where(t => t.StatusId == 6);
+
+            // Category filter
             List<int> cats = new();
             if (!string.IsNullOrWhiteSpace(categoryIds))
             {
@@ -241,22 +245,12 @@ namespace Application.Services
                 );
             }
 
-            // orders count
+            // ✅ FIX: Just sum TotalPrice for ALL transactions
             var count = await q.CountAsync(ct);
-
-            // money totals
-            var gamesTotal = await q
-                .Where(t => t.GameId != null)
-                .SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
-
-            var itemsTotal = await q
-                .Where(t => t.GameId == null)
-                .SelectMany(t => t.TransactionItems.Select(ti =>
-                    ((ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity)))
-                .SumAsync(x => (decimal?)x, ct) ?? 0m;
+            var totalAmount = await q.SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
 
             return new PeriodTotalsDto(
-                TotalAmount: gamesTotal + itemsTotal,
+                TotalAmount: totalAmount,
                 OrdersCount: count
             );
         }
