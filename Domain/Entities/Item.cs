@@ -20,6 +20,7 @@ namespace Domain.Entities
         public int StatusId { get; set; }
         public Status Status { get; set; } = default!;
         public string? ImagePath { get; set; }
+        public decimal? BuyPrice { get; set; }
 
         public ICollection<CoffeeShopOrder> CoffeeShopOrders { get; set; } = new List<CoffeeShopOrder>();
 

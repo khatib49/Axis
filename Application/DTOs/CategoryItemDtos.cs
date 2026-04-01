@@ -4,7 +4,7 @@
     public record CategoryCreateDto(string Name , string Type , string? ItemType);
     public record CategoryUpdateDto(string? Name , string Type , string? ItemType);
 
-    public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath);
+    public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath, decimal? BuyPrice);
     //public record ItemCreateDto(string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId);
     //public record ItemUpdateDto(string? Name, int? Quantity, decimal? Price, string? Type, int? CategoryId, int? StatusId);
 
