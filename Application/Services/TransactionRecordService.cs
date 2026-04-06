@@ -68,6 +68,39 @@ namespace Application.Services
             _http = httpContextAccessor;
         }
 
+        public async Task<BaseResponse<bool>> RemoveItemFromOpenInvoiceAsync(int transactionId, int itemId, CancellationToken ct = default)
+        {
+            var tx = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+
+            if (tx is null)
+                return new BaseResponse<bool>(false, "Not found", "Transaction not found.", false);
+
+            //if (tx.StatusId != 3) // must be open invoice
+            //    return new BaseResponse<bool>(false, "Invalid status", "Only open invoices can be modified.", false);
+
+            var itemToRemove = tx.TransactionItems.FirstOrDefault(ti => ti.ItemId == itemId);
+            if (itemToRemove is null)
+                return new BaseResponse<bool>(false, "Not found", "Item not found in this transaction.", false);
+
+            // Return stock
+            var dbItem = await _repoItem.GetByIdAsync(itemId, asNoTracking: false, ct);
+            if (dbItem is not null)
+                dbItem.Quantity += itemToRemove.Quantity;
+
+            // Recalculate total
+            tx.TotalPrice -= itemToRemove.Quantity * (dbItem?.Price ?? 0);
+            if (tx.TotalPrice < 0) tx.TotalPrice = 0;
+
+            _repoTrxItem.Remove(itemToRemove);
+            tx.ModifiedOn = DateTime.UtcNow;
+
+            await _uow.SaveChangesAsync(ct);
+            return new BaseResponse<bool>(true, null, "Item removed successfully.", true);
+        }
+
         public async Task<RoomSetsAvailabilityDto?> GetRoomSetsAvailability(int roomId, int ongoingStatusId = 1, CancellationToken ct = default)
         {
             // Load room with its sets

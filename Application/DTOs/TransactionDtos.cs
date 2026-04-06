@@ -36,7 +36,7 @@
         int? UserId,        
         string? UserName
      );
-
+    public record RemoveItemFromInvoiceDto(int ItemId);
     public record UpdateSetRequest(int? SetId);
     public record CreateCoffeeShopOrderRequest(
     int? UserId,

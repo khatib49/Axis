@@ -57,9 +57,9 @@ namespace Infrastructure.Persistence
                 e.HasKey(x => x.Id);
                 e.Property(x => x.ChangedOn).HasDefaultValueSql("NOW()");
                 e.HasOne(x => x.Transaction)
-                    .WithMany()
-                    .HasForeignKey(x => x.TransactionId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                .WithMany()
+                .HasForeignKey(x => x.TransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
             });
 
             // KitchenBarOrder Configuration

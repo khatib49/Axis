@@ -4,6 +4,7 @@ namespace Application.IServices
 {
     public interface ITransactionRecordService
     {
+        Task<BaseResponse<bool>> RemoveItemFromOpenInvoiceAsync(int transactionId, int itemId, CancellationToken ct = default);
         Task<List<GameHourlySalesDto>> GetGameHourlySalesAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default);
         Task<List<ItemSalesReportDto>> GetItemSalesReportAsync(DateTime? from,DateTime? to, string? categoryIds, int top, CancellationToken ct = default);
         Task<int> GetOrdersCountAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default);

@@ -3344,6 +3344,27 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "RemoveItemFromOpenInvoice",
+    "RelativePath": "api/transactions/{transactionId}/items/{itemId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "transactionId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
     "Method": "AddItemsToOpenInvoice",
     "RelativePath": "api/transactions/AddItemsToOpenInvoice/{invoiceId}",
     "HttpMethod": "POST",

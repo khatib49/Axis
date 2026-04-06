@@ -19,6 +19,14 @@ namespace AxisAPI.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
+        [HttpDelete("{transactionId:int}/items/{itemId:int}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> RemoveItemFromOpenInvoice(int transactionId, int itemId, CancellationToken ct)
+        {
+            var result = await _transactionService.RemoveItemFromOpenInvoiceAsync(transactionId, itemId, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
