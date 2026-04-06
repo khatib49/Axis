@@ -45,10 +45,22 @@ namespace Infrastructure.Persistence
         public DbSet<LoyaltyCustomer> LoyaltyCustomers { get; set; }
         public DbSet<WeeklyWinner> WeeklyWinners { get; set; }
         public DbSet<MonthlyWinner> MonthlyWinners { get; set; }
+        public DbSet<TransactionAuditLog> TransactionAuditLogs => Set<TransactionAuditLog>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
+
+            b.Entity<TransactionAuditLog>(e =>
+            {
+                e.ToTable("TransactionAuditLogs");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.ChangedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.Transaction)
+                    .WithMany()
+                    .HasForeignKey(x => x.TransactionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
 
             // KitchenBarOrder Configuration
             b.Entity<KitchenBarOrder>(entity =>

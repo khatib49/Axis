@@ -1893,6 +1893,10 @@
                     "type": "integer",
                     "format": "int32"
                   },
+                  "BuyPrice": {
+                    "type": "number",
+                    "format": "double"
+                  },
                   "Image": {
                     "type": "string",
                     "format": "binary"
@@ -1916,6 +1920,9 @@
                   "style": "form"
                 },
                 "StatusId": {
+                  "style": "form"
+                },
+                "BuyPrice": {
                   "style": "form"
                 },
                 "Image": {
@@ -2097,6 +2104,10 @@
                     "type": "integer",
                     "format": "int32"
                   },
+                  "BuyPrice": {
+                    "type": "number",
+                    "format": "double"
+                  },
                   "Image": {
                     "type": "string",
                     "format": "binary"
@@ -2120,6 +2131,9 @@
                   "style": "form"
                 },
                 "StatusId": {
+                  "style": "form"
+                },
+                "BuyPrice": {
                   "style": "form"
                 },
                 "Image": {
@@ -5133,6 +5147,61 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transaction-audit-logs/{transactionId}": {
+      "get": {
+        "tags": [
+          "TransactionAuditLog"
+        ],
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/transaction-audit-logs": {
+      "get": {
+        "tags": [
+          "TransactionAuditLog"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"

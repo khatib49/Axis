@@ -40,13 +40,16 @@ namespace Application.Services
         private readonly ILoyaltyService _loyaltyService;
         private readonly IBaseRepository<KitchenBarOrder> _repoKitchenBar;
         private readonly IHubContext<KitchenBarHub> _hubContext;
+        private readonly IBaseRepository<TransactionAuditLog> _repoAuditLog;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
             IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
         IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor,
-        IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext)
+        IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext,
+        IBaseRepository<TransactionAuditLog> repoAuditLog)
         {
+            _repoAuditLog = repoAuditLog;
             _hubContext = hubContext;
             _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -354,9 +357,15 @@ namespace Application.Services
 
             try
             {
-                _logger.LogInformation("GS/Session BEFORE_SAVE ReqId={ReqId} Room={RoomId} Set={SetId} Total={Total}",
-                    reqId, e.RoomId, e.SetId, e.TotalPrice);
                 await _repo.AddAsync(e, ct);
+                await _uow.SaveChangesAsync(ct);
+                await LogAuditAsync(
+                    transactionId: e.Id,  // Id is set after AddAsync
+                    changedBy: createdBy,
+                    action: "Created",
+                    notes: $"GameId={gameId}, SettingId={gameSettingId}, Persons={numberOfPersons}, Status={statusToUse}, Total={totalPrice:F2}",
+                    ct: ct
+                );
                 await _uow.SaveChangesAsync(ct);
             }
             catch (Exception ex)
@@ -391,24 +400,6 @@ namespace Application.Services
 
                         var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
 
-                        if (loyaltyResponse.Success)
-                        {
-                            _logger.LogInformation(
-                                "✅ Loyalty tickets assigned: TxId={TxId}, User={UserId}, Phone={Phone}, Tickets={Tickets}, Balance=${Balance:F2}",
-                                e.Id, userId.Value, userPhone, loyaltyResponse.TicketsEarned, loyaltyResponse.PendingBalance);
-                        }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "⚠️ Loyalty calculation failed: TxId={TxId}, User={UserId}, Reason={Message}",
-                                e.Id, userId.Value, loyaltyResponse.Message);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogInformation(
-                            "ℹ️ No phone number for loyalty: TxId={TxId}, User={UserId}",
-                            e.Id, userId.Value);
                     }
                 }
                 catch (Exception ex)
@@ -608,6 +599,17 @@ namespace Application.Services
                     tableNumber: null, guestName: null, ct);
 
                 await _uow.SaveChangesAsync(ct);
+
+                await LogAuditAsync(
+                        transactionId: trx.Id,
+                        changedBy: createdBy,
+                        action: "Created",
+                        notes: $"FNB order. Items={trxItems.Count}, Total={totalPrice:F2}, IsOpenInvoice={isOpenInvoice}",
+                        ct: ct
+                    );
+
+                await _uow.SaveChangesAsync(ct);
+
             }
             catch (Exception ex)
             {
@@ -734,16 +736,18 @@ namespace Application.Services
             var setChanged = dto.SetId.HasValue && dto.SetId.Value != e.SetId;
 
             // Apply only provided fields
-            if (dto.RoomId.HasValue) e.RoomId = dto.RoomId;
-            if (dto.SetId.HasValue) e.SetId = dto.SetId;
-            if (dto.GameTypeId.HasValue) e.GameTypeId = dto.GameTypeId;
-            if (dto.GameId.HasValue) e.GameId = dto.GameId;
-            if (dto.GameSettingId.HasValue) e.GameSettingId = dto.GameSettingId;
-            if (dto.Hours.HasValue) e.Hours = dto.Hours ?? 0;
-            if (dto.TotalPrice.HasValue) e.TotalPrice = dto.TotalPrice ?? e.TotalPrice;
-            if (dto.StatusId.HasValue) e.StatusId = dto.StatusId.Value;
+            var changedFields = new List<string>();
+            if (dto.RoomId.HasValue) changedFields.Add($"RoomId={dto.RoomId}");
+            if (dto.SetId.HasValue) changedFields.Add($"SetId={dto.SetId}");
+            if (dto.GameTypeId.HasValue) changedFields.Add($"GameTypeId={dto.GameTypeId}");
+            if (dto.GameId.HasValue) changedFields.Add($"GameId={dto.GameId}");
+            if (dto.GameSettingId.HasValue) changedFields.Add($"GameSettingId={dto.GameSettingId}");
+            if (dto.Hours.HasValue) changedFields.Add($"Hours={dto.Hours}");
+            if (dto.TotalPrice.HasValue) changedFields.Add($"TotalPrice={dto.TotalPrice}");
+            if (dto.StatusId.HasValue) changedFields.Add($"StatusId={dto.StatusId}");
+            if (dto.DiscountId.HasValue) changedFields.Add($"DiscountId={dto.DiscountId}");
             Discount? discount = null;
-
+            var updatedBy = _http.HttpContext?.User?.Identity?.Name ?? "admin";
             if (dto.DiscountId.HasValue)
             {
                 if (dto.DiscountId.Value > 0)
@@ -795,6 +799,14 @@ namespace Application.Services
             }
 
             e.ModifiedOn = DateTime.UtcNow;
+            await LogAuditAsync(
+                transactionId: id,
+                changedBy: updatedBy,
+                action: "AdminUpdate",
+                fieldChanged: string.Join(", ", changedFields),
+                notes: "Manual admin update",
+                ct: ct
+            );
             await _uow.SaveChangesAsync(ct);
             return true;
         }
@@ -1041,6 +1053,16 @@ namespace Application.Services
                 if (set != null)
                     set.StatusId = 9;
             }
+            await LogAuditAsync(
+                    transactionId: invoiceId,
+                    changedBy: updatedBy ?? "system",
+                    action: "CloseGameSession",
+                    fieldChanged: "StatusId",
+                    oldValue: "7",
+                    newValue: "6",
+                    notes: $"BilledHours={billedHours}, TotalPrice={totalPrice:F2}",
+                    ct: ct
+                );
 
             try
             {
@@ -1423,6 +1445,14 @@ namespace Application.Services
             trx.ModifiedOn = DateTime.UtcNow;
             trx.CreatedBy = updatedBy ?? trx.CreatedBy;  // Track who added items
 
+            await LogAuditAsync(
+                transactionId: invoiceId,
+                changedBy: updatedBy ?? "system",
+                action: "AddItems",
+                fieldChanged: "TransactionItems",
+                notes: $"Added {itemsRequest.Count} item(s). NewTotal={trx.TotalPrice:F2}",
+                ct: ct
+            );
             try
             {
                 _logger.LogInformation(
@@ -1500,6 +1530,17 @@ namespace Application.Services
             trx.StatusId = 6;  // Closed/Paid
             trx.ModifiedOn = DateTime.UtcNow;
             trx.CreatedBy = updatedBy ?? trx.CreatedBy;
+
+            await LogAuditAsync(
+                transactionId: invoiceId,
+                changedBy: updatedBy ?? "system",
+                action: "CloseInvoice",
+                fieldChanged: "StatusId",
+                oldValue: "7",
+                newValue: "6",
+                notes: $"FNB invoice closed. Total={trx.TotalPrice:F2}",
+                ct: ct
+            );
 
             try
             {
@@ -1592,12 +1633,18 @@ namespace Application.Services
             trx.ModifiedOn = DateTime.UtcNow;
             trx.CreatedBy = updatedBy ?? trx.CreatedBy;
 
+            await LogAuditAsync(
+                transactionId: invoiceId,
+                changedBy: updatedBy ?? "system",
+                action: "UpdateSet",
+                fieldChanged: "SetId",
+                newValue: setId?.ToString() ?? "null",
+                notes: "Set assignment updated on open invoice",
+                ct: ct
+            );
+            
             try
             {
-                _logger.LogInformation(
-                    "FNB/UpdateSet BEFORE_SAVE ReqId={ReqId} InvoiceId={InvoiceId} SetId={SetId}",
-                    reqId, invoiceId, setId);
-
                 await _uow.SaveChangesAsync(ct);
             }
             catch (Exception ex)
@@ -1630,13 +1677,7 @@ namespace Application.Services
                 "Set updated successfully.", dto);
         }
 
-        private async Task CreateKitchenBarOrdersAsync(
-    TransactionRecord trx,
-    List<TransactionItem> trxItems,
-    string createdBy,
-    string? tableNumber = null,
-    string? guestName = null,
-    CancellationToken ct = default)
+        private async Task CreateKitchenBarOrdersAsync(TransactionRecord trx, List<TransactionItem> trxItems, string createdBy, string? tableNumber = null, string? guestName = null, CancellationToken ct = default)
         {
             var kitchenBarOrders = new List<KitchenBarOrder>();
             var now = DateTime.UtcNow;
@@ -1714,5 +1755,24 @@ namespace Application.Services
                 }
             }
         }
+
+        private async Task LogAuditAsync(int transactionId, string changedBy, string action, string? fieldChanged = null, string? oldValue = null, string? newValue = null, string? notes = null,
+            CancellationToken ct = default)
+        {
+            var log = new TransactionAuditLog
+            {
+                TransactionId = transactionId,
+                ChangedBy = changedBy ?? "system",
+                ChangedOn = DateTime.UtcNow,
+                Action = action,
+                FieldChanged = fieldChanged,
+                OldValue = oldValue,
+                NewValue = newValue,
+                Notes = notes
+            };
+            await _repoAuditLog.AddAsync(log, ct);
+            // Caller must call SaveChangesAsync — log is batched with the main save
+        }
+
     }
 }

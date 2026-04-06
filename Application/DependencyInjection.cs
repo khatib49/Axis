@@ -12,7 +12,7 @@ namespace Application
         public static IServiceCollection AddApplication(this IServiceCollection services)
         {
             services.AddSingleton<DomainMapper>(); // Riok mapper
-
+            services.AddScoped<ITransactionAuditLogService, TransactionAuditLogService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IGameService, GameService>();
             services.AddScoped<ICardService, CardService>();
