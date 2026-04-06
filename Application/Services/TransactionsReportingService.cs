@@ -21,9 +21,9 @@ namespace Application.Services
             if (f.CreatedBy is { Count: > 0 })
                 q = q.Where(t => f.CreatedBy!.Contains(t.CreatedBy));
 
-            q = q.Where(t => t.StatusId == 6);
+            q = q.Where(t => t.Game == null);
+            q = q.Where(t => t.StatusId == 6 || t.StatusId == 7 || t.StatusId == 5);
                 //q = q.Where(t => f.StatusIds!.Contains(t.StatusId));
-                q = q.Where(t => t.Game == null);
 
             // -------- Item/Category filters & search --------
             if (f.CategoryIds is { Count: > 0 })
@@ -105,7 +105,7 @@ namespace Application.Services
                         LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity,
                         ImagePath = ti.Item != null ? ti.Item.ImagePath : null
                     }).ToList()
-                }).Where( c => c.StatusId==6)
+                }).Where(t => t.StatusId == 6 || t.StatusId == 7 || t.StatusId == 5)
                 .ToListAsync(ct);
 
             return new PaginatedResponse<ItemTransactionDto>(total, data, page, size, totalInvoices);
