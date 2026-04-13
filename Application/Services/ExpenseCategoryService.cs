@@ -10,18 +10,17 @@ namespace Application.Services
     {
         private readonly IBaseRepository<ExpenseCategory> _catRepo;
         private readonly IBaseRepository<Expense> _expenseRepo;
+        private readonly IBackfillService _backfillService;
         private readonly IBaseRepository<Account> _accountRepo;  // NEW
         private readonly IUnitOfWork _uow;
 
-        public ExpenseCategoryService(
-            IBaseRepository<ExpenseCategory> catRepo,
-            IBaseRepository<Expense> expenseRepo,
-            IBaseRepository<Account> accountRepo,  // NEW
-            IUnitOfWork unitOfWork)
+        public ExpenseCategoryService(IBaseRepository<ExpenseCategory> catRepo, IBaseRepository<Expense> expenseRepo,
+        IBackfillService backfillService, IBaseRepository<Account> accountRepo, IUnitOfWork unitOfWork)
         {
             _catRepo = catRepo;
             _expenseRepo = expenseRepo;
-            _accountRepo = accountRepo;  // NEW
+            _backfillService = backfillService;
+            _accountRepo = accountRepo;
             _uow = unitOfWork;
         }
 
@@ -49,7 +48,8 @@ namespace Application.Services
             {
                 Name = dto.Name.Trim(),
                 Description = dto.Description,
-                AccountId = dto.AccountId  // NEW
+                AccountId = dto.AccountId,
+                IsCapital = dto.IsCapital
             };
 
             await _catRepo.AddAsync(entity, ct);
@@ -69,15 +69,13 @@ namespace Application.Services
                     c.Description,
                     c.AccountId,
                     c.Account != null ? c.Account.AccountNumber : null,
-                    c.Account != null ? c.Account.AccountName : null
+                    c.Account != null ? c.Account.AccountName : null,
+                    c.IsCapital
                 ))
                 .ToListAsync(ct);
         }
 
-        public async Task<ExpenseCategoryDto> UpdateAsync(
-            int id,
-            ExpenseCategoryUpdateDto dto,
-            CancellationToken ct = default)
+        public async Task<ExpenseCategoryDto> UpdateAsync(int id, ExpenseCategoryUpdateDto dto, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
                 throw new ArgumentException("Name is required.");
@@ -91,7 +89,6 @@ namespace Application.Services
             if (nameExists)
                 throw new InvalidOperationException("Category name already exists.");
 
-            // Validate account if provided
             if (dto.AccountId.HasValue)
             {
                 var accountExists = await _accountRepo.Query()
@@ -100,15 +97,34 @@ namespace Application.Services
                     throw new ArgumentException("Invalid account ID.");
             }
 
+            // Track if AccountId is being newly assigned
+            bool accountJustMapped = !entity.AccountId.HasValue && dto.AccountId.HasValue;
+
             entity.Name = dto.Name.Trim();
             entity.Description = dto.Description;
-            entity.AccountId = dto.AccountId;  // NEW
+            entity.AccountId = dto.AccountId;
+            entity.IsCapital = dto.IsCapital;
 
             _catRepo.Update(entity);
             await _uow.SaveChangesAsync(ct);
 
+            // Auto-backfill all expenses in this category that have no journal entry
+            if (accountJustMapped)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _backfillService.BackfillCategoryAsync(id, CancellationToken.None);
+                    }
+                    catch { /* already logged inside BackfillService */ }
+                });
+            }
+
             return await GetDtoAsync(entity.Id, ct);
         }
+
+
 
         public async Task DeleteAsync(int id, CancellationToken ct = default)
         {
@@ -138,7 +154,8 @@ namespace Application.Services
                 category.Description,
                 category.AccountId,
                 category.Account?.AccountNumber,
-                category.Account?.AccountName
+                category.Account?.AccountName,
+                category.IsCapital
             );
         }
     }

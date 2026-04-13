@@ -5,6 +5,175 @@
     "version": "v1"
   },
   "paths": {
+    "/api/Accounting/backfill/transactions": {
+      "post": {
+        "tags": [
+          "Accounting"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Accounting/backfill/expenses": {
+      "post": {
+        "tags": [
+          "Accounting"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Accounting/dashboard": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingDashboardDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingDashboardDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingDashboardDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Accounting/expenses-breakdown": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "capitalOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseCategoryLineDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseCategoryLineDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseCategoryLineDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Accounts/types": {
       "get": {
         "tags": [
@@ -6925,6 +7094,46 @@
         },
         "additionalProperties": false
       },
+      "AccountingDashboardDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "revenue": {
+            "$ref": "#/components/schemas/RevenueBreakdownDto"
+          },
+          "operatingExpenses": {
+            "$ref": "#/components/schemas/ExpenseSummaryDto"
+          },
+          "capitalExpenses": {
+            "$ref": "#/components/schemas/ExpenseSummaryDto"
+          },
+          "cogs": {
+            "$ref": "#/components/schemas/CogsSummaryDto"
+          },
+          "grossProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "netIncome": {
+            "type": "number",
+            "format": "double"
+          },
+          "netMarginPercent": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "AllRoleConfigurationsDto": {
         "type": "object",
         "properties": {
@@ -6932,6 +7141,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RoleConfigurationDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackfillResultDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "success": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
             },
             "nullable": true
           }
@@ -7232,6 +7466,20 @@
         },
         "additionalProperties": false
       },
+      "CogsSummaryDto": {
+        "type": "object",
+        "properties": {
+          "tcgCogs": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateCoffeeShopOrderRequest": {
         "type": "object",
         "properties": {
@@ -7509,6 +7757,9 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "isCapital": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -7540,6 +7791,23 @@
           "accountName": {
             "type": "string",
             "nullable": true
+          },
+          "isCapital": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExpenseCategoryLineDto": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -7559,6 +7827,9 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "isCapital": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -7636,6 +7907,23 @@
           "createdOn": {
             "type": "string",
             "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExpenseSummaryDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseCategoryLineDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8655,6 +8943,28 @@
           "statusId": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RevenueBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "gaming": {
+            "type": "number",
+            "format": "double"
+          },
+          "fnb": {
+            "type": "number",
+            "format": "double"
+          },
+          "tcg": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false

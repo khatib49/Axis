@@ -488,8 +488,8 @@ namespace Application.Services
         // ============================================
 
         public async Task<BaseResponse<JournalEntryDto>> CreateJournalEntryFromTransactionAsync(
-            int transactionId,
-            CancellationToken ct = default)
+    int transactionId,
+    CancellationToken ct = default)
         {
             try
             {
@@ -497,14 +497,16 @@ namespace Application.Services
                     .Include(t => t.TransactionItems)
                         .ThenInclude(ti => ti.Item)
                             .ThenInclude(i => i.Category)
+                                .ThenInclude(c => c.Account) // NEW: load mapped account
                     .Include(t => t.Game)
                         .ThenInclude(g => g.Category)
+                            .ThenInclude(c => c.Account) // NEW: load mapped account
                     .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
 
                 if (transaction == null)
                     return new BaseResponse<JournalEntryDto>(false, "Transaction not found", "", null);
 
-                if (transaction.StatusId != 6) // Not paid
+                if (transaction.StatusId != 6)
                     return new BaseResponse<JournalEntryDto>(false, "Transaction is not paid yet", "", null);
 
                 // Check if journal entry already exists
@@ -514,11 +516,15 @@ namespace Application.Services
                 if (existingEntry != null)
                     return new BaseResponse<JournalEntryDto>(false, "Journal entry already exists for this transaction", "", null);
 
+                // Skip zero-amount transactions (test sessions, etc.)
+                if (transaction.TotalPrice <= 0)
+                    return new BaseResponse<JournalEntryDto>(false, "Transaction has zero amount, skipping", "", null);
+
                 var lines = new List<JournalEntryLineCreateDto>();
 
                 // DEBIT: Cash on Hand (1000)
                 var cashAccount = await _accountRepo.Query()
-                    .FirstOrDefaultAsync(a => a.AccountNumber == "1000", ct);
+                    .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
 
                 if (cashAccount == null)
                     return new BaseResponse<JournalEntryDto>(false, "Cash account (1000) not found", "", null);
@@ -530,66 +536,130 @@ namespace Application.Services
                     "Cash received"
                 ));
 
-                // CREDIT: Revenue accounts
+                // CREDIT: Revenue accounts — determined by mapped Account on Category
                 if (transaction.GameId != null)
                 {
-                    // Gaming revenue
-                    var gameCategoryName = transaction.Game?.Category?.Name?.ToLower() ?? "";
-                    string revenueAccountNumber = gameCategoryName switch
-                    {
-                        "ps5" => "4000",
-                        "vr" => "4010",
-                        "board games" => "4020",
-                        _ => "4000" // Default to PS5
-                    };
+                    // ── Gaming transaction ──────────────────────────────────────
+                    var gameCategory = transaction.Game?.Category;
+                    var revenueAccount = gameCategory?.Account;
 
-                    var revenueAccount = await _accountRepo.Query()
-                        .FirstOrDefaultAsync(a => a.AccountNumber == revenueAccountNumber, ct);
-
-                    if (revenueAccount != null)
+                    // Fallback: default gaming revenue account if no mapping
+                    if (revenueAccount == null)
                     {
-                        lines.Add(new JournalEntryLineCreateDto(
-                            revenueAccount.Id,
-                            0,
-                            transaction.TotalPrice,
-                            $"Gaming revenue - {transaction.Game?.Name ?? "Game"}"
-                        ));
+                        revenueAccount = await _accountRepo.Query()
+                            .FirstOrDefaultAsync(a => a.AccountNumber == "4000" && a.IsActive, ct);
                     }
+
+                    if (revenueAccount == null)
+                        return new BaseResponse<JournalEntryDto>(false,
+                            $"No revenue account mapped for game category '{gameCategory?.Name ?? "unknown"}' and default account 4000 not found", "", null);
+
+                    lines.Add(new JournalEntryLineCreateDto(
+                        revenueAccount.Id,
+                        0,
+                        transaction.TotalPrice,
+                        $"Gaming revenue - {transaction.Game?.Name ?? "Game"}"
+                    ));
                 }
                 else if (transaction.TransactionItems.Any())
                 {
-                    // FNB or TCG revenue
-                    var itemsByCategory = transaction.TransactionItems
-                        .GroupBy(ti => ti.Item?.Category?.Name?.ToLower() ?? "unknown");
+                    // ── FNB / TCG ───────────────────────────────────────────
+                    // Use TotalPrice as the authoritative total (discount already baked in).
+                    // Distribute TotalPrice proportionally across item categories.
 
-                    foreach (var group in itemsByCategory)
+                    var itemsByCat = transaction.TransactionItems
+                        .Where(ti => ti.Item != null)
+                        .GroupBy(ti => ti.Item!.Category)
+                        .Select(g => new
+                        {
+                            Category = g.Key,
+                            FullPrice = g.Sum(ti => ti.Item!.Price * ti.Quantity)
+                        })
+                        .ToList();
+
+                    var fullTotal = itemsByCat.Sum(x => x.FullPrice);
+
+                    if (fullTotal == 0 || itemsByCat.Count == 0)
+                        return new BaseResponse<JournalEntryDto>(false,
+                            $"Transaction {transactionId}: no valid items found", "", null);
+
+                    decimal totalCredited = 0m;
+                    var catLines = new List<JournalEntryLineCreateDto>();
+
+                    foreach (var catGroup in itemsByCat)
                     {
-                        var categoryName = group.Key;
-                        var totalAmount = group.Sum(ti => ti.Item!.Price * ti.Quantity);
+                        // Proportional share of TotalPrice
+                        var proportion = catGroup.FullPrice / fullTotal;
+                        var lineAmount = Math.Round(transaction.TotalPrice * proportion, 2);
 
-                        string revenueAccountNumber = categoryName switch
+                        Account? revenueAccount = catGroup.Category?.Account;
+
+                        if (revenueAccount == null)
                         {
-                            var cat when cat.Contains("food") || cat.Contains("snacks") || cat.Contains("breakfast")
-                                => "4100", // FNB Revenue - Food
-                            var cat when cat.Contains("beverages") || cat.Contains("drinks") || cat.Contains("coffee")
-                                => "4110", // FNB Revenue - Beverages
-                            var cat when cat.Contains("tcg") || cat.Contains("trading card")
-                                => "4200", // TCG Retail Revenue
-                            _ => "4100" // Default to food
-                        };
-
-                        var revenueAccount = await _accountRepo.Query()
-                            .FirstOrDefaultAsync(a => a.AccountNumber == revenueAccountNumber, ct);
-
-                        if (revenueAccount != null)
-                        {
-                            lines.Add(new JournalEntryLineCreateDto(
-                                revenueAccount.Id,
-                                0,
-                                totalAmount,
-                                $"Sales - {categoryName}"
-                            ));
+                            revenueAccount = await _accountRepo.Query()
+                                .FirstOrDefaultAsync(a => a.AccountNumber == "4100" && a.IsActive, ct);
                         }
+
+                        if (revenueAccount == null)
+                        {
+                            _logger.LogWarning(
+                                "No revenue account for category '{Cat}' in Tx {TxId}",
+                                catGroup.Category?.Name ?? "null", transactionId);
+                            continue;
+                        }
+
+                        catLines.Add(new JournalEntryLineCreateDto(
+                            revenueAccount.Id,
+                            0,
+                            lineAmount,
+                            $"Sales - {catGroup.Category?.Name ?? "Item"}"
+                        ));
+
+                        totalCredited += lineAmount;
+                    }
+
+                    if (totalCredited == 0)
+                        return new BaseResponse<JournalEntryDto>(false,
+                            $"Transaction {transactionId}: no revenue lines could be created", "", null);
+
+                    // Fix any rounding difference on the last line
+                    var roundingDiff = transaction.TotalPrice - totalCredited;
+                    if (Math.Abs(roundingDiff) > 0 && catLines.Count > 0)
+                    {
+                        var last = catLines[^1];
+                        catLines[^1] = last with { CreditAmount = last.CreditAmount + roundingDiff };
+                        totalCredited += roundingDiff;
+                    }
+
+                    lines.AddRange(catLines);
+
+                    // The cash debit is exactly TotalPrice — no reconciliation needed
+                    // (already set above as the first line)
+                }
+                else
+                {
+                    // Transaction has no game and no items — skip
+                    return new BaseResponse<JournalEntryDto>(false,
+                        $"Transaction {transactionId} has no game and no items, skipping", "", null);
+                }
+
+                // Final balance check before creating
+                var totalDebits = lines.Sum(l => l.DebitAmount);
+                var totalCredits = lines.Sum(l => l.CreditAmount);
+
+                if (Math.Abs(totalDebits - totalCredits) > 0.01m)
+                {
+                    _logger.LogWarning(
+                        "Transaction {TxId}: entry not balanced. Debits={Debits}, Credits={Credits}. Forcing balance.",
+                        transactionId, totalDebits, totalCredits);
+
+                    // Force balance by adjusting the cash debit line
+                    var cashLine = lines.FirstOrDefault(l => l.DebitAmount > 0 && l.AccountId == cashAccount.Id);
+                    if (cashLine != null)
+                    {
+                        var balanced = cashLine with { DebitAmount = totalCredits };
+                        lines.Remove(cashLine);
+                        lines.Add(balanced);
                     }
                 }
 
@@ -606,7 +676,6 @@ namespace Application.Services
 
                 if (result.Success)
                 {
-                    // Auto-post the entry
                     await PostJournalEntryAsync(result.Data!.Id, null, ct);
                     _logger.LogInformation("Auto-posted journal entry for transaction {TransactionId}", transactionId);
                 }
@@ -619,6 +688,7 @@ namespace Application.Services
                 return new BaseResponse<JournalEntryDto>(false, "Error creating journal entry from transaction", "", null);
             }
         }
+
 
         public async Task<BaseResponse<JournalEntryOneDto>> CreateJournalEntryFromExpenseAsync(
             int expenseId,

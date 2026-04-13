@@ -34,7 +34,8 @@
     public record ExpenseCategoryUpdateDto(
     string Name,
     string? Description,
-    int? AccountId  // NEW
+    int? AccountId,  // NEW
+    bool IsCapital
 );
     public record ExpenseFilter(
         DateTime? From = null,
@@ -55,7 +56,8 @@
     public record ExpenseCategoryCreateDto(
     string Name,
     string? Description,
-    int? AccountId  // NEW
+    int? AccountId,  // NEW
+    bool IsCapital
 );
     public record ExpenseCategoryDto(
     int Id,
@@ -63,7 +65,8 @@
     string? Description,
     int? AccountId,  // NEW
     string? AccountNumber,  // NEW
-    string? AccountName  // NEW
+    string? AccountName,  // NEW
+    bool IsCapital
 );
 
 

@@ -28,6 +28,9 @@ namespace Application
             services.AddScoped<ISettingService, SettingService>();
             services.AddScoped<IExpenseService, ExpenseService>();
             services.AddScoped<IExpenseCategoryService, ExpenseCategoryService>();
+            services.AddScoped<IAccountingReportService, AccountingReportService>();
+            services.AddScoped<IBackfillService, BackfillService>();
+            services.AddScoped<IAccountingReportService, AccountingReportService>();
 
             services.AddHostedService<SessionJobRehydrator>();
             services.AddScoped<ISessionEndMonitor, SessionEndMonitor>();

@@ -6,6 +6,7 @@
         public int Id { get; set; }
         public string Name { get; set; } = default!;
         public string? Description { get; set; }
+        public bool IsCapital { get; set; } = false;
         public ICollection<Expense> Expenses { get; set; } = new List<Expense>();
 
         public int? AccountId { get; set; }

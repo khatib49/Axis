@@ -1,14 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Application.DTOs
+﻿namespace Application.DTOs
 {
     // ============================================
     // ACCOUNT TYPE DTOs
     // ============================================
+    public record BackfillResultDto(int Total,
+    int Success,
+    int Failed,
+    List<string> Errors
+);
+    public record AccountingDashboardDto(
+        DateTime? From,
+        DateTime? To,
+        RevenueBreakdownDto Revenue,
+        ExpenseSummaryDto OperatingExpenses,
+        ExpenseSummaryDto CapitalExpenses,
+        CogsSummaryDto Cogs,
+        decimal GrossProfit,
+        decimal NetIncome,
+        decimal NetMarginPercent
+    );
+
+    public record RevenueBreakdownDto(
+        decimal Gaming,
+        decimal Fnb,
+        decimal Tcg,
+        decimal Total
+    );
+
+    public record ExpenseSummaryDto(
+        decimal Total,
+        List<ExpenseCategoryLineDto> Lines
+    );
+
+    public record ExpenseCategoryLineDto(
+        string Category,
+        decimal Amount
+    );
+
+    public record CogsSummaryDto(
+        decimal TcgCogs,  // BuyPrice x Qty for TCG items sold
+        decimal Total
+    );
 
     public record AccountTypeDto(
         int Id,

@@ -215,17 +215,14 @@ namespace Application.Services
         {
             var q = _repo.Query();
 
-            // Date filter
             var toExclusive = to?.Date.AddDays(1);
             if (from.HasValue)
                 q = q.Where(t => t.CreatedOn >= from.Value);
             if (toExclusive.HasValue)
                 q = q.Where(t => t.CreatedOn < toExclusive.Value);
 
-            // Only completed transactions
             q = q.Where(t => t.StatusId == 6);
 
-            // Category filter
             List<int> cats = new();
             if (!string.IsNullOrWhiteSpace(categoryIds))
             {
@@ -245,7 +242,6 @@ namespace Application.Services
                 );
             }
 
-            // ✅ FIX: Just sum TotalPrice for ALL transactions
             var count = await q.CountAsync(ct);
             var totalAmount = await q.SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
 
@@ -298,12 +294,13 @@ namespace Application.Services
             // base query
             var q = _repo.Query(); // IQueryable<TransactionRecord>, AsNoTracking in repo
 
+            q = q.Where(t => t.StatusId == 6); // only completed transactions   
+
             // inclusive date range [from, to]
             var toExclusive = to?.Date.AddDays(1);
             if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
             if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
 
-            q= q.Where(t => t.StatusId == 6); // only completed transactions   
             // parse "1,2,3" -> List<int>
             List<int> catList = new();
             if (!string.IsNullOrWhiteSpace(categoryIds))
@@ -325,18 +322,14 @@ namespace Application.Services
             }
 
             // games totals per day (use TransactionRecord.TotalPrice)
-            var gamesDaily = await q
-                .Where(t => t.GameId != null && t.StatusId ==6)
-                .GroupBy(t => t.CreatedOn.Date)
+            var gamesDaily = await q.Where(t => t.GameId != null && t.StatusId ==6).GroupBy(t => t.CreatedOn.Date)
                 .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
             // items totals per day (sum Item.Price * Quantity)
-            var itemsDaily = await q
-    .Where(t => t.GameId == null && t.StatusId == 6)
-    .GroupBy(t => t.CreatedOn.Date)
-    .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
-    .ToListAsync(ct);
+            var itemsDaily = await q.Where(t => t.GameId == null && t.StatusId == 6).GroupBy(t => t.CreatedOn.Date)
+                .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
+                .ToListAsync(ct);
 
             // merge
             var gameDict = gamesDaily.ToDictionary(x => x.Date, x => x.Total);
