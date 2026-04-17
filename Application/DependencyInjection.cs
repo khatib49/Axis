@@ -48,7 +48,7 @@ namespace Application
             services.AddScoped<IProfitService, ProfitService>();
 
             services.AddScoped<IKitchenService, KitchenService>();
-
+            services.AddScoped<IItemRevenueReportService, ItemRevenueReportService>();
 
             // Register Loyalty Service
             services.AddScoped<ILoyaltyService, LoyaltyService>();

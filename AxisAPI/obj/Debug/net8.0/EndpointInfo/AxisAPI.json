@@ -2319,6 +2319,64 @@
         }
       }
     },
+    "/api/item-revenue-report": {
+      "get": {
+        "tags": [
+          "ItemRevenueReport"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemRevenueReportDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemRevenueReportDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemRevenueReportDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Journal": {
       "post": {
         "tags": [
@@ -8242,6 +8300,216 @@
           "imagePath": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRevenueCategoryGroupDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRevenueLineDto"
+            },
+            "nullable": true
+          },
+          "totalUnitsSold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalCogs": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalGrossProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "grossMarginPct": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "totalStockBuyValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalStockSellValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalStockPotentialProfit": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRevenueLineDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemName": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "imagePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "sellPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "buyPrice": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "unitsSold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "revenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "cogs": {
+            "type": "number",
+            "format": "double"
+          },
+          "grossProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "grossMarginPct": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "stockOnHand": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stockBuyValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "stockSellValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "stockPotentialProfit": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRevenueReportDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "filteredCategoryIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRevenueCategoryGroupDto"
+            },
+            "nullable": true
+          },
+          "grandTotalUnitsSold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "grandTotalRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "grandTotalCogs": {
+            "type": "number",
+            "format": "double"
+          },
+          "grandTotalGrossProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "grandGrossMarginPct": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "grandTotalStockBuyValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "grandTotalStockSellValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "grandTotalStockPotentialProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "tcgRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "tcgCogs": {
+            "type": "number",
+            "format": "double"
+          },
+          "tcgGrossProfit": {
+            "type": "number",
+            "format": "double"
+          },
+          "tcgStockBuyValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "tcgStockSellValue": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
