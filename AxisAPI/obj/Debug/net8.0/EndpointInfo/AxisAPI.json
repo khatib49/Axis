@@ -1503,6 +1503,35 @@
         }
       }
     },
+    "/api/Expense/regenerate-all-journals": {
+      "post": {
+        "tags": [
+          "Expense"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateJournalsResultDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateJournalsResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateJournalsResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ExpenseCategory": {
       "get": {
         "tags": [
@@ -9184,6 +9213,31 @@
           "toDate": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegenerateJournalsResultDto": {
+        "type": "object",
+        "properties": {
+          "processed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "succeeded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           }
         },

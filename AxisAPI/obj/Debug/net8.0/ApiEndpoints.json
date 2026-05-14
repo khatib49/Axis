@@ -949,6 +949,26 @@
     "ReturnTypes": []
   },
   {
+    "ContainingType": "AxisAPI.Controllers.ExpenseController",
+    "Method": "RegenerateAllJournals",
+    "RelativePath": "api/Expense/regenerate-all-journals",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.RegenerateJournalsResultDto",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
     "ContainingType": "AxisAPI.Controllers.ExpenseCategoryController",
     "Method": "List",
     "RelativePath": "api/ExpenseCategory",
