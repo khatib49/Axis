@@ -18,7 +18,7 @@
         string Game,
         int? GameSettingId,
         string GameSetting,
-        int Hours,
+        decimal Hours,
         decimal TotalPrice,
         int StatusId,
         DateTime CreatedOn,
@@ -27,12 +27,25 @@
         List<TransactionItemDto> Items,
         int? SetId,
         string Set,
-        int? DiscountId,          // <-- added
+        int? DiscountId,
+        int? DiscountPercentage,
         string? DiscountName,      // <-- added
         int numberOfPersons,
-        bool IsDayPass
+        bool IsDayPass,
+        string? Comment,
+        int? UserId,        
+        string? UserName
      );
-
+    public record RemoveItemFromInvoiceDto(int ItemId);
+    public record UpdateSetRequest(int? SetId);
+    public record CreateCoffeeShopOrderRequest(
+    int? UserId,
+    List<OrderItemRequest> ItemsRequest,
+    int DiscountId,
+    bool IsOpenInvoice,
+    int? setId,
+    string? Comment
+);
 
     public record TransactionCreateDto(
         int SetId,
@@ -40,14 +53,15 @@
     int GameTypeId,
     int GameId,
     int GameSettingId,
-    int Hours,
+    decimal Hours,
     decimal TotalPrice,
     int StatusId,
     int? UserId,
     DateTime CreatedOn,
     string CreatedBy,
     int? DiscountId,
-    int numberOfPersons
+    int numberOfPersons,
+        string? Comment
         );
 
     public record OrderItemRequest(int ItemId, int Quantity);

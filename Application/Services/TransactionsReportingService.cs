@@ -21,9 +21,9 @@ namespace Application.Services
             if (f.CreatedBy is { Count: > 0 })
                 q = q.Where(t => f.CreatedBy!.Contains(t.CreatedBy));
 
-            q = q.Where(t => t.StatusId == 6);
+            q = q.Where(t => t.Game == null);
+            q = q.Where(t => t.StatusId == 6 || t.StatusId == 7 || t.StatusId == 5);
                 //q = q.Where(t => f.StatusIds!.Contains(t.StatusId));
-                q = q.Where(t => t.Game == null);
 
             // -------- Item/Category filters & search --------
             if (f.CategoryIds is { Count: > 0 })
@@ -33,11 +33,16 @@ namespace Application.Services
             if (!string.IsNullOrWhiteSpace(f.Search))
             {
                 var s = f.Search.Trim().ToLower();
-                q = q.Where(t => t.TransactionItems.Any(ti =>
-                    ti.Item != null && (
-                        ti.Item.Name.ToLower().Contains(s) ||
-                        (ti.Item.Category != null && ti.Item.Category.Name.ToLower().Contains(s))
-                    )));
+
+                q = q.Where(t =>
+                    t.Id.ToString().ToLower().Contains(s) ||
+                    t.TransactionItems.Any(ti =>
+                        ti.Item != null && (
+                            ti.Item.Name.ToLower().Contains(s) ||
+                            (ti.Item.Category != null && ti.Item.Category.Name.ToLower().Contains(s))
+                        )
+                    )
+                );
             }
 
             // -------- Count before pagination --------
@@ -59,10 +64,10 @@ namespace Application.Services
                     CreatedOn = t.CreatedOn,
                     StatusId = t.StatusId,
                     CreatedBy = t.CreatedBy,
-
+                    Comment = t.Comment,
                     RoomId = t.RoomId,
                     RoomName = t.Room != null ? t.Room.Name : null,
-
+                    
                     // If you store set on transactions (SetId/Set)
                     SetId = t.SetId,
                     SetName = t.Set != null ? t.Set.Name : null,
@@ -81,7 +86,7 @@ namespace Application.Services
                         t.Discount.UpdatedOn
                       )
                     : null,
-
+                    
 
                     Items = t.TransactionItems.Select(ti => new TransactionItemMiniDto
                     {
@@ -100,7 +105,7 @@ namespace Application.Services
                         LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity,
                         ImagePath = ti.Item != null ? ti.Item.ImagePath : null
                     }).ToList()
-                }).Where( c => c.StatusId==6)
+                }).Where(t => t.StatusId == 6 || t.StatusId == 7 || t.StatusId == 5)
                 .ToListAsync(ct);
 
             return new PaginatedResponse<ItemTransactionDto>(total, data, page, size, totalInvoices);
@@ -139,6 +144,7 @@ namespace Application.Services
                     (t.Game != null && t.Game.Name.ToLower().Contains(s)) ||
                     (t.Room != null && t.Room.Name!.ToLower().Contains(s)) ||
                     (t.GameType != null && t.GameType.Name.ToLower().Contains(s)) ||
+                    (t.Id.ToString().ToLower().Contains(s)) ||
                     (t.GameSetting != null && t.GameSetting.Name.ToLower().Contains(s)));
             }
 
@@ -178,7 +184,7 @@ namespace Application.Services
                     GameCategoryName = (t.Game != null && t.Game.Category != null)
                                         ? t.Game.Category.Name
                                         : null,
-
+                    Comment = t.Comment,
                     GameSettingId = t.GameSettingId,
                     GameSettingName = t.GameSetting != null ? t.GameSetting.Name : null,
 
@@ -205,17 +211,18 @@ namespace Application.Services
             return new PaginatedResponse<GameTransactionDetailsDto>(total, data, page, size, totalInvoices);
         }
 
-        public async Task<PeriodTotalsDto> GetTotalsAsync(DateTime? from,DateTime? to,string? categoryIds,CancellationToken ct = default)
+        public async Task<PeriodTotalsDto> GetTotalsAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
         {
-            var q = _repo.Query(); // IQueryable<TransactionRecord>
+            var q = _repo.Query();
 
-            // date filter  [from .. to]
             var toExclusive = to?.Date.AddDays(1);
-            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
-            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue)
+                q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue)
+                q = q.Where(t => t.CreatedOn < toExclusive.Value);
 
-            q = q.Where(t => t.StatusId == 6); // only completed transactions
-            // category filter
+            q = q.Where(t => t.StatusId == 6);
+
             List<int> cats = new();
             if (!string.IsNullOrWhiteSpace(categoryIds))
             {
@@ -235,24 +242,50 @@ namespace Application.Services
                 );
             }
 
-            // orders count
             var count = await q.CountAsync(ct);
-
-            // money totals
-            var gamesTotal = await q
-                .Where(t => t.GameId != null)
-                .SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
-
-            var itemsTotal = await q
-                .Where(t => t.GameId == null)
-                .SelectMany(t => t.TransactionItems.Select(ti =>
-                    ((ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity)))
-                .SumAsync(x => (decimal?)x, ct) ?? 0m;
+            var totalAmount = await q.SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
 
             return new PeriodTotalsDto(
-                TotalAmount: gamesTotal + itemsTotal,
+                TotalAmount: totalAmount,
                 OrdersCount: count
             );
+        }
+
+        public async Task<int> GetOrdersCountAsync(DateTime? from,DateTime? to,string? categoryIds,CancellationToken ct = default)
+        {
+            var q = _repo.Query(); // IQueryable<TransactionRecord>
+
+            // date filter  [from .. to]
+            var toExclusive = to?.Date.AddDays(1);
+            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+
+            // only completed transactions
+            q = q.Where(t => t.StatusId == 6);
+
+            // category filter (same as GetTotalsAsync)
+            List<int> cats = new();
+            if (!string.IsNullOrWhiteSpace(categoryIds))
+            {
+                cats = categoryIds
+                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : (int?)null)
+                    .Where(n => n.HasValue)
+                    .Select(n => n!.Value)
+                    .ToList();
+            }
+
+            if (cats.Count > 0)
+            {
+                q = q.Where(t =>
+                    (t.GameId != null && t.Game != null && cats.Contains(t.Game.CategoryId)) ||
+                    (t.GameId == null && t.TransactionItems.Any(ti => ti.Item != null && cats.Contains(ti.Item.CategoryId)))
+                );
+            }
+
+            // just count
+            var count = await q.CountAsync(ct);
+            return count;
         }
 
 
@@ -261,12 +294,13 @@ namespace Application.Services
             // base query
             var q = _repo.Query(); // IQueryable<TransactionRecord>, AsNoTracking in repo
 
+            q = q.Where(t => t.StatusId == 6); // only completed transactions   
+
             // inclusive date range [from, to]
             var toExclusive = to?.Date.AddDays(1);
             if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
             if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
 
-            q.Where(t => t.StatusId == 6); // only completed transactions   
             // parse "1,2,3" -> List<int>
             List<int> catList = new();
             if (!string.IsNullOrWhiteSpace(categoryIds))
@@ -288,22 +322,13 @@ namespace Application.Services
             }
 
             // games totals per day (use TransactionRecord.TotalPrice)
-            var gamesDaily = await q
-                .Where(t => t.GameId != null && t.StatusId ==6)
-                .GroupBy(t => t.CreatedOn.Date)
+            var gamesDaily = await q.Where(t => t.GameId != null && t.StatusId ==6).GroupBy(t => t.CreatedOn.Date)
                 .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
             // items totals per day (sum Item.Price * Quantity)
-            var itemsDaily = await q
-                .Where(t => t.GameId == null && t.StatusId == 6)
-                .SelectMany(t => t.TransactionItems.Select(ti => new
-                {
-                    Date = t.CreatedOn.Date,
-                    LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity
-                }))
-                .GroupBy(x => x.Date)
-                .Select(g => new { Date = g.Key, Total = g.Sum(x => x.LineTotal) })
+            var itemsDaily = await q.Where(t => t.GameId == null && t.StatusId == 6).GroupBy(t => t.CreatedOn.Date)
+                .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
             // merge
@@ -335,5 +360,154 @@ namespace Application.Services
 
             return result;
         }
+
+        public async Task<List<ItemSalesReportDto>> GetItemSalesReportAsync(
+    DateTime? from,
+    DateTime? to,
+    string? categoryIds,
+    int top,
+    CancellationToken ct = default)
+        {
+            var q = _repo.Query(); // IQueryable<TransactionRecord>
+
+            // Date range [from..to]
+            var toExclusive = to?.Date.AddDays(1);
+            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+
+            // Only completed transactions
+            q = q.Where(t => t.StatusId == 6);
+
+            // Only item transactions (no games)
+            q = q.Where(t => t.GameId == null);
+
+            // Parse categoryIds: "1,2,3"
+            List<int> cats = new();
+            if (!string.IsNullOrWhiteSpace(categoryIds))
+            {
+                cats = categoryIds
+                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : (int?)null)
+                    .Where(n => n.HasValue)
+                    .Select(n => n!.Value)
+                    .ToList();
+            }
+
+            // Flatten items (only scalar properties!)
+            var itemsQuery = q
+                .SelectMany(t => t.TransactionItems
+                    .Where(ti => ti.Item != null)
+                    .Select(ti => new
+                    {
+                        TransactionId = t.Id,
+                        ItemId = ti.Item.Id,
+                        ItemName = ti.Item.Name,
+                        CategoryId = ti.Item.CategoryId,
+                        ItemType = ti.Item.Type,
+                        ItemPrice = ti.Item.Price,
+                        Quantity = ti.Quantity
+                    }));
+
+            if (cats.Count > 0)
+            {
+                itemsQuery = itemsQuery.Where(x => cats.Contains(x.CategoryId));
+            }
+
+            var grouped = await itemsQuery
+                .GroupBy(x => new
+                {
+                    x.ItemId,
+                    x.ItemName,
+                    x.CategoryId,
+                    x.ItemType
+                })
+                .Select(g => new ItemSalesReportDto
+                {
+                    ItemId = g.Key.ItemId,
+                    ItemName = g.Key.ItemName,
+                    CategoryId = g.Key.CategoryId,
+                    // CategoryName: can't safely use navigation in grouping; fill later if needed
+                    CategoryName = string.Empty,
+                    ItemType = g.Key.ItemType,
+
+                    TotalQuantity = g.Sum(x => x.Quantity),
+                    TotalAmount = g.Sum(x => x.Quantity * x.ItemPrice),
+                    OrdersCount = g.Select(x => x.TransactionId).Distinct().Count(),
+                    AveragePerOrder = g.Select(x => x.TransactionId).Distinct().Count() == 0
+                        ? 0
+                        : g.Sum(x => x.Quantity) / (decimal)g.Select(x => x.TransactionId).Distinct().Count()
+                })
+                .OrderByDescending(x => x.TotalQuantity) // or .OrderByDescending(x => x.TotalAmount)
+                .Take(top > 0 ? top : 100)
+                .ToListAsync(ct);
+
+            return grouped;
+        }
+
+        public async Task<List<GameHourlySalesDto>> GetGameHourlySalesAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
+        {
+            var q = _repo.Query(); // IQueryable<TransactionRecord>
+
+            // date filter [from .. to]
+            var toExclusive = to?.Date.AddDays(1);
+            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+
+            // only completed GAME transactions
+            q = q.Where(t => t.StatusId == 6 && t.GameId != null);
+
+            // parse categoryIds (Game.CategoryId)
+            List<int> cats = new();
+            if (!string.IsNullOrWhiteSpace(categoryIds))
+            {
+                cats = categoryIds
+                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => int.TryParse(s, out var n) ? n : (int?)null)
+                    .Where(n => n.HasValue)
+                    .Select(n => n!.Value)
+                    .ToList();
+            }
+
+            if (cats.Count > 0)
+            {
+                q = q.Where(t => t.Game != null && cats.Contains(t.Game.CategoryId));
+            }
+
+            // group by CreatedOn.Hour
+            var grouped = await q
+                .GroupBy(t => t.CreatedOn.Hour) // 0..23
+                .Select(g => new GameHourlySalesDto
+                {
+                    Hour = g.Key,
+                    SessionsCount = g.Count(),
+                    TotalHours = g.Sum(x => x.Hours),
+                    TotalAmount = g.Sum(x => x.TotalPrice),
+                    AverageSessionHours = g.Count() == 0 ? 0 : g.Sum(x => x.Hours) / g.Count(),
+                    AverageSessionAmount = g.Count() == 0 ? 0 : g.Sum(x => x.TotalPrice) / g.Count()
+                })
+                .OrderBy(x => x.Hour)
+                .ToListAsync(ct);
+
+            // ensure all 24 hours (0..23) exist, even if zero
+            var dict = grouped.ToDictionary(x => x.Hour);
+            var result = Enumerable.Range(0, 24)
+                .Select(h => dict.TryGetValue(h, out var v)
+                    ? v
+                    : new GameHourlySalesDto
+                    {
+                        Hour = h,
+                        SessionsCount = 0,
+                        TotalHours = 0m,
+                        TotalAmount = 0m,
+                        AverageSessionHours = 0m,
+                        AverageSessionAmount = 0m
+                    })
+                .OrderBy(x => x.Hour)
+                .ToList();
+
+            return result;
+        }
+
+
     }
 }

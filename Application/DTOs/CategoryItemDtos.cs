@@ -4,7 +4,7 @@
     public record CategoryCreateDto(string Name , string Type , string? ItemType);
     public record CategoryUpdateDto(string? Name , string Type , string? ItemType);
 
-    public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath);
+    public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath, decimal? BuyPrice);
     //public record ItemCreateDto(string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId);
     //public record ItemUpdateDto(string? Name, int? Quantity, decimal? Price, string? Type, int? CategoryId, int? StatusId);
 
@@ -37,6 +37,7 @@
         public decimal UnitPrice { get; set; }
         public decimal LineTotal { get; set; }
         public string? ImagePath { get; set; }
+        public string? Comment { get; set; }
     }
 
 
@@ -75,8 +76,9 @@
         public string? SetName { get; set; }
 
         // Totals
-        public int Hours { get; set; }
+        public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
+        public string? Comment { get; set; }
 
         // Items inside this transaction
         public List<TransactionItemMiniDto> Items { get; set; } = new();
@@ -112,8 +114,9 @@
         public int? GameSettingId { get; set; }
         public string? GameSettingName { get; set; }
 
-        public int Hours { get; set; }
+        public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
+        public string? Comment { get; set; }
         public DiscountDto? Discount {get;set; }
 
         // Items inside this game transaction

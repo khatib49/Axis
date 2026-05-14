@@ -40,7 +40,7 @@ namespace AxisAPI.Controllers
         [Authorize]
         public async Task<ActionResult<List<UserDto>>> SearchByPhone([FromQuery] string phone, CancellationToken ct)
         {
-            var users = await _usersService.SearchByPhoneAsync(phone, ct);
+            var users = await _usersService.SearchByPhoneAndNameAsync(phone, ct);
             return Ok(users);
         }
         // PUT: api/users/clients/5

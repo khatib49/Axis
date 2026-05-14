@@ -1,8 +1,8 @@
 ﻿using Application.IServices;
 using Application.Mapping;
 using Application.Services;
+using Application.Services.HangFire;
 using Application.Services.SignalR;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application
@@ -12,7 +12,7 @@ namespace Application
         public static IServiceCollection AddApplication(this IServiceCollection services)
         {
             services.AddSingleton<DomainMapper>(); // Riok mapper
-
+            services.AddScoped<ITransactionAuditLogService, TransactionAuditLogService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IGameService, GameService>();
             services.AddScoped<ICardService, CardService>();
@@ -28,6 +28,9 @@ namespace Application
             services.AddScoped<ISettingService, SettingService>();
             services.AddScoped<IExpenseService, ExpenseService>();
             services.AddScoped<IExpenseCategoryService, ExpenseCategoryService>();
+            services.AddScoped<IAccountingReportService, AccountingReportService>();
+            services.AddScoped<IBackfillService, BackfillService>();
+            services.AddScoped<IAccountingReportService, AccountingReportService>();
 
             services.AddHostedService<SessionJobRehydrator>();
             services.AddScoped<ISessionEndMonitor, SessionEndMonitor>();
@@ -37,10 +40,30 @@ namespace Application
             services.AddScoped<IUserCardService, UserCardService>();
             services.AddScoped<IUsersService, UsersService>();
             services.AddScoped<IStatusService, StatusService>();
+            services.AddScoped<IRoleCategoryService, RoleCategoryService>();
 
             services.AddScoped<ISetService, SetService>();
             services.AddScoped<IDiscountService, DiscountService>();
 
+            services.AddScoped<IProfitService, ProfitService>();
+
+            services.AddScoped<IKitchenService, KitchenService>();
+            services.AddScoped<IItemRevenueReportService, ItemRevenueReportService>();
+
+            // Register Loyalty Service
+            services.AddScoped<ILoyaltyService, LoyaltyService>();
+            services.AddScoped<LoyaltyJobs>();
+
+            services.AddSingleton<AccountingMapper>(); // ⭐ NEW
+
+            // ... your existing service registrations ...
+
+            // ADD THESE LINES:
+            services.AddScoped<IAccountService, AccountService>(); // ⭐ NEW
+            services.AddScoped<IJournalService, JournalService>();
+            
+            services.AddScoped<IKitchenBarOrderService, KitchenBarOrderService>();
+            services.AddScoped<IReceiptPrintingService, ReceiptPrintingService>();
 
             return services;
         }

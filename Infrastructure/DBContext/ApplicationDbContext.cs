@@ -1,8 +1,11 @@
 ﻿using Domain.Entities;
 // IMPORTANT for Npgsql extensions like UseSnakeCaseNamingConvention()
 using Domain.Identity;
+using Domain.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
+using System.Security.Principal;
 
 namespace Infrastructure.Persistence
 {
@@ -11,6 +14,11 @@ namespace Infrastructure.Persistence
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options) { }
 
+        // ADD THESE LINES TO ApplicationDbContext.cs
+        public DbSet<AccountType> AccountTypes => Set<AccountType>();
+        public DbSet<Account> Accounts => Set<Account>();
+        public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+        public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
         public DbSet<Card> Cards => Set<Card>();
         public DbSet<UserCard> UserCards => Set<UserCard>();
         public DbSet<Game> Games => Set<Game>();
@@ -28,12 +36,62 @@ namespace Infrastructure.Persistence
         public DbSet<Status> Status => Set<Status>();
 
         public DbSet<TransactionItem> TransactionItems => Set<TransactionItem>();
+        public DbSet<KitchenBarOrder> KitchenBarOrders { get; set; }
 
         public DbSet<Set> Sets => Set<Set>();
         public DbSet<Discount> Discounts => Set<Discount>();
+        public DbSet<RoleCategory> RoleCategories { get; set; }
+        public DbSet<LoyaltyTicket> LoyaltyTickets { get; set; }
+        public DbSet<LoyaltyCustomer> LoyaltyCustomers { get; set; }
+        public DbSet<WeeklyWinner> WeeklyWinners { get; set; }
+        public DbSet<MonthlyWinner> MonthlyWinners { get; set; }
+        public DbSet<TransactionAuditLog> TransactionAuditLogs => Set<TransactionAuditLog>();
+
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
+
+            b.Entity<TransactionAuditLog>(e =>
+            {
+                e.ToTable("TransactionAuditLogs");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.ChangedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.Transaction)
+                .WithMany()
+                .HasForeignKey(x => x.TransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // KitchenBarOrder Configuration
+            b.Entity<KitchenBarOrder>(entity =>
+            {
+                entity.ToTable("KitchenBarOrders");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.ItemPrice).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.OrderedAt).HasDefaultValueSql("NOW()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
+
+                entity.HasOne(e => e.Transaction)
+                    .WithMany()
+                    .HasForeignKey(e => e.TransactionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Item)
+                    .WithMany()
+                    .HasForeignKey(e => e.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.PreparedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.PreparedBy)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasIndex(e => new { e.Station, e.Status });
+                entity.HasIndex(e => e.TransactionId);
+                entity.HasIndex(e => e.OrderedAt);
+                entity.HasIndex(e => e.Status);
+            });
 
             // Relationships (keep only what you need; these are safe)
             b.Entity<UserCard>()
@@ -75,6 +133,90 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.PassType).WithMany(x => x.GameSessions)
               .HasForeignKey(x => x.PassTypeId)
               .OnDelete(DeleteBehavior.Restrict);
+
+            // AccountType configuration
+            b.Entity<AccountType>(entity =>
+            {
+                entity.ToTable("account_types");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.TypeName).IsUnique();
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+            });
+
+            // Account configuration
+            b.Entity<Account>(entity =>
+            {
+                entity.ToTable("accounts");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.AccountNumber).IsUnique();
+                entity.HasIndex(e => e.AccountName);
+                entity.HasIndex(e => e.AccountTypeId);
+                entity.HasIndex(e => e.ParentAccountId);
+                entity.HasIndex(e => e.IsActive);
+
+                entity.Property(e => e.CurrentBalance)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.IsSystemAccount).HasDefaultValue(false);
+                entity.Property(e => e.AllowManualEntry).HasDefaultValue(true);
+
+                // Self-referencing relationship
+                entity.HasOne(e => e.ParentAccount)
+                    .WithMany(p => p.ChildAccounts)
+                    .HasForeignKey(e => e.ParentAccountId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // AccountType relationship
+                entity.HasOne(e => e.AccountType)
+                    .WithMany(at => at.Accounts)
+                    .HasForeignKey(e => e.AccountTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // JournalEntry configuration
+            b.Entity<JournalEntry>(entity =>
+            {
+                entity.ToTable("journal_entries");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.EntryNumber).IsUnique();
+                entity.HasIndex(e => e.EntryDate);
+                entity.HasIndex(e => new { e.ReferenceType, e.ReferenceId });
+                entity.HasIndex(e => e.IsPosted);
+                entity.HasIndex(e => e.IsVoided);
+
+                entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
+                entity.Property(e => e.IsPosted).HasDefaultValue(false);
+                entity.Property(e => e.IsVoided).HasDefaultValue(false);
+            });
+
+            // JournalEntryLine configuration
+            b.Entity<JournalEntryLine>(entity =>
+            {
+                entity.ToTable("journal_entry_lines");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.JournalEntryId);
+                entity.HasIndex(e => e.AccountId);
+
+                entity.Property(e => e.DebitAmount)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0);
+                entity.Property(e => e.CreditAmount)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0);
+
+                // Relationships
+                entity.HasOne(e => e.JournalEntry)
+                    .WithMany(je => je.Lines)
+                    .HasForeignKey(e => e.JournalEntryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Account)
+                    .WithMany(a => a.JournalEntryLines)
+                    .HasForeignKey(e => e.AccountId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
 
             b.Entity<TransactionRecord>(e =>
             {
@@ -230,7 +372,77 @@ namespace Infrastructure.Persistence
                  .HasForeignKey(x => x.FK_CategoryId)
                  .OnDelete(DeleteBehavior.Restrict); // or your intended behavior
             });
+            b.Entity<RoleCategory>(entity =>
+            {
+                entity.HasKey(e => e.Id);
 
+                entity.HasIndex(e => e.RoleName);
+
+                entity.HasIndex(e => new { e.RoleName, e.CategoryId })
+                    .IsUnique();
+
+                entity.HasOne(e => e.Category)
+                    .WithMany()
+                    .HasForeignKey(e => e.CategoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedOn)
+                    .HasDefaultValueSql("NOW()");
+            });
+
+            b.Entity<LoyaltyCustomer>(entity =>
+            {
+                entity.HasKey(e => e.PhoneNumber);
+                entity.HasIndex(e => e.PhoneNumber).IsUnique();
+                entity.HasIndex(e => e.TotalTicketsCurrentMonth);
+            });
+
+            // LoyaltyTicket configuration
+            b.Entity<LoyaltyTicket>(entity =>
+            {
+                entity.HasKey(e => e.TicketId);
+                entity.HasIndex(e => e.CustomerPhone);
+                entity.HasIndex(e => e.TransactionId);
+                entity.HasIndex(e => e.DrawMonth);
+                entity.HasIndex(e => new { e.CustomerPhone, e.DrawMonth });
+                entity.HasIndex(e => new { e.DrawMonth, e.IsValid });
+
+                entity.HasOne(e => e.Customer)
+                    .WithMany(c => c.Tickets)
+                    .HasForeignKey(e => e.CustomerPhone)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // WeeklyWinner configuration
+            b.Entity<WeeklyWinner>(entity =>
+            {
+                entity.HasKey(e => e.WinnerId);
+                entity.HasIndex(e => e.CustomerPhone);
+                entity.HasIndex(e => e.DrawWeek);
+                entity.HasIndex(e => e.DrawDate);
+
+                entity.HasOne(e => e.Customer)
+                    .WithMany(c => c.WeeklyWins)
+                    .HasForeignKey(e => e.CustomerPhone)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // MonthlyWinner configuration
+            b.Entity<MonthlyWinner>(entity =>
+            {
+                entity.HasKey(e => e.WinnerId);
+                entity.HasIndex(e => e.CustomerPhone);
+                entity.HasIndex(e => e.DrawMonth);
+                entity.HasIndex(e => e.DrawDate);
+
+                entity.HasOne(e => e.Customer)
+                    .WithMany(c => c.MonthlyWins)
+                    .HasForeignKey(e => e.CustomerPhone)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

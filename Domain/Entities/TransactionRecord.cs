@@ -30,7 +30,7 @@ namespace Domain.Entities
         public AppUser? User { get; set; }
 
         // Transaction details
-        public int Hours { get; set; }
+        public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
 
         // Audit fields
@@ -46,7 +46,10 @@ namespace Domain.Entities
         public int? DiscountId { get; set; }       // <-- added
         public Discount? Discount { get; set; }
         public int numberOfPersons { get; set; } = 1;
+        public string? Comment { get; set; }
 
+        public int? FK_FoodStatusId { get; set; }
+        public Status? FoodStatus { get; set; }
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
     }
 }

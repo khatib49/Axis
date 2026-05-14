@@ -212,6 +212,7 @@ app.UseSwaggerUI(ui =>
 
 // your hub (below)
 app.MapHub<ReceptionHub>("/hubs/reception");
+app.MapHub<KitchenBarHub>("/hubs/kitchenbar");
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
@@ -231,8 +232,7 @@ app.MapControllers();
 // Auto-create/upgrade the DB schema on boot (creates DB *schema* if DB exists)
 //using (var scope = app.Services.CreateScope())
 //{
-//    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-//    await db.Database.MigrateAsync();
+//    await Infrastructure.Seeders.ChartOfAccountsSeeder.SeedChartOfAccountsAsync(scope.ServiceProvider);
 //}
 
 app.Run();

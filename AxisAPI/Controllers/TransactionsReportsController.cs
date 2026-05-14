@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,10 +11,12 @@ namespace AxisAPI.Controllers
     public class TransactionsReportsController : ControllerBase
     {
         private readonly ITransactionRecordService _svc;
+        private readonly IUsersService _usersService;
 
-        public TransactionsReportsController(ITransactionRecordService svc)
+        public TransactionsReportsController(ITransactionRecordService svc, IUsersService usersService)
         {
             _svc = svc;
+            _usersService = usersService;
         }
 
         /// <summary>
@@ -40,6 +43,15 @@ namespace AxisAPI.Controllers
             return Ok(result);
         }
 
+        [HttpGet("orders/count")]
+        public async Task<IActionResult> GetOrdersCount([FromQuery] DateTime? from, [FromQuery] DateTime? to,[FromQuery] string? categoryIds, CancellationToken ct)
+        {
+            var count = await _svc.GetOrdersCountAsync(from, to, categoryIds, ct);
+
+            return Ok(new { ordersCount = count });
+        }
+
+
         [HttpGet("daily-sales")]
         [Authorize(Roles = "admin,admin_fnb")]
         public async Task<ActionResult<List<DailySalesDto>>> GetDailySales( [FromQuery] DateTime? from, [FromQuery] DateTime? to,
@@ -57,6 +69,51 @@ namespace AxisAPI.Controllers
             [FromQuery] string? categoryIds, CancellationToken ct)
         {
             var data = await _svc.GetTotalsAsync(from, to, categoryIds, ct);
+            return Ok(data);
+        }
+
+        [HttpGet("clients/count")]
+        public async Task<IActionResult> GetClientUsersCount(CancellationToken ct)
+        {
+            var count = await _usersService.CountClientUsersAsync(ct);
+            return Ok(new { count });
+        }
+
+        /// <summary>
+        /// Item sales / best-seller report (aggregated per item).
+        /// </summary>
+        [HttpGet("items/report")]
+        [Authorize(Roles = "admin,admin_fnb")]
+        public async Task<ActionResult<List<ItemSalesReportDto>>> GetItemSalesReport(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? categoryIds,
+            [FromQuery] int top = 100,
+            CancellationToken ct = default)
+        {
+            var data = await _svc.GetItemSalesReportAsync(from, to, categoryIds, top, ct);
+            return Ok(data);
+        }
+
+        /// <summary>
+        /// Gaming sessions hourly heatmap (grouped by CreatedOn.Hour).
+        /// </summary>
+        [HttpGet("games/hourly-heatmap")]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<List<GameHourlySalesDto>>> GetGameHourlyHeatmap(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] string? categoryIds,
+            CancellationToken ct = default)
+        {
+            //            Front - end can then:
+
+            //Plot Hour on X axis(0–23)
+
+            //Plot SessionsCount or TotalHours or TotalAmount on Y
+
+            //Very easy to see best gaming window(e.g. 18–22).
+            var data = await _svc.GetGameHourlySalesAsync(from, to, categoryIds, ct);
             return Ok(data);
         }
 

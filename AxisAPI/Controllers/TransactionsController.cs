@@ -19,6 +19,14 @@ namespace AxisAPI.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
+        [HttpDelete("{transactionId:int}/items/{itemId:int}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> RemoveItemFromOpenInvoice(int transactionId, int itemId, CancellationToken ct)
+        {
+            var result = await _transactionService.RemoveItemFromOpenInvoiceAsync(transactionId, itemId, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
@@ -77,23 +85,35 @@ namespace AxisAPI.Controllers
         [Authorize(Roles = "admin,gamecashier")]
         public async Task<IActionResult> CreateGameSession(int gameId, int gameSettingId, int hours, 
             int status, int setId, int discountId, int? userId, CancellationToken ct,
-            int numberOfPersons = 1, bool isDayPass = false)
+            int numberOfPersons = 1, bool isDayPass = false, string comment = "")
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             var created = await _transactionService.CreateGameSession(userId,
-                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId ,ct, numberOfPersons, isDayPass);
+                gameId, gameSettingId, hours, status, createdBy ?? "", setId, discountId ,ct, numberOfPersons, isDayPass,comment);
 
             return created.Success ? Ok(created) : BadRequest(created);
         }
 
+        [Route("UpdateOpenInvoiceSet/{invoiceId}")]
+        //[Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        [HttpPut]
+        [LogOnError]
+        public async Task<IActionResult> UpdateOpenInvoiceSet(int invoiceId, [FromBody] UpdateSetRequest request, CancellationToken ct)
+        {
+            var updatedBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            var result = await _transactionService.UpdateOpenInvoiceSet(
+                invoiceId, request.SetId, updatedBy, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
         [Route("CreateCoffeeShopOrder")]
-        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+       // [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
         [HttpPost]
         [LogOnError]
-        public async Task<IActionResult> CreateCoffeeShopOrder(int? userId, List<OrderItemRequest> itemsRequest, int discountId, CancellationToken ct)
+        public async Task<IActionResult> CreateCoffeeShopOrder([FromBody] CreateCoffeeShopOrderRequest request, CancellationToken ct )
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var created = await _transactionService.CreateCoffeeShopOrder(userId, discountId, itemsRequest, createdBy, ct);
+            var created = await _transactionService.CreateCoffeeShopOrder(request.UserId, request.DiscountId, request.ItemsRequest, createdBy, ct, request.Comment, request.IsOpenInvoice, request.setId);
             return created.Success ? Ok(created) : BadRequest(created);
         }
 
@@ -136,5 +156,43 @@ namespace AxisAPI.Controllers
             if (!success) return NotFound();
             return NoContent();
         }
+
+        [Route("GetOpenFnbInvoices")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        [HttpGet]
+        [LogOnError]
+        public async Task<IActionResult> GetOpenFnbInvoices(CancellationToken ct)
+        {
+            var result = await _transactionService.GetOpenFnbInvoices(ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        [Route("AddItemsToOpenInvoice/{invoiceId}")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        [HttpPost]
+        [LogOnError]
+        public async Task<IActionResult> AddItemsToOpenInvoice(
+            int invoiceId,
+            List<OrderItemRequest> itemsRequest,
+            CancellationToken ct)
+        {
+            var updatedBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            var result = await _transactionService.AddItemsToOpenInvoice(
+                invoiceId, itemsRequest, updatedBy, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+
+        [Route("CloseOpenInvoice/{invoiceId}")]
+        [Authorize(Roles = "admin,cashier,gamecashier")]
+        [HttpPost]
+        [LogOnError]
+        public async Task<IActionResult> CloseOpenInvoice(int invoiceId, CancellationToken ct)
+        {
+            var updatedBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            var result = await _transactionService.CloseOpenInvoice(invoiceId, updatedBy, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
     }
 }

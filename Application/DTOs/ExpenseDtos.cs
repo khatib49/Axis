@@ -31,7 +31,12 @@
         DateTime CreatedOn
     );
 
-    public record ExpenseCategoryUpdateDto(string Name, string? Description);
+    public record ExpenseCategoryUpdateDto(
+    string Name,
+    string? Description,
+    int? AccountId,  // NEW
+    bool IsCapital
+);
     public record ExpenseFilter(
         DateTime? From = null,
         DateTime? To = null,
@@ -48,8 +53,21 @@
         decimal TotalAmountAll,             // sum of all filtered items (ignore paging)
         IReadOnlyList<ExpenseDto> Items
     );
-    public record ExpenseCategoryCreateDto(string Name, string? Description);
-    public record ExpenseCategoryDto(int Id, string Name, string? Description);
+    public record ExpenseCategoryCreateDto(
+    string Name,
+    string? Description,
+    int? AccountId,  // NEW
+    bool IsCapital
+);
+    public record ExpenseCategoryDto(
+    int Id,
+    string Name,
+    string? Description,
+    int? AccountId,  // NEW
+    string? AccountNumber,  // NEW
+    string? AccountName,  // NEW
+    bool IsCapital
+);
 
 
 }

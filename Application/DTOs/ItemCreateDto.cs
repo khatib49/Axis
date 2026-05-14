@@ -15,7 +15,7 @@ namespace Application.DTOs
         public string Type { get; set; } = default!;
         public int CategoryId { get; set; }
         public int? StatusId { get; set; }
-
+        public decimal? BuyPrice { get; set; }
         public IFormFile? Image { get; set; } // for upload
     }
 }

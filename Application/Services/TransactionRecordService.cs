@@ -9,6 +9,7 @@ using Hangfire;
 using Infrastructure.IRepositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -34,16 +35,27 @@ namespace Application.Services
         private readonly IHttpContextAccessor _http;
         private readonly ILogger<TransactionRecordService> _logger;
         private readonly IBaseRepository<Discount> _repoDiscount;
+        private readonly IJournalService _journalService;
         private readonly UserManager<AppUser> _userManager;
-
+        private readonly ILoyaltyService _loyaltyService;
+        private readonly IBaseRepository<KitchenBarOrder> _repoKitchenBar;
+        private readonly IHubContext<KitchenBarHub> _hubContext;
+        private readonly IBaseRepository<TransactionAuditLog> _repoAuditLog;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
-            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager, IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet,
-        IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor)
+            IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
+            IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
+        IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor,
+        IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext,
+        IBaseRepository<TransactionAuditLog> repoAuditLog)
         {
+            _repoAuditLog = repoAuditLog;
+            _hubContext = hubContext;
+            _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
             _userManager = userManager;
             _repoSetting = repoSetting;
+            _repoKitchenBar = repoKitchenBar;
             _repoRoom = repoRoom;
             _repoGame = repoGame;
             _repoItem = repoItem;
@@ -52,7 +64,41 @@ namespace Application.Services
             _repoDiscount = repoDiscount;
             _repoSet = repoSet;
             _logger = logger;
+            _journalService = journalService;
             _http = httpContextAccessor;
+        }
+
+        public async Task<BaseResponse<bool>> RemoveItemFromOpenInvoiceAsync(int transactionId, int itemId, CancellationToken ct = default)
+        {
+            var tx = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+
+            if (tx is null)
+                return new BaseResponse<bool>(false, "Not found", "Transaction not found.", false);
+
+            //if (tx.StatusId != 3) // must be open invoice
+            //    return new BaseResponse<bool>(false, "Invalid status", "Only open invoices can be modified.", false);
+
+            var itemToRemove = tx.TransactionItems.FirstOrDefault(ti => ti.ItemId == itemId);
+            if (itemToRemove is null)
+                return new BaseResponse<bool>(false, "Not found", "Item not found in this transaction.", false);
+
+            // Return stock
+            var dbItem = await _repoItem.GetByIdAsync(itemId, asNoTracking: false, ct);
+            if (dbItem is not null)
+                dbItem.Quantity += itemToRemove.Quantity;
+
+            // Recalculate total
+            tx.TotalPrice -= itemToRemove.Quantity * (dbItem?.Price ?? 0);
+            if (tx.TotalPrice < 0) tx.TotalPrice = 0;
+
+            _repoTrxItem.Remove(itemToRemove);
+            tx.ModifiedOn = DateTime.UtcNow;
+
+            await _uow.SaveChangesAsync(ct);
+            return new BaseResponse<bool>(true, null, "Item removed successfully.", true);
         }
 
         public async Task<RoomSetsAvailabilityDto?> GetRoomSetsAvailability(int roomId, int ongoingStatusId = 1, CancellationToken ct = default)
@@ -94,8 +140,6 @@ namespace Application.Services
                 Unavailable = unavailable.OrderBy(x => x.Name).ToList()
             };
         }
-
-
         public async Task<TransactionDto?> GetAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()
@@ -105,11 +149,12 @@ namespace Application.Services
                     .Include(s => s.Room)
                     .Include(s => s.Status)
                     .Include(s => s.Set) // Include Set
+                    .AsSplitQuery()
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
-        public async Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default)    
+        public async Task<TransactionDto?> GetWithItemsAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query()
                 .Include(s => s.Game)
@@ -123,6 +168,7 @@ namespace Application.Services
                     .ThenInclude(ti => ti.Item)
                         .ThenInclude(i => i.CoffeeShopOrders)
                             .ThenInclude(co => co.User) // if you want user name
+                            .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == id, ct);
 
@@ -163,13 +209,15 @@ namespace Application.Services
                 e.SetId,
                 e.Set?.Name ?? string.Empty,
                 e.DiscountId,
+                e.Discount?.Percentage,
                 e.Discount?.Name ?? string.Empty,
                 e.numberOfPersons,
-                e.GameSetting?.IsDayPass ?? false
+                e.GameSetting?.IsDayPass ?? false,
+                e.Comment,
+                null,
+                null
             );
         }
-
-
         public async Task<PaginatedResponse<TransactionDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
             // Start with base query
@@ -179,7 +227,8 @@ namespace Application.Services
                         .Include(s => s.GameSetting)
                         .Include(s => s.Room)
                         .Include(s => s.Status)
-                        .Include(s => s.Set) // Include Set
+                        .Include(s => s.Set)
+                        .AsSplitQuery()// Include Set
                         .AsNoTracking();
 
             // Apply filters
@@ -214,9 +263,9 @@ namespace Application.Services
             return _mapper.ToDto(e);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, 
-                string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false)
-            {
+        public async Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId,
+                string createdBy, int roomSetId, int discountId, CancellationToken ct = default, int numberOfPersons = 1, bool isDayPass = false, string comment = "")
+        {
             var reqId = GetReqId();
             var sig = HashObject(new { gameId, gameSettingId, hours, statusId, createdBy, roomSetId });
 
@@ -232,7 +281,7 @@ namespace Application.Services
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.CategoryId == game.CategoryId, ct);
 
-            
+
             if (room is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid room ID", "No available room for the selected game type.");
 
@@ -240,52 +289,52 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(false, "Invalid set selection", "This game requires open set.");
 
             if (!room.IsOpenSet)
-                {
+            {
                 // 3) Validate the chosen RoomSet belongs to this room
                 var set = room.Sets.FirstOrDefault(s => s.Id == roomSetId);
                 if (set is null)
                     return new BaseResponse<TransactionDto>(false, "invalid set id", "Invalid set ID for the selected room.");
 
-                    // 4) Ensure this set is not already in use for an ongoing transaction
-                    var isSetInUse = await _repo.Query().AsNoTracking()
-                        .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
-                    if (isSetInUse)
-                        return new BaseResponse<TransactionDto>(false, "set in use", "The selected set is currently in use. Please choose a different set.");
-                    
-                    
-                    Set setToUpdate = new Set { Id = set.Id };
+                // 4) Ensure this set is not already in use for an ongoing transaction
+                var isSetInUse = await _repo.Query().AsNoTracking()
+                    .AnyAsync(s => s.RoomId == room.Id && s.SetId == roomSetId && s.StatusId == statusId, ct);
+                if (isSetInUse)
+                    return new BaseResponse<TransactionDto>(false, "set in use", "The selected set is currently in use. Please choose a different set.");
 
-                    _repoSet.Attach(setToUpdate);
-                    setToUpdate.StatusId = 10;
-                    await _uow.SaveChangesAsync(ct);
+
+                Set setToUpdate = new Set { Id = set.Id };
+
+                _repoSet.Attach(setToUpdate);
+                setToUpdate.StatusId = 10;
+                await _uow.SaveChangesAsync(ct);
 
             }
 
             // 5) Price calc from Setting
             var setting = await _repoSetting.Query().AsNoTracking()
                 .Where(s => s.Id == gameSettingId)
-                .Select(s => new { s.Hours, s.Price, s.IsOpenHour , s.IsDayPass })
+                .Select(s => new { s.Hours, s.Price, s.IsOpenHour, s.IsDayPass })
                 .FirstOrDefaultAsync(ct);
-            
-            if(setting is null)
+
+            if (setting is null)
             {
                 return new BaseResponse<TransactionDto>(false, "Invalid game setting", "The specified game setting does not exist.");
             }
 
-                DateTime? expectedEndOn = null;
+            DateTime? expectedEndOn = null;
 
-                decimal totalPrice = 0.0M;
+            decimal totalPrice = 0.0M;
 
-                if (setting.IsOpenHour || setting.IsDayPass)
-                {
-                    totalPrice = setting.Price;
-                }
+            if (setting.IsOpenHour || setting.IsDayPass)
+            {
+                totalPrice = setting.Price;
+            }
 
             if (numberOfPersons > 0)
             {
                 totalPrice = totalPrice * numberOfPersons;
             }
-            
+
             Discount? discount = null;
             if (discountId != 0)
             {
@@ -307,8 +356,11 @@ namespace Application.Services
             }
 
             #region to Check if it is for ps5 or board games to let the status be processed and unpaid
-            int statusToUse = (game.CategoryId == 2 || game.CategoryId== 6) || isDayPass ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
-           
+            int statusToUse = (game.CategoryId == 2 || game.CategoryId == 6) || isDayPass ? 7 : 6; // 5: processed and unpaid, 6: processed and paid
+            if (setting.IsDayPass == true)
+            {
+                statusToUse = 6;
+            }
             #endregion
 
 
@@ -325,21 +377,28 @@ namespace Application.Services
                     UserId: userId,
                     CreatedOn: DateTime.UtcNow,
                     CreatedBy: createdBy ?? string.Empty,
-                    DiscountId: discount?.Id ,
-                    numberOfPersons: numberOfPersons
+                    DiscountId: discount?.Id,
+                    numberOfPersons: numberOfPersons,
+                    Comment: comment
                 );
 
-                var e = _mapper.ToEntity(createDto);
-                if (e.SetId == 0)
-                    e.SetId = null;
+            var e = _mapper.ToEntity(createDto);
+            if (e.SetId == 0)
+                e.SetId = null;
 
             //e.ExpectedEndOn = expectedEndOn;
 
             try
             {
-                _logger.LogInformation("GS/Session BEFORE_SAVE ReqId={ReqId} Room={RoomId} Set={SetId} Total={Total}",
-                    reqId, e.RoomId, e.SetId, e.TotalPrice);
                 await _repo.AddAsync(e, ct);
+                await _uow.SaveChangesAsync(ct);
+                await LogAuditAsync(
+                    transactionId: e.Id,  // Id is set after AddAsync
+                    changedBy: createdBy,
+                    action: "Created",
+                    notes: $"GameId={gameId}, SettingId={gameSettingId}, Persons={numberOfPersons}, Status={statusToUse}, Total={totalPrice:F2}",
+                    ct: ct
+                );
                 await _uow.SaveChangesAsync(ct);
             }
             catch (Exception ex)
@@ -352,96 +411,148 @@ namespace Application.Services
 
                 return new BaseResponse<TransactionDto>(false, "set in use", "The selected set just became in use. Please choose a different set.");
             }
+            // ========================================
+            // ✅ CALCULATE LOYALTY TICKETS
+            // ========================================
+            if (statusToUse == 6 && userId.HasValue)
+            {
+                try
+                {
+                    var userPhone = await GetUserPhoneNumberAsync(userId.Value, ct);
+                    var userName = await GetUserFullNameAsync(userId.Value, ct);
 
-            #region No need for hangfire now
-            //// schedule a job only if there is a time limit
-            //if (!setting.IsOpenHour && expectedEndOn.HasValue)
-            //{
-            //    // Hangfire will call SessionEndMonitor.EndIfOngoingAsync at expected end
-            //    var jobId = BackgroundJob.Schedule<SessionEndMonitor>(
-            //                    x => x.EndIfOngoingAsync(e.Id, 6, CancellationToken.None),
-            //                    expectedEndOn.Value - DateTime.UtcNow);
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(userId.Value, ct))
+                    {
+                        var loyaltyRequest = new CalculateTicketsRequest
+                        {
+                            TransactionId = e.Id,
+                            TotalAmount = totalPrice,
+                            CustomerPhone = userPhone,
+                            CustomerName = userName ?? createdBy // Use actual name or fallback to createdBy
+                        };
 
-            //    // store job id
-            //    var tracked = await _repo.GetByIdAsync(e.Id, asNoTracking: false, ct);
-            //    if (tracked != null)
-            //    {
-            //        //tracked.HangfireJobId = jobId;
-            //        await _uow.SaveChangesAsync(ct);
-            //    }
-            //}
-            #endregion
-                e = await _repo.Query()
-                    .Include(x => x.Room)
-                    .Include(x => x.Game)
-                    .Include(x => x.GameType)
-                    .Include(x => x.GameSetting)
-                    .Include(x => x.Discount)
-                    .Include(x => x.Set)
-                    .Include(x => x.TransactionItems)
-                        .ThenInclude(ti => ti.Item)
-                    .Include(x => x.TransactionItems)
-                        .ThenInclude(ti => ti.Item.CoffeeShopOrders)
-                    .FirstOrDefaultAsync(x => x.Id == e.Id, ct);
-                TransactionDto transactionDto = _mapper.ToDto(e);
+                        var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
 
-                return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "❌ Error calculating loyalty tickets: TxId={TxId}, User={UserId}",
+                        e.Id, userId.Value);
+                }
+            }
+            // ========================================
+
+
+            e = await _repo.Query()
+                .Include(x => x.Room)
+                .Include(x => x.Game)
+                .Include(x => x.GameType)
+                .Include(x => x.GameSetting)
+                .Include(x => x.Discount)
+                .Include(x => x.Set)
+                .Include(x => x.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .Include(x => x.TransactionItems)
+                    .ThenInclude(ti => ti.Item.CoffeeShopOrders)
+                    .AsSplitQuery()
+                .FirstOrDefaultAsync(x => x.Id == e.Id, ct);
+
+            TransactionDto transactionDto = _mapper.ToDto(e);
+            if (transactionDto.StatusId == 6) // Paid
+            {
+                try
+                {
+                    var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(
+                        transactionDto.Id,
+                        ct);
+
+                    if (journalResult.Success)
+                    {
+                        _logger.LogInformation(
+                            "Journal entry {EntryNumber} created for transaction {TxId}",
+                            journalResult.Data?.EntryNumber,
+                            transactionDto.Id);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Failed to create journal entry for transaction {TxId}: {Error}",
+                            transactionDto.Id,
+                            journalResult.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Exception creating journal entry for transaction {TxId}",
+                        transactionDto.Id);
+                    // Don't fail the transaction, just log the error
+                }
+            }
+
+
+            return new BaseResponse<TransactionDto>(true, null, "Game session created successfully.", transactionDto);
+
+
         }
 
-        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct)
-            {
+        public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest,
+            string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null)
+        {
 
             var reqId = GetReqId();
             var sig = itemsRequest is null ? "-" : ItemsSignature(itemsRequest);
 
             if (itemsRequest is null || itemsRequest.Count == 0)
-                    return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
+                return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
 
-            
-                var requested = itemsRequest
-                    .GroupBy(x => x.ItemId)
-                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
-            
-                var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
-                if (invalidQty.Any())
-                    return new BaseResponse<TransactionDto>(false, "Invalid quantity", 
-                        $"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
+            var requested = itemsRequest
+                .GroupBy(x => x.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
-                var ids = requested.Keys.ToList();
 
-            
-                var dbItems = await _repoItem.Query(false)
-                    .Where(i => ids.Contains(i.Id))
-                    .ToListAsync(ct); 
+            var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
+            if (invalidQty.Any())
+                return new BaseResponse<TransactionDto>(false, "Invalid quantity",
+                    $"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
 
-            
-                if (dbItems.Count != ids.Count)
-                {
-                    var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
-                    return new BaseResponse<TransactionDto>(false, "Invalid items", 
-                        $"The following item IDs do not exist: {string.Join(", ", missing)}");
+            var ids = requested.Keys.ToList();
+
+
+            var dbItems = await _repoItem.Query(false).Include(i => i.Category)
+                .Where(i => ids.Contains(i.Id))
+                .ToListAsync(ct);
+
+
+            if (dbItems.Count != ids.Count)
+            {
+                var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
+                return new BaseResponse<TransactionDto>(false, "Invalid items",
+                    $"The following item IDs do not exist: {string.Join(", ", missing)}");
             }
 
-            
-                var outOfStock = new List<string>();
-                foreach (var it in dbItems)
-                {
-                    var need = requested[it.Id];
-                    if (it.Quantity < need)
-                        outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})"); 
-                }
-                if (outOfStock.Any())
-                    return new BaseResponse<TransactionDto>(false, "Out of stock", 
-                        $"The following items are out of stock or insufficient: {string.Join("; ", outOfStock)}");
+
+            var outOfStock = new List<string>();
+            foreach (var it in dbItems)
+            {
+                var need = requested[it.Id];
+                if (it.Quantity < need)
+                    outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})");
+            }
+            if (outOfStock.Any())
+                return new BaseResponse<TransactionDto>(false, "Out of stock",
+                    $"The following items are out of stock or insufficient: {string.Join("; ", outOfStock)}");
 
             // Compute total
             decimal totalPrice = 0m;
-                foreach (var it in dbItems)
-                {
-                    var qty = requested[it.Id];
-                    totalPrice += (it.Price * qty);
-                }
+            foreach (var it in dbItems)
+            {
+                var qty = requested[it.Id];
+                totalPrice += (it.Price * qty);
+            }
 
             Discount? discount = null;
             if (discountId != 0)
@@ -463,54 +574,75 @@ namespace Application.Services
                 }
             }
 
+            // In CreateCoffeeShopOrder
+            //bool containsTcg = (await _repoItem.ListAsync()).Any(i =>
+            //    i.Category.Name.ToLower().Contains("tcg")); // check if the item category contains "tcg"
 
+            int statusId = isOpenInvoice ? 7 : 6;
             // Create transaction
             var trx = new TransactionRecord
-                {
-                
-                    RoomId = null,
-                    SetId = null,
-                    GameTypeId = null,
-                    GameId = null,
-                    GameSettingId = null,
-                    Hours = 0,
-                    TotalPrice = totalPrice,
-                    StatusId = 6,
-                    UserId = userId,
-                    CreatedBy = createdBy ?? "",
-                    CreatedOn = DateTime.UtcNow,
-                    DiscountId = discount?.Id,
-                };
+            {
 
-            
-                var trxItems = new List<TransactionItem>();
-                foreach (var it in dbItems)
-                {
-                    var qty = requested[it.Id];
-                    trxItems.Add(new TransactionItem
-                    {
-                        TransactionRecord = trx,
-                    
-                        ItemId = it.Id,
-                        Quantity = qty,
-                    });
+                RoomId = null,
+                SetId = setId,
+                GameTypeId = null,
+                GameId = null,
+                GameSettingId = null,
+                Hours = 0,
+                TotalPrice = totalPrice,
+                StatusId = statusId,
+                UserId = userId,
+                CreatedBy = createdBy ?? "",
+                CreatedOn = DateTime.UtcNow,
+                DiscountId = discount?.Id,
+                Comment = comment,
+                FK_FoodStatusId = 11,
+            };
 
-                
-                    it.Quantity -= qty;
-                }
+
+            var trxItems = new List<TransactionItem>();
+            foreach (var it in dbItems)
+            {
+                var qty = requested[it.Id];
+                trxItems.Add(new TransactionItem
+                {
+                    TransactionRecord = trx,
+
+                    ItemId = it.Id,
+                    Quantity = qty,
+                });
+
+
+                it.Quantity -= qty;
+            }
 
 
 
             try
             {
-                _logger.LogInformation("CS/Order BEFORE_SAVE ReqId={ReqId} Total={Total} Items={Count}",reqId, totalPrice, trxItems.Count);
+                _logger.LogInformation("CS/Order BEFORE_SAVE ReqId={ReqId} Total={Total} Items={Count}", reqId, totalPrice, trxItems.Count);
 
 
                 await _repo.AddAsync(trx, ct);
                 await _repoTrxItem.AddRangeAsync(trxItems, ct);
 
+                await _uow.SaveChangesAsync(ct);
+
+                await CreateKitchenBarOrdersAsync(trx, trxItems, createdBy,
+                    tableNumber: null, guestName: null, ct);
 
                 await _uow.SaveChangesAsync(ct);
+
+                await LogAuditAsync(
+                        transactionId: trx.Id,
+                        changedBy: createdBy,
+                        action: "Created",
+                        notes: $"FNB order. Items={trxItems.Count}, Total={totalPrice:F2}, IsOpenInvoice={isOpenInvoice}",
+                        ct: ct
+                    );
+
+                await _uow.SaveChangesAsync(ct);
+
             }
             catch (Exception ex)
             {
@@ -521,9 +653,108 @@ namespace Application.Services
 
                 return new BaseResponse<TransactionDto>(false, "Error happened", "Error happened");
             }
+            // ========================================
+            // ✅ CALCULATE LOYALTY TICKETS
+            // ========================================
+            string userName = "";
+            if (userId.HasValue && !isOpenInvoice)
+            {
+                try
+                {
+                    var userPhone = await GetUserPhoneNumberAsync(userId.Value, ct);
+                    userName = await GetUserFullNameAsync(userId.Value, ct);
 
-                TransactionDto transactionDto =  _mapper.ToDto(trx);
-                return new BaseResponse<TransactionDto>(true, null, "Item Order created successfully.", transactionDto);
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(userId.Value, ct))
+                    {
+                        var loyaltyRequest = new CalculateTicketsRequest
+                        {
+                            TransactionId = trx.Id,
+                            TotalAmount = totalPrice,
+                            CustomerPhone = userPhone,
+                            CustomerName = userName ?? createdBy
+                        };
+
+                        var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
+
+                        if (loyaltyResponse.Success)
+                        {
+                            _logger.LogInformation(
+                                "✅ Loyalty tickets assigned: TxId={TxId}, User={UserId}, Phone={Phone}, Tickets={Tickets}, Balance=${Balance:F2}",
+                                trx.Id, userId.Value, userPhone, loyaltyResponse.TicketsEarned, loyaltyResponse.PendingBalance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "⚠️ Loyalty calculation failed: TxId={TxId}, User={UserId}, Reason={Message}",
+                                trx.Id, userId.Value, loyaltyResponse.Message);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "ℹ️ No phone number for loyalty: TxId={TxId}, User={UserId}",
+                            trx.Id, userId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "❌ Error calculating loyalty tickets: TxId={TxId}, User={UserId}",
+                        trx.Id, userId.Value);
+                }
+            }
+            // ========================================
+
+
+            var reloaded = await _repo.Query()
+      .AsNoTracking()
+      .Include(t => t.Room)
+      .Include(t => t.Game)
+      .Include(t => t.GameType)
+      .Include(t => t.GameSetting)
+      .Include(t => t.Discount)
+      .Include(t => t.Set)
+      .Include(t => t.User)  // IMPORTANT: Include user details
+      .Include(t => t.TransactionItems)
+          .ThenInclude(ti => ti.Item)
+      .FirstOrDefaultAsync(t => t.Id == trx.Id, ct);
+
+            if (reloaded == null)
+                return new BaseResponse<TransactionDto>(false, "error",
+                    "Transaction saved but could not reload.");
+
+            TransactionDto transactionDto = _mapper.ToDto(reloaded);
+            try
+            {
+                var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(
+                    transactionDto.Id,
+                    ct);
+
+                if (journalResult.Success)
+                {
+                    _logger.LogInformation(
+                        "Journal entry {EntryNumber} created for FNB transaction {TxId}",
+                        journalResult.Data?.EntryNumber,
+                        transactionDto.Id);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Failed to create journal entry for FNB transaction {TxId}: {Error}",
+                        transactionDto.Id,
+                        journalResult.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Exception creating journal entry for FNB transaction {TxId}",
+                    transactionDto.Id);
+                // Don't fail the transaction, just log the error
+            }
+
+
+            return new BaseResponse<TransactionDto>(true, null, "Item Order created successfully.", transactionDto);
         }
 
         public async Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default)
@@ -538,16 +769,18 @@ namespace Application.Services
             var setChanged = dto.SetId.HasValue && dto.SetId.Value != e.SetId;
 
             // Apply only provided fields
-            if (dto.RoomId.HasValue) e.RoomId = dto.RoomId;
-            if (dto.SetId.HasValue) e.SetId = dto.SetId;
-            if (dto.GameTypeId.HasValue) e.GameTypeId = dto.GameTypeId;
-            if (dto.GameId.HasValue) e.GameId = dto.GameId;
-            if (dto.GameSettingId.HasValue) e.GameSettingId = dto.GameSettingId;
-            if (dto.Hours.HasValue) e.Hours = dto.Hours ?? 0;
-            if (dto.TotalPrice.HasValue) e.TotalPrice = dto.TotalPrice ?? e.TotalPrice;
-            if (dto.StatusId.HasValue) e.StatusId = dto.StatusId.Value;
+            var changedFields = new List<string>();
+            if (dto.RoomId.HasValue) changedFields.Add($"RoomId={dto.RoomId}");
+            if (dto.SetId.HasValue) changedFields.Add($"SetId={dto.SetId}");
+            if (dto.GameTypeId.HasValue) changedFields.Add($"GameTypeId={dto.GameTypeId}");
+            if (dto.GameId.HasValue) changedFields.Add($"GameId={dto.GameId}");
+            if (dto.GameSettingId.HasValue) changedFields.Add($"GameSettingId={dto.GameSettingId}");
+            if (dto.Hours.HasValue) changedFields.Add($"Hours={dto.Hours}");
+            if (dto.TotalPrice.HasValue) changedFields.Add($"TotalPrice={dto.TotalPrice}");
+            if (dto.StatusId.HasValue) changedFields.Add($"StatusId={dto.StatusId}");
+            if (dto.DiscountId.HasValue) changedFields.Add($"DiscountId={dto.DiscountId}");
             Discount? discount = null;
-
+            var updatedBy = _http.HttpContext?.User?.Identity?.Name ?? "admin";
             if (dto.DiscountId.HasValue)
             {
                 if (dto.DiscountId.Value > 0)
@@ -599,6 +832,14 @@ namespace Application.Services
             }
 
             e.ModifiedOn = DateTime.UtcNow;
+            await LogAuditAsync(
+                transactionId: id,
+                changedBy: updatedBy,
+                action: "AdminUpdate",
+                fieldChanged: string.Join(", ", changedFields),
+                notes: "Manual admin update",
+                ct: ct
+            );
             await _uow.SaveChangesAsync(ct);
             return true;
         }
@@ -713,7 +954,6 @@ namespace Application.Services
             return user.Id;
         }
 
-
         public async Task<BaseResponse<TransactionDto>> CloseGameSession(int invoiceId, string updatedBy, CancellationToken ct = default)
         {
             var reqId = GetReqId();
@@ -727,15 +967,14 @@ namespace Application.Services
             if (tx is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
 
-            // must be processed & unpaid (7)
             if (tx.StatusId != 7)
                 return new BaseResponse<TransactionDto>(false, "Invalid status", "This session is not in 'processed & unpaid' status.");
 
-            // 2) Load game setting (price + IsOpenHour)
+            // 2) Load game setting
             var setting = await _repoSetting.Query()
                 .AsNoTracking()
                 .Where(s => s.Id == tx.GameSettingId)
-                .Select(s => new { s.Hours, s.Price, s.IsOpenHour })
+                .Select(s => new { s.Price })
                 .FirstOrDefaultAsync(ct);
 
             if (setting is null)
@@ -743,62 +982,76 @@ namespace Application.Services
 
             // 3) Calculate played time
             var nowUtc = DateTime.UtcNow;
-            var startedOn = tx.CreatedOn; // assuming non-null
+            var startedOn = tx.CreatedOn.AddMinutes(5);
             if (startedOn == default)
                 return new BaseResponse<TransactionDto>(false, "Invalid data", "Session start time is missing.");
 
             var totalMinutes = (nowUtc - startedOn).TotalMinutes;
             if (totalMinutes < 1)
-                totalMinutes = 1; // at least 1 minute
+                totalMinutes = 1;
 
-            // ---- ROUNDING LOGIC (30-min steps) ----
-            // 1:00 - 1:30  -> 1:30
-            // 1:31 - 1:59  -> 2:00
-            var fullHours = Math.Floor(totalMinutes / 60.0);             // e.g. 75 -> 1
-            var remainingMinutes = totalMinutes - (fullHours * 60.0);    // e.g. 75 - 60 = 15
+            // RAW hours
+            decimal rawHours = (decimal)(totalMinutes / 60.0);
 
-            if (remainingMinutes > 0 && remainingMinutes <= 30)
-            {
-                // anything between 1 and 30 min -> 30 min
-                remainingMinutes = 30;
-            }
-            else if (remainingMinutes > 30)
-            {
-                // more than 30 min -> next full hour
-                fullHours += 1;
-                remainingMinutes = 0;
-            }
-
-            var billedMinutes = (fullHours * 60.0) + remainingMinutes;   // e.g. 1h30 = 90
-            decimal playedHours = (decimal)billedMinutes / 60m;          // e.g. 90/60 = 1.5
-            playedHours = Math.Round(playedHours, 2, MidpointRounding.AwayFromZero);
-
-            // 4) Persons
+            // 4) Players
             var persons = tx.numberOfPersons > 0 ? tx.numberOfPersons : 1;
 
-            // 5) Calculate total price
-            // Price is per hour per person
-            // e.g. 3$ * 1.5h * 1 person = 4.5$
-            bool isBoardGame = tx.GameTypeId == 2;   // 2 = board games
-            decimal billedHoursForPrice = playedHours;
+            // 5) Rounding logic for hours (ONLY hour rounding stays)
+            bool isBoardGame = tx.GameTypeId == 2;
 
-            decimal totalPrice = 0;
-            // BOARD GAMES: if more than 2H -> charge as "day pass" = price of 2H
-            if (isBoardGame && billedHoursForPrice > 2m)
+            decimal GetBilledHours(decimal h)
             {
-                var dayPassPrice = await _repoSetting.Query()
-                    .AsNoTracking()
-                    .Where(s => s.IsDayPass == true && s.Id == tx.GameSettingId).FirstOrDefaultAsync();
+                if (h <= 0m || h <= 0.25m)
+                    return 0m;
 
-                billedHoursForPrice =  dayPassPrice!.Price;
-                totalPrice =  billedHoursForPrice * persons;
+                // Minimum 1 hour for anything up to 1h 15m
+                if (h <= 1.25m) // 1.25h = 1h 15min
+                    return 1m;
+
+                // From here, apply the repeating pattern around each whole hour
+                var n = Math.Floor(h); // base whole hour: 1, 2, 3, ...
+
+                // x:00 → x:15  => x.0
+                if (h < n + 0.25m)
+                    return n;
+
+                // x:15 → x:45  => x.5
+                if (h < n + 0.75m)
+                    return n + 0.5m;
+
+                // x:45 → (x+1):15  => x+1
+                return n + 1m;
+            }
+
+            decimal billedHours = GetBilledHours(rawHours);
+
+            // 6) Board game day-pass override
+            decimal totalPriceBeforeDiscount;
+            if (isBoardGame && rawHours > 2m)
+            {
+                var dayPass = await _repoSetting.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.IsDayPass == true && s.GameId == tx.GameId, ct);
+
+                if (dayPass != null && dayPass.Price > 0)
+                {
+                    totalPriceBeforeDiscount = dayPass.Price * persons;
+                }
+                else
+                {
+                    totalPriceBeforeDiscount = setting.Price * billedHours * persons;
+                }
             }
             else
             {
-                totalPrice = setting.Price * billedHoursForPrice * persons;
+                // Normal (PS5 + board games <=2h)
+                totalPriceBeforeDiscount = setting.Price * billedHours * persons;
             }
 
-            // 6) Apply discount if exists
+            // ❌ NO FINAL PRICE ROUNDING
+            decimal totalPrice = totalPriceBeforeDiscount;
+
+            // 7) Discounts
             if (tx.DiscountId.HasValue && tx.DiscountId.Value != 0)
             {
                 var discount = await _repoDiscount.Query()
@@ -813,47 +1066,127 @@ namespace Application.Services
                 }
             }
 
-            // 7) Update tracked entity
+            // 8) Update DB
             var tracked = await _repo.GetByIdAsync(invoiceId, asNoTracking: false, ct);
             if (tracked is null)
                 return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice/transaction does not exist.");
 
-            // For display / reporting, Hours is stored as the ceiled rounded-hours
-            tracked.Hours = (int)Math.Ceiling(playedHours);
+            tracked.Hours = billedHours;
             tracked.TotalPrice = totalPrice;
-            tracked.StatusId = 6; // processed & paid
+            tracked.StatusId = 6;
             tracked.ModifiedOn = nowUtc;
             tracked.CreatedBy = updatedBy ?? tracked.CreatedBy;
 
-            //8) Make Set Available
+            // Make set available
+            if (tx.SetId.HasValue)
+            {
+                var set = await _repoSet.Query(asNoTracking: false)
+                    .FirstOrDefaultAsync(s => s.Id == tx.SetId.Value, ct);
 
-            var set = await _repoSet.Query()
-                .AsNoTracking()
-                .Where(s => s.Id == tx.SetId)
-                .FirstOrDefaultAsync(ct);
-
-            if (set != null)
-                set.StatusId = 9;
+                if (set != null)
+                    set.StatusId = 9;
+            }
+            await LogAuditAsync(
+                    transactionId: invoiceId,
+                    changedBy: updatedBy ?? "system",
+                    action: "CloseGameSession",
+                    fieldChanged: "StatusId",
+                    oldValue: "7",
+                    newValue: "6",
+                    notes: $"BilledHours={billedHours}, TotalPrice={totalPrice:F2}",
+                    ct: ct
+                );
 
             try
             {
-                _logger.LogInformation(
-                    "GS/CloseSession BEFORE_SAVE ReqId={ReqId} Tx={TxId} Hours={Hours} PlayedRounded={PlayedHours} Total={Total}",
-                    reqId, tracked.Id, tracked.Hours, playedHours, tracked.TotalPrice);
-
                 await _uow.SaveChangesAsync(ct);
+            }
+            catch
+            {
+                return new BaseResponse<TransactionDto>(false, "db error", "Failed to close the session.");
+            }
+            // ========================================
+            // ✅ CALCULATE LOYALTY TICKETS
+            // ========================================
+            if (tracked.UserId.HasValue)
+            {
+                try
+                {
+                    var userPhone = await GetUserPhoneNumberAsync(tracked.UserId.Value, ct);
+                    var userName = await GetUserFullNameAsync(tracked.UserId.Value, ct);
+
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(tracked.UserId.Value, ct))
+                    {
+                        var loyaltyRequest = new CalculateTicketsRequest
+                        {
+                            TransactionId = tracked.Id,
+                            TotalAmount = totalPrice,
+                            CustomerPhone = userPhone,
+                            CustomerName = userName ?? updatedBy
+                        };
+
+                        var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
+
+                        if (loyaltyResponse.Success)
+                        {
+                            _logger.LogInformation(
+                                "✅ Loyalty tickets assigned on close: TxId={TxId}, User={UserId}, Phone={Phone}, Tickets={Tickets}, Balance=${Balance:F2}",
+                                tracked.Id, tracked.UserId.Value, userPhone, loyaltyResponse.TicketsEarned, loyaltyResponse.PendingBalance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "⚠️ Loyalty calculation failed on close: TxId={TxId}, User={UserId}, Reason={Message}",
+                                tracked.Id, tracked.UserId.Value, loyaltyResponse.Message);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "ℹ️ No phone number for loyalty on close: TxId={TxId}, User={UserId}",
+                            tracked.Id, tracked.UserId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "❌ Error calculating loyalty tickets on close: TxId={TxId}, User={UserId}",
+                        tracked.Id, tracked.UserId.Value);
+                }
+            }
+            // ========================================
+
+
+            var dto = _mapper.ToDto(tracked);
+            try
+            {
+                var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(
+                    dto.Id,
+                    ct);
+
+                if (journalResult.Success)
+                {
+                    _logger.LogInformation(
+                        "Journal entry {EntryNumber} created for closed session {TxId}",
+                        journalResult.Data?.EntryNumber,
+                        dto.Id);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Failed to create journal entry for closed session {TxId}: {Error}",
+                        dto.Id,
+                        journalResult.Message);
+                }
             }
             catch (Exception ex)
             {
-                var (prov, code) = ExtractDbCode(ex);
                 _logger.LogError(ex,
-                    "GS/CloseSession ERROR ReqId={ReqId} DB={Prov}:{Code} Tx={TxId} Sig={Sig}",
-                    reqId, prov, code, invoiceId, sig);
-
-                return new BaseResponse<TransactionDto>(false, "db error", "Failed to close the session. Please try again.");
+                    "Exception creating journal entry for closed session {TxId}",
+                    dto.Id);
+                // Don't fail the session close, just log the error
             }
 
-            var dto = _mapper.ToDto(tracked);
             return new BaseResponse<TransactionDto>(true, null, "Game session closed successfully.", dto);
         }
 
@@ -881,7 +1214,7 @@ namespace Application.Services
                 .Include(t => t.Set)
                 .Include(t => t.Game)
                 .Include(t => t.GameType)
-                .Include(t => t.GameSetting)
+                .Include(t => t.GameSetting).AsSplitQuery()
                 .OrderByDescending(t => t.CreatedOn);
 
             var entities = await query.ToListAsync(ct);
@@ -903,6 +1236,576 @@ namespace Application.Services
                 dtos);
         }
 
+        /// <summary>
+        /// Get user's phone number from Identity system
+        /// </summary>
+        private async Task<string?> GetUserPhoneNumberAsync(int userId, CancellationToken ct)
+        {
+            try
+            {
+                // Find user by ID
+                var user = await _userManager.FindByIdAsync(userId.ToString());
+
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for loyalty tickets: UserId={UserId}", userId);
+                    return null;
+                }
+
+                // Get phone number
+                var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
+
+                if (string.IsNullOrWhiteSpace(phoneNumber))
+                {
+                    _logger.LogWarning("User has no phone number for loyalty tickets: UserId={UserId}", userId);
+                    return null;
+                }
+
+                return phoneNumber;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting phone number for user {UserId}", userId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get user's full name from Identity system (optional - for better customer records)
+        /// </summary>
+        private async Task<string?> GetUserFullNameAsync(int userId, CancellationToken ct)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId.ToString());
+
+                if (user == null)
+                    return null;
+
+                // Assuming your ApplicationUser has FirstName and LastName properties
+                // Adjust based on your actual User entity structure
+                return $"{user.FirstName} {user.LastName}".Trim();
+
+                // OR if you just have a Name property:
+                // return user.Name;
+
+                // OR if you want to use UserName as fallback:
+                // return user.Name ?? user.UserName;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user name for user {UserId}", userId);
+                return null;
+            }
+        }
+        private async Task<bool> IsClientUserAsync(int userId, CancellationToken ct)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId.ToString());
+                if (user == null)
+                    return false;
+
+                var roles = await _userManager.GetRolesAsync(user);
+
+                return roles.Any(r => r.Equals("client", StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking role for user {UserId}", userId);
+                return false;
+            }
+        }
+        public async Task<BaseResponse<List<TransactionDto>>> GetOpenFnbInvoices(CancellationToken ct = default)
+        {
+            var reqId = GetReqId();
+
+            var query = _repo.Query()
+                .AsNoTracking()
+                .Where(t => t.StatusId == 7 && t.GameId == null)  // Open invoices for FNB only
+                .Include(t => t.Room)
+                .Include(t => t.Game)
+                .Include(t => t.GameType)
+                .Include(t => t.GameSetting)
+                .Include(t => t.Discount)
+                .Include(t => t.Set)
+                .Include(t => t.User)  // IMPORTANT: Include User for username
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .OrderByDescending(t => t.CreatedOn);
+
+            var entities = await query.ToListAsync(ct);
+
+            var dtos = new List<TransactionDto>();
+            foreach (var e in entities)
+            {
+                dtos.Add(_mapper.ToDto(e));
+            }
+
+            _logger.LogInformation(
+                "FNB/GetOpenInvoices ReqId={ReqId} Count={Count}",
+                reqId, dtos.Count);
+
+            return new BaseResponse<List<TransactionDto>>(
+                true,
+                null,
+                "Open FNB invoices retrieved successfully.",
+                dtos);
+        }
+
+        public async Task<BaseResponse<TransactionDto>> AddItemsToOpenInvoice(int invoiceId, List<OrderItemRequest> itemsRequest, string updatedBy, CancellationToken ct)
+        {
+            var reqId = GetReqId();
+            var sig = itemsRequest is null ? "-" : ItemsSignature(itemsRequest);
+
+            if (itemsRequest is null || itemsRequest.Count == 0)
+                return new BaseResponse<TransactionDto>(false, "No items", "No items provided.");
+
+            // 1) Load the transaction (must be open FNB invoice)
+            var trx = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems)
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (trx is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice",
+                    "The specified invoice does not exist.");
+
+            // Must be open (Status=7) and FNB (GameId=null)
+            if (trx.StatusId != 7)
+                return new BaseResponse<TransactionDto>(false, "Invoice closed",
+                    "This invoice is already closed. Cannot add items.");
+
+            if (trx.GameId != null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice type",
+                    "Cannot add items to game invoices.");
+
+            // 2) Validate items
+            var requested = itemsRequest
+                .GroupBy(x => x.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+            var invalidQty = requested.Where(kv => kv.Value <= 0).Select(kv => kv.Key).ToList();
+            if (invalidQty.Any())
+                return new BaseResponse<TransactionDto>(false, "Invalid quantity",
+                    $"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
+
+            var ids = requested.Keys.ToList();
+
+            var dbItems = await _repoItem.Query(false)
+                .Where(i => ids.Contains(i.Id))
+                .ToListAsync(ct);
+
+            if (dbItems.Count != ids.Count)
+            {
+                var missing = ids.Except(dbItems.Select(i => i.Id)).ToList();
+                return new BaseResponse<TransactionDto>(false, "Invalid items",
+                    $"The following item IDs do not exist: {string.Join(", ", missing)}");
+            }
+
+            // Stock check
+            var outOfStock = new List<string>();
+            foreach (var it in dbItems)
+            {
+                var need = requested[it.Id];
+                if (it.Quantity < need)
+                    outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})");
+            }
+            if (outOfStock.Any())
+                return new BaseResponse<TransactionDto>(false, "Out of stock",
+                    $"The following items are out of stock: {string.Join("; ", outOfStock)}");
+
+            // 3) Add new items to transaction
+            var newTrxItems = new List<TransactionItem>();
+            decimal additionalTotal = 0m;
+
+            foreach (var it in dbItems)
+            {
+                var qty = requested[it.Id];
+
+                // Check if item already exists in transaction
+                var existing = trx.TransactionItems.FirstOrDefault(ti => ti.ItemId == it.Id);
+                if (existing != null)
+                {
+                    // Update quantity
+                    existing.Quantity += qty;
+                }
+                else
+                {
+                    // Add new item
+                    var newItem = new TransactionItem
+                    {
+                        TransactionRecordId = trx.Id,
+                        ItemId = it.Id,
+                        Quantity = qty,
+                    };
+                    trx.TransactionItems.Add(newItem);
+                    await _repoTrxItem.AddAsync(newItem, ct);
+                }
+
+                // Deduct stock
+                it.Quantity -= qty;
+                additionalTotal += (it.Price * qty);
+            }
+
+            // 4) Recalculate total (including existing discount if any)
+            trx.TotalPrice += additionalTotal;
+
+            // Reapply discount if one exists
+            if (trx.DiscountId.HasValue)
+            {
+                var discount = await _repoDiscount.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == trx.DiscountId.Value, ct);
+
+                if (discount != null && discount.IsActive)
+                {
+                    // Recalculate from subtotal
+                    decimal subtotal = 0m;
+                    foreach (var ti in trx.TransactionItems)
+                    {
+                        var item = await _repoItem.Query()
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(i => i.Id == ti.ItemId, ct);
+                        if (item != null)
+                            subtotal += (item.Price * ti.Quantity);
+                    }
+
+                    trx.TotalPrice = subtotal - (subtotal * discount.Percentage / 100);
+                    if (trx.TotalPrice < 0) trx.TotalPrice = 0;
+                }
+            }
+
+            trx.ModifiedOn = DateTime.UtcNow;
+            trx.CreatedBy = updatedBy ?? trx.CreatedBy;  // Track who added items
+
+            await LogAuditAsync(
+                transactionId: invoiceId,
+                changedBy: updatedBy ?? "system",
+                action: "AddItems",
+                fieldChanged: "TransactionItems",
+                notes: $"Added {itemsRequest.Count} item(s). NewTotal={trx.TotalPrice:F2}",
+                ct: ct
+            );
+            try
+            {
+                _logger.LogInformation(
+                    "FNB/AddItems BEFORE_SAVE ReqId={ReqId} InvoiceId={InvoiceId} NewItems={Count} NewTotal={Total}",
+                    reqId, invoiceId, itemsRequest.Count, trx.TotalPrice);
+
+                await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                var (prov, code) = ExtractDbCode(ex);
+                _logger.LogError(ex,
+                    "FNB/AddItems ERROR ReqId={ReqId} DB={Prov}:{Code} InvoiceId={InvoiceId} Sig={Sig}",
+                    reqId, prov, code, invoiceId, sig);
+
+                return new BaseResponse<TransactionDto>(false, "db error",
+                    "Failed to add items to invoice. Please try again.");
+            }
+            // IMPORTANT: Reload with all includes
+            var reloaded = await _repo.Query()
+                .AsNoTracking()
+                .Include(t => t.Room)
+                .Include(t => t.Game)
+                .Include(t => t.GameType)
+                .Include(t => t.GameSetting)
+                .Include(t => t.Discount)
+                .Include(t => t.Set)
+                .Include(t => t.User)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                        .ThenInclude(i => i.CoffeeShopOrders)  // Include if needed
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (reloaded == null)
+                return new BaseResponse<TransactionDto>(false, "error",
+                    "Invoice closed but could not reload.");
+
+
+            var dto = _mapper.ToDto(reloaded);
+            return new BaseResponse<TransactionDto>(true, null,
+                "Items added to invoice successfully.", dto);
+        }
+
+        public async Task<BaseResponse<TransactionDto>> CloseOpenInvoice(int invoiceId, string updatedBy, CancellationToken ct)
+        {
+            var reqId = GetReqId();
+
+            // Load transaction (must be open FNB invoice)
+            var trx = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .Include(t => t.Discount)
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (trx is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice",
+                    "The specified invoice does not exist.");
+
+            // Must be open (Status=7)
+            if (trx.StatusId != 7)
+                return new BaseResponse<TransactionDto>(false, "Already closed",
+                    "This invoice is already closed.");
+
+            // Must be FNB invoice (GameId=null)
+            if (trx.GameId != null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice type",
+                    "Use CloseGameSession for game invoices.");
+
+            // Ensure there are items
+            if (trx.TransactionItems == null || trx.TransactionItems.Count == 0)
+                return new BaseResponse<TransactionDto>(false, "Empty invoice",
+                    "Cannot close an invoice with no items.");
+
+            // Close the invoice
+            trx.StatusId = 6;  // Closed/Paid
+            trx.ModifiedOn = DateTime.UtcNow;
+            trx.CreatedBy = updatedBy ?? trx.CreatedBy;
+
+            await LogAuditAsync(
+                transactionId: invoiceId,
+                changedBy: updatedBy ?? "system",
+                action: "CloseInvoice",
+                fieldChanged: "StatusId",
+                oldValue: "7",
+                newValue: "6",
+                notes: $"FNB invoice closed. Total={trx.TotalPrice:F2}",
+                ct: ct
+            );
+
+            try
+            {
+                _logger.LogInformation(
+                    "FNB/CloseInvoice BEFORE_SAVE ReqId={ReqId} InvoiceId={InvoiceId} Total={Total}",
+                    reqId, invoiceId, trx.TotalPrice);
+
+                await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                var (prov, code) = ExtractDbCode(ex);
+                _logger.LogError(ex,
+                    "FNB/CloseInvoice ERROR ReqId={ReqId} DB={Prov}:{Code} InvoiceId={InvoiceId}",
+                    reqId, prov, code, invoiceId);
+
+                return new BaseResponse<TransactionDto>(false, "db error",
+                    "Failed to close invoice. Please try again.");
+            }
+
+            string userName = "";
+            if (trx.UserId != null && trx.UserId > 0)
+            {
+                try
+                {
+                    var userPhone = await GetUserPhoneNumberAsync(trx.UserId.Value, ct);
+                    userName = await GetUserFullNameAsync(trx.UserId.Value, ct);
+
+                    if (!string.IsNullOrWhiteSpace(userPhone) && await IsClientUserAsync(trx.UserId.Value, ct))
+                    {
+                        var loyaltyRequest = new CalculateTicketsRequest
+                        {
+                            TransactionId = trx.Id,
+                            TotalAmount = trx.TotalPrice,
+                            CustomerPhone = userPhone,
+                            CustomerName = userName ?? ""
+                        };
+
+                        var loyaltyResponse = await _loyaltyService.CalculateAndAssignTicketsAsync(loyaltyRequest);
+
+                        if (loyaltyResponse.Success)
+                        {
+                            _logger.LogInformation(
+                                "✅ Loyalty tickets assigned: TxId={TxId}, User={UserId}, Phone={Phone}, Tickets={Tickets}, Balance=${Balance:F2}",
+                                trx.Id, trx.UserId, userPhone, loyaltyResponse.TicketsEarned, loyaltyResponse.PendingBalance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "⚠️ Loyalty calculation failed: TxId={TxId}, User={UserId}, Reason={Message}",
+                                trx.Id, trx.UserId, loyaltyResponse.Message);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "ℹ️ No phone number for loyalty: TxId={TxId}, User={UserId}",
+                            trx.Id, trx.UserId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "❌ Error calculating loyalty tickets: TxId={TxId}, User={UserId}",
+                        trx.Id, trx.UserId);
+                }
+            }
+
+            var dto = _mapper.ToDto(trx);
+            return new BaseResponse<TransactionDto>(true, null,
+                "Invoice closed successfully.", dto);
+        }
+
+        public async Task<BaseResponse<TransactionDto>> UpdateOpenInvoiceSet(int invoiceId, int? setId, string updatedBy, CancellationToken ct)
+        {
+            var reqId = GetReqId();
+
+            var trx = await _repo.Query(asNoTracking: false)
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (trx is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice",
+                    "The specified invoice does not exist.");
+
+            if (trx.StatusId != 7)
+                return new BaseResponse<TransactionDto>(false, "Invoice closed",
+                    "Cannot update set for closed invoices.");
+
+            trx.SetId = setId;
+            trx.ModifiedOn = DateTime.UtcNow;
+            trx.CreatedBy = updatedBy ?? trx.CreatedBy;
+
+            await LogAuditAsync(
+                transactionId: invoiceId,
+                changedBy: updatedBy ?? "system",
+                action: "UpdateSet",
+                fieldChanged: "SetId",
+                newValue: setId?.ToString() ?? "null",
+                notes: "Set assignment updated on open invoice",
+                ct: ct
+            );
+            
+            try
+            {
+                await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                var (prov, code) = ExtractDbCode(ex);
+                _logger.LogError(ex,
+                    "FNB/UpdateSet ERROR ReqId={ReqId} DB={Prov}:{Code} InvoiceId={InvoiceId}",
+                    reqId, prov, code, invoiceId);
+
+                return new BaseResponse<TransactionDto>(false, "db error",
+                    "Failed to update set. Please try again.");
+            }
+
+            // Reload with includes
+            var reloaded = await _repo.Query()
+                .AsNoTracking()
+                .Include(t => t.Set)
+                .Include(t => t.User)
+                .Include(t => t.Discount)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            if (reloaded == null)
+                return new BaseResponse<TransactionDto>(false, "error",
+                    "Set updated but could not reload.");
+
+            var dto = _mapper.ToDto(reloaded);
+            return new BaseResponse<TransactionDto>(true, null,
+                "Set updated successfully.", dto);
+        }
+
+        private async Task CreateKitchenBarOrdersAsync(TransactionRecord trx, List<TransactionItem> trxItems, string createdBy, string? tableNumber = null, string? guestName = null, CancellationToken ct = default)
+        {
+            var kitchenBarOrders = new List<KitchenBarOrder>();
+            var now = DateTime.UtcNow;
+
+            foreach (var trxItem in trxItems)
+            {
+                var item = trxItem.Item;
+                if (item?.Category == null) continue;
+
+                string? station = item.Category.ItemType switch
+                {
+                    "Food" => "Kitchen",
+                    "Drinks" => "Bar",
+                    "Tobacco" => "Bar",
+                    _ => null
+                };
+
+                if (station != null)
+                {
+                    kitchenBarOrders.Add(new KitchenBarOrder
+                    {
+                        TransactionId = trx.Id,
+                        TransactionItemId = trxItem.ItemId,
+                        ItemId = item.Id,
+                        Station = station,
+                        Status = "Pending",
+                        OrderedAt = now,
+                        TableNumber = tableNumber,
+                        GuestName = guestName,
+                        ItemComment = null,
+                        Quantity = trxItem.Quantity,
+                        ItemName = item.Name,
+                        ItemPrice = item.Price,
+                        CreatedByUsername = createdBy,
+                        CreatedAt = now
+                    });
+                }
+            }
+
+            if (kitchenBarOrders.Any())
+            {
+                await _repoKitchenBar.AddRangeAsync(kitchenBarOrders, ct);
+                await _uow.SaveChangesAsync(ct); // Save first to get IDs
+
+                _logger.LogInformation(
+                    "Created {Count} kitchen/bar orders for Transaction {TrxId}",
+                    kitchenBarOrders.Count, trx.Id);
+
+                // NEW: Send SignalR notifications to Kitchen and Bar
+                foreach (var order in kitchenBarOrders)
+                {
+                    var orderDto = new KitchenBarOrderDto(
+                        order.Id,
+                        order.TransactionId,
+                        order.ItemId,
+                        order.ItemName,
+                        order.Quantity,
+                        order.ItemPrice,
+                        order.Station,
+                        order.Status,
+                        order.OrderedAt,
+                        null,
+                        null,
+                        null,
+                        null,
+                        order.TableNumber,
+                        order.GuestName,
+                        order.ItemComment,
+                        order.CreatedByUsername,
+                        order.CreatedAt
+                    );
+
+                    await _hubContext.Clients.Group(order.Station)
+                        .SendAsync("NewOrder", orderDto, ct);
+                }
+            }
+        }
+
+        private async Task LogAuditAsync(int transactionId, string changedBy, string action, string? fieldChanged = null, string? oldValue = null, string? newValue = null, string? notes = null,
+            CancellationToken ct = default)
+        {
+            var log = new TransactionAuditLog
+            {
+                TransactionId = transactionId,
+                ChangedBy = changedBy ?? "system",
+                ChangedOn = DateTime.UtcNow,
+                Action = action,
+                FieldChanged = fieldChanged,
+                OldValue = oldValue,
+                NewValue = newValue,
+                Notes = notes
+            };
+            await _repoAuditLog.AddAsync(log, ct);
+            // Caller must call SaveChangesAsync — log is batched with the main save
+        }
 
     }
 }
