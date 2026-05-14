@@ -58,6 +58,10 @@ namespace Application.IServices
             int expenseId,
             CancellationToken ct = default);
 
+        Task<BaseResponse> DeleteJournalEntriesForExpenseAsync(
+            int expenseId,
+            CancellationToken ct = default);
+
         // ============================================
         // VALIDATION
         // ============================================

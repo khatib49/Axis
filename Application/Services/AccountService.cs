@@ -13,6 +13,7 @@ namespace Application.Services
         private readonly IBaseRepository<Account> _accountRepo;
         private readonly IBaseRepository<AccountType> _accountTypeRepo;
         private readonly IBaseRepository<JournalEntryLine> _journalLineRepo;
+        private readonly IBaseRepository<JournalEntry> _journalRepo;
         private readonly IUnitOfWork _uow;
         private readonly AccountingMapper _mapper;
         private readonly ILogger<AccountService> _logger;
@@ -21,6 +22,7 @@ namespace Application.Services
             IBaseRepository<Account> accountRepo,
             IBaseRepository<AccountType> accountTypeRepo,
             IBaseRepository<JournalEntryLine> journalLineRepo,
+            IBaseRepository<JournalEntry> journalRepo,
             IUnitOfWork uow,
             AccountingMapper mapper,
             ILogger<AccountService> logger)
@@ -28,6 +30,7 @@ namespace Application.Services
             _accountRepo = accountRepo;
             _accountTypeRepo = accountTypeRepo;
             _journalLineRepo = journalLineRepo;
+            _journalRepo = journalRepo;
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
@@ -599,6 +602,11 @@ namespace Application.Services
                 using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
+                // Lazy-post any expense-derived journal entries whose EntryDate has now arrived.
+                // Picks up monthly amortization rows that were pre-created with IsPosted=false
+                // and rolls them forward without needing a scheduled job.
+                await AutoPostDueExpenseEntriesAsync(linkedCts.Token);
+
                 var account = await _accountRepo.Query()
                     .Include(a => a.AccountType)
                     .FirstOrDefaultAsync(a => a.Id == accountId, linkedCts.Token);
@@ -657,6 +665,34 @@ namespace Application.Services
                     ));
                 }
 
+                // Append pending (unposted, future-dated) expense lines as informational credits.
+                // These represent amounts not yet recognized; running balance does not change.
+                var pendingLines = await _journalLineRepo.Query()
+                    .Include(l => l.JournalEntry)
+                    .Where(l => l.AccountId == accountId &&
+                               !l.JournalEntry.IsPosted &&
+                               !l.JournalEntry.IsVoided &&
+                               l.JournalEntry.ReferenceType == "Expense" &&
+                               l.JournalEntry.EntryDate >= startDate &&
+                               l.JournalEntry.EntryDate < endDate &&
+                               l.DebitAmount > 0)
+                    .OrderBy(l => l.JournalEntry.EntryDate)
+                    .ThenBy(l => l.JournalEntry.EntryNumber)
+                    .ToListAsync(linkedCts.Token);
+
+                foreach (var line in pendingLines)
+                {
+                    transactions.Add(new GeneralLedgerLineDto(
+                        line.JournalEntry.EntryDate,
+                        line.JournalEntry.EntryNumber,
+                        line.Description ?? line.JournalEntry.Description,
+                        0m,
+                        line.DebitAmount,
+                        runningBalance,
+                        true
+                    ));
+                }
+
                 var result = new GeneralLedgerDto(
                     accountId,
                     account.AccountNumber,
@@ -682,6 +718,66 @@ namespace Application.Services
             }
         }
 
+        // Promote any unposted expense JEs whose EntryDate has now arrived. Called from
+        // GetGeneralLedgerAsync so monthly amortization rolls forward without a cron job.
+        private async Task AutoPostDueExpenseEntriesAsync(CancellationToken ct)
+        {
+            try
+            {
+                var today = DateTime.UtcNow.Date;
+
+                var dueEntries = await _journalRepo.Query(asNoTracking: false)
+                    .Include(e => e.Lines)
+                    .Where(e => !e.IsPosted &&
+                                !e.IsVoided &&
+                                e.ReferenceType == "Expense" &&
+                                e.EntryDate <= today)
+                    .ToListAsync(ct);
+
+                if (dueEntries.Count == 0)
+                    return;
+
+                var accountIds = dueEntries
+                    .SelectMany(e => e.Lines)
+                    .Select(l => l.AccountId)
+                    .Distinct()
+                    .ToList();
+
+                var accounts = await _accountRepo.Query(asNoTracking: false)
+                    .Where(a => accountIds.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, ct);
+
+                foreach (var entry in dueEntries)
+                {
+                    foreach (var line in entry.Lines)
+                    {
+                        if (accounts.TryGetValue(line.AccountId, out var acct))
+                        {
+                            acct.CurrentBalance += line.DebitAmount;
+                            acct.CurrentBalance -= line.CreditAmount;
+                        }
+                    }
+
+                    entry.IsPosted = true;
+                    entry.PostedAt = DateTime.UtcNow;
+                }
+
+                foreach (var acct in accounts.Values)
+                {
+                    _accountRepo.Update(acct);
+                }
+
+                await _uow.SaveChangesAsync(ct);
+
+                _logger.LogInformation(
+                    "Auto-posted {Count} due expense journal entries",
+                    dueEntries.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error auto-posting due expense journal entries");
+            }
+        }
 
 
         // ============================================

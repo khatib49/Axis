@@ -697,8 +697,8 @@ namespace Application.Services
             try
             {
                 var expense = await _expenseRepo.Query()
-                    .Include(e => e.Category)  // Include category
-                    .ThenInclude(c => c.Account)  // Include mapped account
+                    .Include(e => e.Category)
+                    .ThenInclude(c => c.Account)
                     .FirstOrDefaultAsync(e => e.Id == expenseId, ct);
 
                 if (expense == null)
@@ -712,19 +712,16 @@ namespace Application.Services
                     return new BaseResponse<JournalEntryOneDto>(
                         false, "Cash account (1000) not found", null);
 
-                // Get expense account - USE MAPPING if available
                 Account? expenseAccount = null;
 
                 if (expense.Category.AccountId.HasValue)
                 {
-                    // Use mapped account
                     expenseAccount = await _accountRepo.Query()
                         .FirstOrDefaultAsync(
                             a => a.Id == expense.Category.AccountId.Value && a.IsActive,
                             ct);
                 }
 
-                // Fallback to keyword matching if no mapping
                 if (expenseAccount == null)
                 {
                     expenseAccount = await DetermineExpenseAccountAsync(
@@ -732,7 +729,6 @@ namespace Application.Services
                         ct);
                 }
 
-                // Final fallback to miscellaneous
                 if (expenseAccount == null)
                 {
                     expenseAccount = await _accountRepo.Query()
@@ -745,71 +741,213 @@ namespace Application.Services
                     return new BaseResponse<JournalEntryOneDto>(
                         false, "No suitable expense account found", null);
 
-                // Create journal entry...
-                var entryNumber = await GenerateEntryNumberAsync(ct);
-                var entry = new JournalEntry
+                var allocations = BuildMonthlyAllocations(
+                    expense.Amount,
+                    expense.FromDate,
+                    expense.ToDate);
+
+                var currentMonthStart = FirstOfMonth(DateTime.UtcNow);
+
+                JournalEntry? lastEntry = null;
+
+                foreach (var (monthStart, allocation) in allocations)
                 {
-                    EntryNumber = entryNumber,
-                    EntryDate = expense.CreatedOn,
-                    Description = $"Expense #{expense.Id} - {expense.Category.Name}",
-                    ReferenceType = "Expense",
-                    ReferenceId = expense.Id,
-                    TotalAmount = expense.Amount,
-                    IsPosted = true,
-                    IsVoided = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+                    var entryDate = DateTime.SpecifyKind(monthStart, DateTimeKind.Utc);
+                    var isPosted = entryDate <= currentMonthStart;
 
-                await _journalRepo.AddAsync(entry, ct);
-                await _uow.SaveChangesAsync(ct);
+                    var entryNumber = await GenerateEntryNumberAsync(ct);
+                    var monthLabel = monthStart.ToString("MMM yyyy");
+                    var description = string.IsNullOrWhiteSpace(expense.Comment)
+                        ? $"{expense.Category.Name} - {monthLabel}"
+                        : $"{expense.Comment} - {monthLabel}";
 
-                // DEBIT Expense
-                var debitLine = new JournalEntryLine
+                    var entry = new JournalEntry
+                    {
+                        EntryNumber = entryNumber,
+                        EntryDate = entryDate,
+                        Description = description,
+                        ReferenceType = "Expense",
+                        ReferenceId = expense.Id,
+                        TotalAmount = allocation,
+                        IsPosted = isPosted,
+                        IsVoided = false,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _journalRepo.AddAsync(entry, ct);
+                    await _uow.SaveChangesAsync(ct);
+
+                    var debitLine = new JournalEntryLine
+                    {
+                        JournalEntryId = entry.Id,
+                        AccountId = expenseAccount.Id,
+                        DebitAmount = allocation,
+                        CreditAmount = 0,
+                        Description = description,
+                        LineNumber = 1,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    var creditLine = new JournalEntryLine
+                    {
+                        JournalEntryId = entry.Id,
+                        AccountId = cashAccount.Id,
+                        DebitAmount = 0,
+                        CreditAmount = allocation,
+                        Description = "Cash paid",
+                        LineNumber = 2,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _journalLineRepo.AddAsync(debitLine, ct);
+                    await _journalLineRepo.AddAsync(creditLine, ct);
+                    await _uow.SaveChangesAsync(ct);
+
+                    if (isPosted)
+                    {
+                        expenseAccount.CurrentBalance += allocation;
+                        cashAccount.CurrentBalance -= allocation;
+                    }
+
+                    lastEntry = entry;
+                }
+
+                if (allocations.Count > 0)
                 {
-                    JournalEntryId = entry.Id,
-                    AccountId = expenseAccount.Id,
-                    DebitAmount = expense.Amount,
-                    CreditAmount = 0,
-                    Description = expense.Comment ?? expense.Category.Name,
-                    LineNumber = 1,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                // CREDIT Cash
-                var creditLine = new JournalEntryLine
-                {
-                    JournalEntryId = entry.Id,
-                    AccountId = cashAccount.Id,
-                    DebitAmount = 0,
-                    CreditAmount = expense.Amount,
-                    Description = "Cash paid",
-                    LineNumber = 2,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _journalLineRepo.AddAsync(debitLine, ct);
-                await _journalLineRepo.AddAsync(creditLine, ct);
-                await _uow.SaveChangesAsync(ct);
-
-                // Update balances
-                expenseAccount.CurrentBalance += expense.Amount;
-                cashAccount.CurrentBalance -= expense.Amount;
-                _accountRepo.Update(expenseAccount);
-                _accountRepo.Update(cashAccount);
-                await _uow.SaveChangesAsync(ct);
+                    _accountRepo.Update(expenseAccount);
+                    _accountRepo.Update(cashAccount);
+                    await _uow.SaveChangesAsync(ct);
+                }
 
                 return new BaseResponse<JournalEntryOneDto>(
                     true, null, null,
-                    await MapToDto(entry, ct));
+                    lastEntry != null ? await MapToDto(lastEntry, ct) : null);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Error creating journal entry from expense {ExpenseId}",
+                    "Error creating journal entries from expense {ExpenseId}",
                     expenseId);
                 return new BaseResponse<JournalEntryOneDto>(
-                    false, "Error creating journal entry", null);
+                    false, "Error creating journal entries", null);
             }
+        }
+
+        public async Task<BaseResponse> DeleteJournalEntriesForExpenseAsync(
+            int expenseId,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                var entries = await _journalRepo.Query()
+                    .Include(e => e.Lines)
+                    .Where(e => e.ReferenceType == "Expense" && e.ReferenceId == expenseId)
+                    .ToListAsync(ct);
+
+                if (entries.Count == 0)
+                    return new BaseResponse(true, null);
+
+                var accountIdsToReload = entries
+                    .SelectMany(e => e.Lines)
+                    .Select(l => l.AccountId)
+                    .Distinct()
+                    .ToList();
+
+                var accounts = await _accountRepo.Query(asNoTracking: false)
+                    .Where(a => accountIdsToReload.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, ct);
+
+                foreach (var entry in entries)
+                {
+                    if (entry.IsPosted && !entry.IsVoided)
+                    {
+                        foreach (var line in entry.Lines)
+                        {
+                            if (accounts.TryGetValue(line.AccountId, out var acct))
+                            {
+                                acct.CurrentBalance -= line.DebitAmount;
+                                acct.CurrentBalance += line.CreditAmount;
+                            }
+                        }
+                    }
+
+                    foreach (var line in entry.Lines.ToList())
+                    {
+                        entry.Lines.Remove(line);
+                    }
+                }
+
+                await _uow.SaveChangesAsync(ct);
+
+                foreach (var entry in entries)
+                {
+                    _journalRepo.Remove(entry);
+                }
+
+                foreach (var acct in accounts.Values)
+                {
+                    _accountRepo.Update(acct);
+                }
+
+                await _uow.SaveChangesAsync(ct);
+
+                return new BaseResponse(true, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error deleting journal entries for expense {ExpenseId}",
+                    expenseId);
+                return new BaseResponse(false, "Error deleting journal entries");
+            }
+        }
+
+        private static DateTime FirstOfMonth(DateTime d)
+        {
+            return new DateTime(d.Year, d.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        }
+
+        private static List<(DateTime MonthStart, decimal Allocation)> BuildMonthlyAllocations(
+            decimal amount,
+            DateTime fromDate,
+            DateTime toDate)
+        {
+            var fromMonth = FirstOfMonth(fromDate);
+            var toMonth = FirstOfMonth(toDate);
+
+            var n = ((toMonth.Year - fromMonth.Year) * 12) + (toMonth.Month - fromMonth.Month) + 1;
+            if (n < 1) n = 1;
+
+            var result = new List<(DateTime, decimal)>(n);
+
+            if (n == 1)
+            {
+                result.Add((fromMonth, amount));
+                return result;
+            }
+
+            var monthly = Math.Round(amount / n, 2, MidpointRounding.AwayFromZero);
+            var allocatedSoFar = 0m;
+
+            for (int i = 0; i < n; i++)
+            {
+                var monthStart = fromMonth.AddMonths(i);
+                decimal allocation;
+
+                if (i == n - 1)
+                {
+                    allocation = amount - allocatedSoFar;
+                }
+                else
+                {
+                    allocation = monthly;
+                    allocatedSoFar += monthly;
+                }
+
+                result.Add((monthStart, allocation));
+            }
+
+            return result;
         }
 
         // Fallback keyword matching

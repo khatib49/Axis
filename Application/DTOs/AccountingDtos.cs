@@ -217,7 +217,8 @@
         string Description,
         decimal Debit,
         decimal Credit,
-        decimal RunningBalance
+        decimal RunningBalance,
+        bool IsPending = false
     );
 
     public record AccountSummaryDto(

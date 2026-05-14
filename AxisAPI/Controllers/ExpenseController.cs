@@ -59,5 +59,12 @@ namespace AxisAPI.Controllers
             return ok ? NoContent() : NotFound();
         }
 
+        [HttpPost("regenerate-all-journals")]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<RegenerateJournalsResultDto>> RegenerateAllJournals(CancellationToken ct)
+        {
+            var result = await _svc.RegenerateAllJournalsAsync(ct);
+            return Ok(result);
+        }
     }
 }
