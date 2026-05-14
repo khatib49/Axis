@@ -36,6 +36,11 @@ namespace Infrastructure.Repositories
             _tx = null;
         }
 
+        public void ResetChangeTracker()
+        {
+            _db.ChangeTracker.Clear();
+        }
+
         public async ValueTask DisposeAsync()
         {
             if (_tx is not null) await _tx.DisposeAsync();

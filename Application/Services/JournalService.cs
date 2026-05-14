@@ -705,7 +705,10 @@ namespace Application.Services
                     return new BaseResponse<JournalEntryOneDto>(
                         false, "Expense not found", null);
 
-                var cashAccount = await _accountRepo.Query()
+                // Fetch with tracking so we can modify CurrentBalance and let EF persist it
+                // without colliding with any instances already tracked in this DbContext
+                // (e.g. from a preceding DeleteJournalEntriesForExpenseAsync in the same request).
+                var cashAccount = await _accountRepo.Query(asNoTracking: false)
                     .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
 
                 if (cashAccount == null)
@@ -716,7 +719,7 @@ namespace Application.Services
 
                 if (expense.Category.AccountId.HasValue)
                 {
-                    expenseAccount = await _accountRepo.Query()
+                    expenseAccount = await _accountRepo.Query(asNoTracking: false)
                         .FirstOrDefaultAsync(
                             a => a.Id == expense.Category.AccountId.Value && a.IsActive,
                             ct);
@@ -731,7 +734,7 @@ namespace Application.Services
 
                 if (expenseAccount == null)
                 {
-                    expenseAccount = await _accountRepo.Query()
+                    expenseAccount = await _accountRepo.Query(asNoTracking: false)
                         .FirstOrDefaultAsync(
                             a => a.AccountNumber == "5900" && a.IsActive,
                             ct);
@@ -826,10 +829,13 @@ namespace Application.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Error creating journal entries from expense {ExpenseId}",
-                    expenseId);
+                    "Error creating journal entries from expense {ExpenseId}: {Message}",
+                    expenseId,
+                    ex.Message);
                 return new BaseResponse<JournalEntryOneDto>(
-                    false, "Error creating journal entries", null);
+                    false,
+                    $"Error creating journal entries: {ex.GetBaseException().Message}",
+                    null);
             }
         }
 
@@ -979,7 +985,7 @@ namespace Application.Services
             string accountNumber,
             CancellationToken ct)
         {
-            return await _accountRepo.Query()
+            return await _accountRepo.Query(asNoTracking: false)
                 .FirstOrDefaultAsync(
                     a => a.AccountNumber == accountNumber && a.IsActive,
                     ct);
