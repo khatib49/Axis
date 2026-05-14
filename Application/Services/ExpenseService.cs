@@ -149,7 +149,6 @@ namespace Application.Services
 
         public async Task<RegenerateJournalsResultDto> RegenerateAllJournalsAsync(CancellationToken ct)
         {
-            const int batchSize = 200;
             var processed = 0;
             var succeeded = 0;
             var failed = 0;
@@ -160,35 +159,60 @@ namespace Application.Services
                 .Select(e => e.Id)
                 .ToListAsync(ct);
 
-            for (int offset = 0; offset < allIds.Count; offset += batchSize)
+            foreach (var expenseId in allIds)
             {
-                var batch = allIds.Skip(offset).Take(batchSize).ToList();
-
-                foreach (var expenseId in batch)
+                processed++;
+                var transactionStarted = false;
+                try
                 {
-                    processed++;
-                    try
+                    await _uow.BeginTransactionAsync(ct);
+                    transactionStarted = true;
+
+                    await _journalService.DeleteJournalEntriesForExpenseAsync(expenseId, ct);
+                    var result = await _journalService.CreateJournalEntryFromExpenseAsync(expenseId, ct);
+
+                    if (result.Success)
                     {
-                        await _journalService.DeleteJournalEntriesForExpenseAsync(expenseId, ct);
-                        var result = await _journalService.CreateJournalEntryFromExpenseAsync(expenseId, ct);
-                        if (result.Success)
-                        {
-                            succeeded++;
-                        }
-                        else
-                        {
-                            failed++;
-                            errors.Add($"Expense {expenseId}: {result.Message}");
-                        }
+                        await _uow.CommitAsync(ct);
+                        transactionStarted = false;
+                        succeeded++;
                     }
-                    catch (Exception ex)
+                    else
                     {
+                        await _uow.RollbackAsync(ct);
+                        transactionStarted = false;
                         failed++;
-                        errors.Add($"Expense {expenseId}: {ex.Message}");
-                        _logger.LogError(ex,
-                            "Error regenerating journals for expense {ExpenseId}",
-                            expenseId);
+                        errors.Add($"Expense {expenseId}: {result.Message}");
+                        _logger.LogWarning(
+                            "Regenerate failed for expense {ExpenseId}, rolled back: {Message}",
+                            expenseId,
+                            result.Message);
                     }
+                }
+                catch (Exception ex)
+                {
+                    if (transactionStarted)
+                    {
+                        try { await _uow.RollbackAsync(ct); }
+                        catch (Exception rbEx)
+                        {
+                            _logger.LogError(rbEx,
+                                "Rollback failed for expense {ExpenseId}",
+                                expenseId);
+                        }
+                    }
+                    failed++;
+                    errors.Add($"Expense {expenseId}: {ex.GetBaseException().Message}");
+                    _logger.LogError(ex,
+                        "Error regenerating journals for expense {ExpenseId}",
+                        expenseId);
+                }
+                finally
+                {
+                    // Each expense is processed in isolation; clear tracked state so the
+                    // next iteration sees fresh DB values and a poisoned tracker after a
+                    // rollback cannot leak into subsequent saves.
+                    _uow.ResetChangeTracker();
                 }
             }
 
