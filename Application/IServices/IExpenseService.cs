@@ -9,6 +9,6 @@ namespace Application.IServices
         Task<bool> DeleteAsync(int id, CancellationToken ct);
         Task<ExpenseDto?> GetByIdAsync(int id, CancellationToken ct);
         Task<PagedExpensesResult> QueryAsync(ExpenseFilter filter, CancellationToken ct);
-
+        Task<RegenerateJournalsResultDto> RegenerateAllJournalsAsync(CancellationToken ct);
     }
 }

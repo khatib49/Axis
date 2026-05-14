@@ -69,5 +69,11 @@
     bool IsCapital
 );
 
+    public record RegenerateJournalsResultDto(
+        int Processed,
+        int Succeeded,
+        int Failed,
+        List<string> Errors
+    );
 
 }

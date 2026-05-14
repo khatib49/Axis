@@ -106,6 +106,19 @@ namespace Application.Services
             _expenseRepo.Update(entity);
 
             await _uow.SaveChangesAsync(ct);
+
+            try
+            {
+                await _journalService.DeleteJournalEntriesForExpenseAsync(id, ct);
+                await _journalService.CreateJournalEntryFromExpenseAsync(id, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to regenerate journal entries after updating expense {ExpenseId}",
+                    id);
+            }
+
             var catName = (await _catRepo.Query().Where(c => c.Id == entity.FK_CategoryId)
                                     .Select(c => c.Name).FirstAsync(ct));
 
@@ -117,10 +130,69 @@ namespace Application.Services
             var entity = await _expenseRepo.Query().FirstOrDefaultAsync(e => e.Id == id, ct);
             if (entity is null) return false;
 
+            try
+            {
+                await _journalService.DeleteJournalEntriesForExpenseAsync(id, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to delete journal entries for expense {ExpenseId}",
+                    id);
+            }
+
             _expenseRepo.Remove(entity);
 
             await _uow.SaveChangesAsync(ct);
             return true;
+        }
+
+        public async Task<RegenerateJournalsResultDto> RegenerateAllJournalsAsync(CancellationToken ct)
+        {
+            const int batchSize = 200;
+            var processed = 0;
+            var succeeded = 0;
+            var failed = 0;
+            var errors = new List<string>();
+
+            var allIds = await _expenseRepo.Query()
+                .OrderBy(e => e.Id)
+                .Select(e => e.Id)
+                .ToListAsync(ct);
+
+            for (int offset = 0; offset < allIds.Count; offset += batchSize)
+            {
+                var batch = allIds.Skip(offset).Take(batchSize).ToList();
+
+                foreach (var expenseId in batch)
+                {
+                    processed++;
+                    try
+                    {
+                        await _journalService.DeleteJournalEntriesForExpenseAsync(expenseId, ct);
+                        var result = await _journalService.CreateJournalEntryFromExpenseAsync(expenseId, ct);
+                        if (result.Success)
+                        {
+                            succeeded++;
+                        }
+                        else
+                        {
+                            failed++;
+                            errors.Add($"Expense {expenseId}: {result.Message}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        errors.Add($"Expense {expenseId}: {ex.Message}");
+                        _logger.LogError(ex,
+                            "Error regenerating journals for expense {ExpenseId}",
+                            expenseId);
+                    }
+                }
+            }
+
+            return new RegenerateJournalsResultDto(processed, succeeded, failed, errors);
         }
 
         public async Task<ExpenseDto?> GetByIdAsync(int id, CancellationToken ct)
