@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.IServices;
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,23 +21,30 @@ namespace AxisAPI.Controllers
         }
 
         /// <summary>
-        /// One-time backfill: creates missing journal entries for all completed transactions.
+        /// Kicks off a background backfill: creates missing journal entries for all
+        /// completed transactions AND re-points existing entries to their currently
+        /// mapped account when the mapping has changed. Returns immediately with a
+        /// Hangfire job id; check progress at /hangfire.
         /// </summary>
         [HttpPost("backfill/transactions")]
-        public async Task<ActionResult<BackfillResultDto>> BackfillTransactions(CancellationToken ct)
+        public IActionResult BackfillTransactions()
         {
-            var result = await _backfillSvc.BackfillTransactionsAsync(ct);
-            return Ok(result);
+            var jobId = BackgroundJob.Enqueue<IBackfillService>(
+                s => s.BackfillTransactionsBgAsync(CancellationToken.None));
+            return Accepted(new { jobId, message = "Transaction backfill started in background." });
         }
 
         /// <summary>
-        /// One-time backfill: creates missing journal entries for all expenses.
+        /// Kicks off a background backfill: creates missing journal entries for all
+        /// expenses AND re-points existing entries to their currently mapped account
+        /// when the mapping has changed. Returns immediately with a Hangfire job id.
         /// </summary>
         [HttpPost("backfill/expenses")]
-        public async Task<ActionResult<BackfillResultDto>> BackfillExpenses(CancellationToken ct)
+        public IActionResult BackfillExpenses()
         {
-            var result = await _backfillSvc.BackfillExpensesAsync(ct);
-            return Ok(result);
+            var jobId = BackgroundJob.Enqueue<IBackfillService>(
+                s => s.BackfillExpensesBgAsync(CancellationToken.None));
+            return Accepted(new { jobId, message = "Expense backfill started in background." });
         }
 
         /// <summary>
