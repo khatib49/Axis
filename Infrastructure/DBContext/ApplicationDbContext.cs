@@ -46,6 +46,7 @@ namespace Infrastructure.Persistence
         public DbSet<WeeklyWinner> WeeklyWinners { get; set; }
         public DbSet<MonthlyWinner> MonthlyWinners { get; set; }
         public DbSet<TransactionAuditLog> TransactionAuditLogs => Set<TransactionAuditLog>();
+        public DbSet<Channel> Channels => Set<Channel>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -60,6 +61,30 @@ namespace Infrastructure.Persistence
                 .WithMany()
                 .HasForeignKey(x => x.TransactionId)
                 .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Channel configuration. The Channels table and the
+            // transactions.ChannelId column are added manually via a one-off
+            // ALTER script (see deployment notes); this config keeps EF Core
+            // aware of the mapping. SetNull on delete keeps historical
+            // transactions intact even if a channel is later removed.
+            b.Entity<Channel>(e =>
+            {
+                e.ToTable("Channels");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Description).HasMaxLength(500);
+                e.Property(x => x.IsActive).HasDefaultValue(true);
+                e.HasIndex(x => x.Name).IsUnique();
+            });
+
+            b.Entity<TransactionRecord>(e =>
+            {
+                e.HasOne(x => x.Channel)
+                 .WithMany(c => c.Transactions)
+                 .HasForeignKey(x => x.ChannelId)
+                 .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.ChannelId);
             });
 
             // KitchenBarOrder Configuration

@@ -164,6 +164,7 @@ namespace Application.Services
                 .Include(s => s.Status)
                 .Include(s => s.Set) // Include Set
                 .Include(s => s.Discount)
+                .Include(s => s.Channel) // sales channel (e.g. Toters)
                 .Include(s => s.TransactionItems)
                     .ThenInclude(ti => ti.Item)
                         .ThenInclude(i => i.CoffeeShopOrders)
@@ -215,7 +216,9 @@ namespace Application.Services
                 e.GameSetting?.IsDayPass ?? false,
                 e.Comment,
                 null,
-                null
+                null,
+                e.ChannelId,
+                e.Channel != null ? e.Channel.Name : null
             );
         }
         public async Task<PaginatedResponse<TransactionDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
@@ -499,7 +502,7 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest,
-            string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null)
+            string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null, int? channelId = null)
         {
 
             var reqId = GetReqId();
@@ -597,6 +600,10 @@ namespace Application.Services
                 DiscountId = discount?.Id,
                 Comment = comment,
                 FK_FoodStatusId = 11,
+                // Optional sales channel (e.g. Toters). The cashier picks this
+                // on the F&B order form when the order came in via an external
+                // app; null means a normal walk-in / direct order.
+                ChannelId = channelId,
             };
 
 
@@ -1805,6 +1812,60 @@ namespace Application.Services
             };
             await _repoAuditLog.AddAsync(log, ct);
             // Caller must call SaveChangesAsync — log is batched with the main save
+        }
+
+        // ===========================================================
+        // Main dashboard: transactions filtered by created date + channel.
+        // Used by the new "Transactions" card on the home dashboard, with
+        // an .xlsx export endpoint sharing the same query path.
+        // ===========================================================
+        public async Task<PaginatedResponse<DashboardTransactionRowDto>> GetDashboardTransactionsAsync(
+            DashboardTransactionsFilterDto filter,
+            CancellationToken ct = default)
+        {
+            // CreatedOn-based filter to match the rest of the dashboards.
+            var fromInclusive = filter.From?.Date;
+            var toExclusive = filter.To?.Date.AddDays(1);
+
+            var q = _repo.Query();
+
+            if (fromInclusive.HasValue)
+                q = q.Where(t => t.CreatedOn >= fromInclusive.Value);
+            if (toExclusive.HasValue)
+                q = q.Where(t => t.CreatedOn < toExclusive.Value);
+            if (filter.ChannelId.HasValue)
+                q = q.Where(t => t.ChannelId == filter.ChannelId.Value);
+
+            // Total count first so the FE can render pagination.
+            var totalCount = await q.CountAsync(ct);
+
+            // Paginate at the DB. Pass Page=null + PageSize=null from the
+            // controller for the export endpoint to skip paging entirely.
+            var page = filter.Page ?? 1;
+            var pageSize = filter.PageSize ?? 20;
+            var unpaged = !filter.Page.HasValue && !filter.PageSize.HasValue;
+
+            var ordered = q.OrderByDescending(t => t.CreatedOn).ThenByDescending(t => t.Id);
+            IQueryable<TransactionRecord> windowed = ordered;
+            if (!unpaged)
+                windowed = ordered.Skip((page - 1) * pageSize).Take(pageSize);
+
+            var rows = await windowed
+                .Select(t => new DashboardTransactionRowDto(
+                    t.Id,
+                    t.CreatedOn,
+                    t.CreatedBy,
+                    t.StatusId,
+                    t.TotalPrice,
+                    t.ChannelId,
+                    t.Channel != null ? t.Channel.Name : null,
+                    t.Comment,
+                    t.TransactionItems.Count
+                ))
+                .ToListAsync(ct);
+
+            return new PaginatedResponse<DashboardTransactionRowDto>(
+                totalCount, rows, page, pageSize);
         }
 
     }

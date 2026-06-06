@@ -1,6 +1,7 @@
 ﻿using Application.DTOs;
 using Application.IServices;
 using AxisAPI.Logging;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,6 +18,103 @@ namespace AxisAPI.Controllers
         {
             _transactionService = transationService;
             _httpContextAccessor = httpContextAccessor;
+        }
+
+        /// <summary>
+        /// Main-dashboard transactions list. Filters by created date range
+        /// + optional channelId. Used by the new "Transactions" card on the
+        /// home dashboard.
+        /// </summary>
+        [HttpGet("dashboard")]
+        [Authorize]
+        public async Task<IActionResult> DashboardList(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int? channelId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            CancellationToken ct = default)
+        {
+            var filter = new DashboardTransactionsFilterDto(from, to, channelId, page, pageSize);
+            var result = await _transactionService.GetDashboardTransactionsAsync(filter, ct);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Streams the same filtered transactions as a .xlsx file. Shares
+        /// the same query path as DashboardList — pass Page=null /
+        /// PageSize=null on the service to get every matching row.
+        /// </summary>
+        [HttpGet("dashboard/export")]
+        [Authorize]
+        public async Task<IActionResult> DashboardExport(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int? channelId,
+            CancellationToken ct = default)
+        {
+            // Page=null + PageSize=null → service skips paging entirely.
+            var filter = new DashboardTransactionsFilterDto(from, to, channelId, null, null);
+            var result = await _transactionService.GetDashboardTransactionsAsync(filter, ct);
+            var rows = result.Data ?? new List<DashboardTransactionRowDto>();
+
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet("Transactions");
+
+            // Header
+            string[] headers = {
+                "ID", "Created (UTC)", "Created By", "Status", "Channel",
+                "Total", "Items", "Comment"
+            };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(1, i + 1).Value = headers[i];
+                ws.Cell(1, i + 1).Style.Font.Bold = true;
+                ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#1F4E79");
+                ws.Cell(1, i + 1).Style.Font.FontColor = XLColor.White;
+            }
+
+            int row = 2;
+            foreach (var t in rows)
+            {
+                ws.Cell(row, 1).Value = t.Id;
+                ws.Cell(row, 2).Value = t.CreatedOn;
+                ws.Cell(row, 2).Style.DateFormat.Format = "yyyy-mm-dd hh:mm";
+                ws.Cell(row, 3).Value = t.CreatedBy;
+                ws.Cell(row, 4).Value = t.StatusId;
+                ws.Cell(row, 5).Value = t.ChannelName ?? "Direct";
+                ws.Cell(row, 6).Value = t.TotalPrice;
+                ws.Cell(row, 6).Style.NumberFormat.Format = "$#,##0.00";
+                ws.Cell(row, 7).Value = t.ItemsCount;
+                ws.Cell(row, 8).Value = t.Comment ?? string.Empty;
+                row++;
+            }
+
+            // Totals row
+            if (rows.Count > 0)
+            {
+                ws.Cell(row, 1).Value = "TOTAL";
+                ws.Cell(row, 1).Style.Font.Bold = true;
+                ws.Cell(row, 6).FormulaA1 = $"=SUM(F2:F{row - 1})";
+                ws.Cell(row, 6).Style.Font.Bold = true;
+                ws.Cell(row, 6).Style.NumberFormat.Format = "$#,##0.00";
+                ws.Cell(row, 7).FormulaA1 = $"=SUM(G2:G{row - 1})";
+                ws.Cell(row, 7).Style.Font.Bold = true;
+            }
+
+            ws.Columns().AdjustToContents();
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            ms.Position = 0;
+
+            var fromStr = from?.ToString("yyyyMMdd") ?? "all";
+            var toStr = to?.ToString("yyyyMMdd") ?? "all";
+            var filename = $"transactions_{fromStr}_{toStr}.xlsx";
+
+            return File(ms.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename);
         }
 
         [HttpDelete("{transactionId:int}/items/{itemId:int}")]
@@ -113,7 +211,7 @@ namespace AxisAPI.Controllers
         public async Task<IActionResult> CreateCoffeeShopOrder([FromBody] CreateCoffeeShopOrderRequest request, CancellationToken ct )
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var created = await _transactionService.CreateCoffeeShopOrder(request.UserId, request.DiscountId, request.ItemsRequest, createdBy, ct, request.Comment, request.IsOpenInvoice, request.setId);
+            var created = await _transactionService.CreateCoffeeShopOrder(request.UserId, request.DiscountId, request.ItemsRequest, createdBy, ct, request.Comment, request.IsOpenInvoice, request.setId, request.ChannelId);
             return created.Success ? Ok(created) : BadRequest(created);
         }
 

@@ -51,5 +51,11 @@ namespace Domain.Entities
         public int? FK_FoodStatusId { get; set; }
         public Status? FoodStatus { get; set; }
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
+
+        // Optional sales channel the order came through (Toters, Phone, etc.).
+        // Null = direct in-house order. Backed by a manually-added DB column;
+        // see the ALTER script delivered alongside the code change.
+        public int? ChannelId { get; set; }
+        public Channel? Channel { get; set; }
     }
 }

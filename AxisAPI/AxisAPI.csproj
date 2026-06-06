@@ -22,6 +22,9 @@
 		<PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
 		<PackageReference Include="Serilog.Sinks.PostgreSQL" Version="2.3.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+		<!-- Used by the main-dashboard "Export Excel" button to build .xlsx
+		     server-side. MIT-licensed, no native deps. -->
+		<PackageReference Include="ClosedXML" Version="0.102.2" />
 	</ItemGroup>
 
 	<ItemGroup>

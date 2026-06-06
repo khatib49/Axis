@@ -1093,6 +1093,9 @@ namespace Infrastructure.Migrations
                     b.Property<int?>("CardId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("ChannelId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Comment")
                         .HasColumnType("text");
 
@@ -1157,6 +1160,8 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("CardId");
 
+                    b.HasIndex("ChannelId");
+
                     b.HasIndex("DiscountId");
 
                     b.HasIndex("FoodStatusId");
@@ -1176,6 +1181,42 @@ namespace Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("transactions", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Channel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Channels", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.UserCard", b =>
@@ -1968,6 +2009,11 @@ namespace Infrastructure.Migrations
                         .WithMany("Transactions")
                         .HasForeignKey("CardId");
 
+                    b.HasOne("Domain.Entities.Channel", "Channel")
+                        .WithMany("Transactions")
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Domain.Entities.Discount", "Discount")
                         .WithMany()
                         .HasForeignKey("DiscountId");
@@ -2010,6 +2056,8 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Identity.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId");
+
+                    b.Navigation("Channel");
 
                     b.Navigation("Discount");
 
@@ -2167,6 +2215,11 @@ namespace Infrastructure.Migrations
                     b.Navigation("Transactions");
 
                     b.Navigation("UserCards");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Channel", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("Domain.Entities.Category", b =>

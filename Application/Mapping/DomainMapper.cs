@@ -113,8 +113,10 @@ namespace Application.Mapping
                 e.numberOfPersons,
                 e.GameSetting?.IsDayPass ?? false,
                 e.Comment,
-        e.UserId,                                  
-        e.User?.DisplayName ?? e.User?.UserName
+        e.UserId,
+        e.User?.DisplayName ?? e.User?.UserName,
+        e.ChannelId,
+        e.Channel != null ? e.Channel.Name : null
             );
 
 

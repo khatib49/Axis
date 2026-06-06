@@ -33,8 +33,13 @@
         int numberOfPersons,
         bool IsDayPass,
         string? Comment,
-        int? UserId,        
-        string? UserName
+        int? UserId,
+        string? UserName,
+        // Sales channel the F&B order came through (Toters, etc.).
+        // Null = in-house / direct. Trailing nullable defaults keep this
+        // field backward-compatible with positional callers.
+        int? ChannelId = null,
+        string? ChannelName = null
      );
     public record RemoveItemFromInvoiceDto(int ItemId);
     public record UpdateSetRequest(int? SetId);
@@ -44,7 +49,11 @@
     int DiscountId,
     bool IsOpenInvoice,
     int? setId,
-    string? Comment
+    string? Comment,
+    // Optional sales channel (e.g. Toters). Sent by the cashier UI when the
+    // order originated externally. Trailing nullable default keeps existing
+    // callers (any older clients still passing positional args) compatible.
+    int? ChannelId = null
 );
 
     public record TransactionCreateDto(
@@ -65,6 +74,30 @@
         );
 
     public record OrderItemRequest(int ItemId, int Quantity);
+
+    // Main-dashboard transactions filter: by created-date range and optional
+    // ChannelId. Used by the new "Transactions" card on the home dashboard
+    // (with Excel export). Page/PageSize are optional — pass null for an
+    // unpaged export-style fetch.
+    public record DashboardTransactionsFilterDto(
+        DateTime? From,
+        DateTime? To,
+        int? ChannelId,
+        int? Page = 1,
+        int? PageSize = 20
+    );
+
+    public record DashboardTransactionRowDto(
+        int Id,
+        DateTime CreatedOn,
+        string CreatedBy,
+        int StatusId,
+        decimal TotalPrice,
+        int? ChannelId,
+        string? ChannelName,
+        string? Comment,
+        int ItemsCount
+    );
     public record TransactionUpdateDto(
     int? RoomId,    
     int? GameTypeId,

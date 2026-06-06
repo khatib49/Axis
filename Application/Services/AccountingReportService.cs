@@ -147,6 +147,16 @@ namespace Application.Services
             bool IsExpenseLike(string? typeName)
                 => typeName == null || string.Equals(typeName, "Expense", StringComparison.OrdinalIgnoreCase);
 
+            // Capital investments are accounted for as Assets (1500 Gaming
+            // Equipment, 1510 Furniture, etc.) by convention. Some users map
+            // them to Expense accounts instead; both are valid in practice.
+            // Allow Expense, Asset, or unmapped — exclude only the obvious
+            // misclassifications (Revenue / Equity / Liability).
+            bool IsCapitalLike(string? typeName)
+                => typeName == null
+                || string.Equals(typeName, "Expense", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(typeName, "Asset", StringComparison.OrdinalIgnoreCase);
+
             var operatingLines = manualEntries
                 .Where(x => !x.IsCapital && IsExpenseLike(x.AccountTypeName))
                 .GroupBy(x => x.CategoryName)
@@ -155,7 +165,7 @@ namespace Application.Services
                 .ToList();
 
             var capitalLines = manualEntries
-                .Where(x => x.IsCapital && IsExpenseLike(x.AccountTypeName))
+                .Where(x => x.IsCapital && IsCapitalLike(x.AccountTypeName))
                 .GroupBy(x => x.CategoryName)
                 .Select(g => new ExpenseCategoryLineDto(g.Key, g.Sum(x => x.Amount)))
                 .OrderByDescending(x => x.Amount)
@@ -288,9 +298,19 @@ namespace Application.Services
                 })
                 .ToListAsync(ct);
 
+            // Capital breakdown allows Asset-mapped categories too (the proper
+            // accounting treatment for capital investments); operating only
+            // accepts Expense-type or unmapped.
+            bool keep(string? typeName)
+            {
+                if (typeName == null) return true;
+                if (string.Equals(typeName, "Expense", StringComparison.OrdinalIgnoreCase)) return true;
+                if (capitalOnly && string.Equals(typeName, "Asset", StringComparison.OrdinalIgnoreCase)) return true;
+                return false;
+            }
+
             return lines
-                .Where(x => x.AccountTypeName == null
-                            || string.Equals(x.AccountTypeName, "Expense", StringComparison.OrdinalIgnoreCase))
+                .Where(x => keep(x.AccountTypeName))
                 .GroupBy(x => x.CategoryName)
                 .Select(g => new ExpenseCategoryLineDto(g.Key, g.Sum(x => x.Amount)))
                 .OrderByDescending(x => x.Amount)
