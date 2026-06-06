@@ -105,8 +105,13 @@ namespace Application.Services
             var grossProfit = totalRevenue - tcgCogs;
 
             // ── 3. Manual entries (Expense table) ──────────────────────
-            // Filter rows whose period overlaps the selected range:
-            //   e.FromDate <= to  AND  e.ToDate >= from
+            // Filter by CreatedOn (when the row was entered into the system),
+            // not by the FromDate/ToDate of the expense period. This matches
+            // how Revenue is filtered (TransactionRecord.CreatedOn) so the
+            // whole dashboard speaks the same date language. Per Rami's CR:
+            // "all the data should be based on filter reporting period" —
+            // CreatedOn is the rule.
+            //
             // We also pull the mapped Account + AccountType + AccountNumber so we
             // can classify each row by what it actually is (Expense / Equity /
             // Revenue / Asset / Liability) — not by the fact that it lives in
@@ -117,9 +122,9 @@ namespace Application.Services
                 .Where(e => e.Category != null);
 
             if (from.HasValue)
-                expQ = expQ.Where(e => e.ToDate >= from.Value.Date);
-            if (to.HasValue)
-                expQ = expQ.Where(e => e.FromDate <= to.Value.Date);
+                expQ = expQ.Where(e => e.CreatedOn >= from.Value.Date);
+            if (toExclusive.HasValue)
+                expQ = expQ.Where(e => e.CreatedOn < toExclusive.Value);
 
             var manualEntries = await expQ
                 .Select(e => new
@@ -259,14 +264,18 @@ namespace Application.Services
             // expenses (mapped to an Expense-type account, or unmapped legacy
             // rows). Equity draws and Revenue lines should not appear in an
             // "Expenses Breakdown" report.
+            //
+            // Filter by CreatedOn (when the row was entered) to match the
+            // dashboard's reporting-period filter.
+            var toExclusive = to?.Date.AddDays(1);
             var expQ = _expenseRepo.Query()
                 .Where(e => e.Category != null)
                 .Where(e => e.Category.IsCapital == capitalOnly);
 
             if (from.HasValue)
-                expQ = expQ.Where(e => e.ToDate >= from.Value.Date);
-            if (to.HasValue)
-                expQ = expQ.Where(e => e.FromDate <= to.Value.Date);
+                expQ = expQ.Where(e => e.CreatedOn >= from.Value.Date);
+            if (toExclusive.HasValue)
+                expQ = expQ.Where(e => e.CreatedOn < toExclusive.Value);
 
             var lines = await expQ
                 .Select(e => new
