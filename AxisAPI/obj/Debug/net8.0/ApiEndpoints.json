@@ -282,6 +282,22 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.AccountsController",
+    "Method": "RepointLines",
+    "RelativePath": "api/Accounts/repoint-lines",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "Application.DTOs.RepointLinesRequestDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.AccountsController",
     "Method": "SearchAccounts",
     "RelativePath": "api/Accounts/search",
     "HttpMethod": "POST",

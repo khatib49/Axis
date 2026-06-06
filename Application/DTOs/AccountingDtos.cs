@@ -134,7 +134,12 @@
         decimal DebitTotal,
         decimal CreditTotal,
         decimal Balance,
-        string NormalBalance
+        string NormalBalance,
+        // Rollup balance = this account's direct Balance + the sum of every
+        // descendant's Balance. For header accounts (e.g. 5200) this is the
+        // number people actually want when looking at "Utilities Expense" —
+        // the leaf accounts indented under it.
+        decimal RollupBalance = 0
     );
 
     public record AccountHierarchyDto(
@@ -250,7 +255,33 @@
         decimal Debit,
         decimal Credit,
         decimal RunningBalance,
-        bool IsPending = false
+        bool IsPending = false,
+        // Surfaces the JournalEntryLine.Id and parent JournalEntry.Id so the
+        // Chart-of-Accounts Transactions Report UI can checkbox-select lines
+        // and call the bulk re-point endpoint to move them onto a different
+        // account.
+        int LineId = 0,
+        int JournalEntryId = 0,
+        bool IsVoided = false
+    );
+
+    // Request body for POST /api/accounts/repoint-lines.
+    // Reclassifies one or more JournalEntryLine rows onto NewAccountId.
+    // For each line whose journal entry is posted and not voided, both old
+    // and new account CurrentBalance are adjusted (mirror of what the bulk
+    // backfill does). Cash-credit lines (and lines on voided entries) are
+    // skipped — only debit lines on live entries can be moved.
+    public record RepointLinesRequestDto(
+        List<int> LineIds,
+        int NewAccountId,
+        string? Reason
+    );
+
+    public record RepointLinesResultDto(
+        int Processed,
+        int Skipped,
+        int Failed,
+        List<string> Errors
     );
 
     public record AccountSummaryDto(

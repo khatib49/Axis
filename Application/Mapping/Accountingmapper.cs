@@ -156,14 +156,21 @@ namespace Application.Mapping
             string description,
             decimal debit,
             decimal credit,
-            decimal runningBalance) =>
+            decimal runningBalance,
+            int lineId = 0,
+            int journalEntryId = 0,
+            bool isVoided = false) =>
             new GeneralLedgerLineDto(
                 date,
                 entryNumber,
                 description,
                 debit,
                 credit,
-                runningBalance
+                runningBalance,
+                false,
+                lineId,
+                journalEntryId,
+                isVoided
             );
     }
 }

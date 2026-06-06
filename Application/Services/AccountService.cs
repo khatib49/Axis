@@ -454,24 +454,63 @@ namespace Application.Services
         {
             try
             {
+                // Load all active accounts up front + every posted, non-voided
+                // journal-entry line in one shot. Then compute each account's
+                // direct balance and rollup (self + descendants) in memory.
+                // This replaces the previous N+1 query loop and makes the
+                // Chart of Accounts page load much faster.
                 var accounts = await _accountRepo.Query()
                     .Include(a => a.AccountType)
                     .Where(a => a.IsActive)
                     .OrderBy(a => a.AccountNumber)
                     .ToListAsync(ct);
 
-                var balances = new List<AccountBalanceDto>();
+                var lineSums = await _journalLineRepo.Query()
+                    .Where(l => l.JournalEntry.IsPosted && !l.JournalEntry.IsVoided)
+                    .GroupBy(l => l.AccountId)
+                    .Select(g => new { AccountId = g.Key, Debit = g.Sum(l => l.DebitAmount), Credit = g.Sum(l => l.CreditAmount) })
+                    .ToDictionaryAsync(x => x.AccountId, x => (x.Debit, x.Credit), ct);
 
-                foreach (var account in accounts)
+                var byId = accounts.ToDictionary(a => a.Id);
+                var childrenByParent = accounts
+                    .Where(a => a.ParentAccountId.HasValue)
+                    .GroupBy(a => a.ParentAccountId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Select(a => a.Id).ToList());
+
+                // Direct balance per account (signed against normal balance).
+                var direct = new Dictionary<int, decimal>(accounts.Count);
+                foreach (var a in accounts)
                 {
-                    var lines = await _journalLineRepo.Query()
-                        .Where(l => l.AccountId == account.Id && l.JournalEntry.IsPosted && !l.JournalEntry.IsVoided)
-                        .ToListAsync(ct);
+                    lineSums.TryGetValue(a.Id, out var sums);
+                    var bal = a.AccountType.NormalBalance == "Debit"
+                        ? sums.Debit - sums.Credit
+                        : sums.Credit - sums.Debit;
+                    direct[a.Id] = bal;
+                }
 
-                    var debitTotal = lines.Sum(l => l.DebitAmount);
-                    var creditTotal = lines.Sum(l => l.CreditAmount);
+                // Rollup balance: self + every descendant's direct (sign-
+                // consistent because every descendant has the same AccountType
+                // as the header in practice; if not, we still sum the signed
+                // direct values so an Equity child under an Expense header
+                // doesn't distort the parent's bucket).
+                var rollup = new Dictionary<int, decimal>(accounts.Count);
+                decimal ComputeRollup(int id)
+                {
+                    if (rollup.TryGetValue(id, out var cached)) return cached;
+                    var total = direct[id];
+                    if (childrenByParent.TryGetValue(id, out var kids))
+                        foreach (var kid in kids) total += ComputeRollup(kid);
+                    rollup[id] = total;
+                    return total;
+                }
+                foreach (var a in accounts) ComputeRollup(a.Id);
 
-                    balances.Add(_mapper.ToBalanceDto(account, debitTotal, creditTotal));
+                var balances = new List<AccountBalanceDto>(accounts.Count);
+                foreach (var a in accounts)
+                {
+                    lineSums.TryGetValue(a.Id, out var sums);
+                    var dto = _mapper.ToBalanceDto(a, sums.Debit, sums.Credit);
+                    balances.Add(dto with { RollupBalance = rollup[a.Id] });
                 }
 
                 return new BaseResponse<IReadOnlyList<AccountBalanceDto>>(true, null, null, balances);
@@ -661,7 +700,10 @@ namespace Application.Services
                         line.Description ?? line.JournalEntry.Description,
                         line.DebitAmount,
                         line.CreditAmount,
-                        runningBalance
+                        runningBalance,
+                        line.Id,
+                        line.JournalEntryId,
+                        line.JournalEntry.IsVoided
                     ));
                 }
 
@@ -689,7 +731,10 @@ namespace Application.Services
                         0m,
                         line.DebitAmount,
                         runningBalance,
-                        true
+                        true,
+                        line.Id,
+                        line.JournalEntryId,
+                        line.JournalEntry.IsVoided
                     ));
                 }
 
@@ -860,6 +905,127 @@ namespace Application.Services
                 .ToListAsync(ct);
 
             return accounts;
+        }
+
+        // Bulk-reclassify journal-entry lines to a different account.
+        // Used by the "Transactions Report" UI on Chart of Accounts so an admin
+        // can checkbox-select lines and move them to the correct leaf account
+        // without writing SQL or trusting a category-wide backfill.
+        //
+        // Rules:
+        //   - Skip lines on voided journal entries (can't mutate history).
+        //   - Skip lines already on NewAccountId (no-op).
+        //   - For each remaining line: if its JE is posted, debit/credit the
+        //     old and new Account.CurrentBalance accordingly; then point the
+        //     line at NewAccountId.
+        //   - Save once at the end.
+        //
+        // This is idempotent — re-running with the same input is safe; lines
+        // already on the target are skipped.
+        public async Task<BaseResponse<RepointLinesResultDto>> RepointJournalEntryLinesAsync(
+            RepointLinesRequestDto dto,
+            int? actorUserId,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                if (dto.LineIds == null || dto.LineIds.Count == 0)
+                    return new BaseResponse<RepointLinesResultDto>(true, null, "Nothing to move",
+                        new RepointLinesResultDto(0, 0, 0, new List<string>()));
+
+                var target = await _accountRepo.Query(asNoTracking: false)
+                    .Include(a => a.AccountType)
+                    .FirstOrDefaultAsync(a => a.Id == dto.NewAccountId && a.IsActive, ct);
+
+                if (target == null)
+                    return new BaseResponse<RepointLinesResultDto>(false, "Target account not found or inactive", null);
+
+                if (!target.AllowManualEntry)
+                    return new BaseResponse<RepointLinesResultDto>(false,
+                        $"Target account {target.AccountNumber} does not allow manual entry. Pick a leaf (postable) account.", null);
+
+                var lines = await _journalLineRepo.Query(asNoTracking: false)
+                    .Include(l => l.JournalEntry)
+                    .Where(l => dto.LineIds.Contains(l.Id))
+                    .ToListAsync(ct);
+
+                if (lines.Count == 0)
+                    return new BaseResponse<RepointLinesResultDto>(true, null, "Nothing to move",
+                        new RepointLinesResultDto(0, 0, 0, new List<string>()));
+
+                // Load every old account referenced by the selected lines with
+                // tracking + AccountType so the balance math is correct.
+                var oldAccountIds = lines.Select(l => l.AccountId).Distinct().ToList();
+                var oldAccounts = await _accountRepo.Query(asNoTracking: false)
+                    .Include(a => a.AccountType)
+                    .Where(a => oldAccountIds.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, ct);
+
+                int processed = 0, skipped = 0, failed = 0;
+                var errors = new List<string>();
+
+                foreach (var line in lines)
+                {
+                    try
+                    {
+                        if (line.JournalEntry.IsVoided)
+                        {
+                            skipped++;
+                            errors.Add($"Line {line.Id}: parent entry is voided, skipped");
+                            continue;
+                        }
+                        if (line.AccountId == target.Id)
+                        {
+                            skipped++;
+                            continue;
+                        }
+                        if (!oldAccounts.TryGetValue(line.AccountId, out var oldAcct))
+                        {
+                            failed++;
+                            errors.Add($"Line {line.Id}: old account not found");
+                            continue;
+                        }
+
+                        if (line.JournalEntry.IsPosted)
+                        {
+                            // Reverse the line's effect on the old account, then
+                            // apply it to the new account. LineEffectOn handles
+                            // the debit/credit sign per AccountType.NormalBalance.
+                            var oldEffect = oldAcct.AccountType.NormalBalance == "Debit"
+                                ? line.DebitAmount - line.CreditAmount
+                                : line.CreditAmount - line.DebitAmount;
+                            var newEffect = target.AccountType.NormalBalance == "Debit"
+                                ? line.DebitAmount - line.CreditAmount
+                                : line.CreditAmount - line.DebitAmount;
+                            oldAcct.CurrentBalance -= oldEffect;
+                            target.CurrentBalance += newEffect;
+                        }
+
+                        line.AccountId = target.Id;
+                        processed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        errors.Add($"Line {line.Id}: {ex.GetBaseException().Message}");
+                        _logger.LogError(ex, "Error re-pointing line {LineId}", line.Id);
+                    }
+                }
+
+                await _uow.SaveChangesAsync(ct);
+
+                _logger.LogInformation(
+                    "Repoint complete. Target={Target}, Processed={Processed}, Skipped={Skipped}, Failed={Failed}, Reason={Reason}, Actor={Actor}",
+                    target.AccountNumber, processed, skipped, failed, dto.Reason ?? "(none)", actorUserId);
+
+                return new BaseResponse<RepointLinesResultDto>(true, null, "Repoint complete",
+                    new RepointLinesResultDto(processed, skipped, failed, errors));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-pointing journal entry lines");
+                return new BaseResponse<RepointLinesResultDto>(false, "Error re-pointing journal entry lines", null);
+            }
         }
 
         // Returns every active account that can have manual postings, regardless

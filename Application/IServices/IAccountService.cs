@@ -11,6 +11,16 @@ namespace Application.IServices
         // Used by the Expense Categories UI so categories can map to any account
         // (Equity, Revenue, Asset, Liability, Expense), not just 5xxx expenses.
         Task<List<PostableAccountDto>> GetPostableAccountsAsync(CancellationToken ct);
+
+        // Bulk-reclassify journal entry lines onto a different account. Used by
+        // the "Transactions Report" modal on Chart of Accounts — admin picks
+        // checkbox-selected lines and moves them to the correct leaf account.
+        // Skips lines on voided entries; adjusts CurrentBalance on both old
+        // and new accounts for posted lines.
+        Task<BaseResponse<RepointLinesResultDto>> RepointJournalEntryLinesAsync(
+            RepointLinesRequestDto dto,
+            int? actorUserId,
+            CancellationToken ct = default);
         Task<BaseResponse<IReadOnlyList<AccountTypeDto>>> GetAllAccountTypesAsync(CancellationToken ct = default);
 
         Task<BaseResponse<AccountTypeDto>> GetAccountTypeByIdAsync(int id, CancellationToken ct = default);

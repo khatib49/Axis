@@ -266,5 +266,21 @@ namespace AxisAPI.Controllers
                 return StatusCode(500, "Error getting postable accounts");
             }
         }
+
+        /// <summary>
+        /// Bulk re-classifies one or more journal-entry lines onto NewAccountId.
+        /// Used by the "Transactions Report" modal on the Chart of Accounts so
+        /// an admin can checkbox-select lines and move them to the correct
+        /// account without writing SQL. Skips voided entries and lines already
+        /// on the target. Adjusts CurrentBalance for posted lines.
+        /// Admin-only.
+        /// </summary>
+        [HttpPost("repoint-lines")]
+        public async Task<IActionResult> RepointLines([FromBody] RepointLinesRequestDto dto, CancellationToken ct)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _accountService.RepointJournalEntryLinesAsync(dto, userId, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
     }
 }
