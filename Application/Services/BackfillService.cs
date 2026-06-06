@@ -235,7 +235,7 @@ namespace Application.Services
 
                 try
                 {
-                    var expectedAccount = ResolveExpenseAccount(expense, accountsByNumber, miscExpenseAccount);
+                    var expectedAccount = ResolveExpenseAccount(expense, accountsByNumber, miscExpenseAccount, accounts);
                     if (expectedAccount == null)
                     {
                         failed++;
@@ -297,46 +297,128 @@ namespace Application.Services
         // SINGLE-CATEGORY BACKFILL (still used elsewhere)
         // ============================================
 
+        // Backfill scoped to a single ExpenseCategory.
+        // Used after an admin maps (or remaps) a category to an Account so the
+        // historical balance immediately reflects the new mapping.
+        //
+        // Mirrors BackfillExpensesAsync but scoped — it both:
+        //   1) RE-POINTS existing journal-entry debit lines to the currently
+        //      mapped account (and adjusts both old/new Account.CurrentBalance
+        //      for any posted, non-voided entries), and
+        //   2) CREATES new monthly journal entries for expenses in the
+        //      category that have none yet.
+        //
+        // Before this rewrite the method only did step (2), which is why
+        // mapping a category to 5903 after the expense was already entered
+        // left the $ on 5900 (the misc fallback) and never moved it.
+        //
+        // DisableConcurrentExecution prevents two backfills for the same
+        // category from racing each other (e.g. admin clicks Save twice).
+        [DisableConcurrentExecution(timeoutInSeconds: 600)]
+        [AutomaticRetry(Attempts = 2)]
         public async Task<BackfillResultDto> BackfillCategoryAsync(int categoryId, CancellationToken ct = default)
         {
-            var postedExpenseIds = await _journalRepo.Query()
-                .Where(je => je.ReferenceType == "Expense" && je.ReferenceId != null)
-                .Select(je => je.ReferenceId!.Value)
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            var expenses = await _expenseRepo.Query()
+                .Include(e => e.Category)
+                    .ThenInclude(c => c.Account)
+                .Where(e => e.FK_CategoryId == categoryId)
+                .AsNoTracking()
                 .ToListAsync(ct);
 
-            var missingExpenseIds = await _expenseRepo.Query()
-                .Where(e => e.FK_CategoryId == categoryId && !postedExpenseIds.Contains(e.Id))
-                .Select(e => e.Id)
-                .ToListAsync(ct);
+            if (expenses.Count == 0)
+                return new BackfillResultDto(0, 0, 0, new List<string>());
 
-            int success = 0, failed = 0;
+            // Load all accounts with tracking so CurrentBalance updates persist.
+            var accounts = await _accountRepo.Query(asNoTracking: false)
+                .Include(a => a.AccountType)
+                .ToDictionaryAsync(a => a.Id, ct);
+
+            var accountsByNumber = accounts.Values
+                .Where(a => a.IsActive)
+                .ToDictionary(a => a.AccountNumber, a => a);
+
+            if (!accountsByNumber.TryGetValue("1000", out var cashAccount))
+                return new BackfillResultDto(0, 0, expenses.Count,
+                    new List<string> { "Cash account (1000) not found" });
+
+            accountsByNumber.TryGetValue("5900", out var miscExpenseAccount);
+
+            var expenseIds = expenses.Select(e => e.Id).ToList();
+            var existingEntries = await _journalRepo.Query(asNoTracking: false)
+                .Include(je => je.Lines)
+                .Where(je => je.ReferenceType == "Expense"
+                          && je.ReferenceId != null
+                          && expenseIds.Contains(je.ReferenceId.Value))
+                .ToListAsync(ct);
+            var existingByExpense = existingEntries
+                .GroupBy(je => je.ReferenceId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var nextSeq = await ComputeNextEntryNumberSequenceAsync(ct);
+
+            int created = 0, repointed = 0, skipped = 0, failed = 0;
             var errors = new List<string>();
+            var newEntries = new List<JournalEntry>();
 
-            foreach (var expenseId in missingExpenseIds)
+            foreach (var expense in expenses)
             {
                 if (ct.IsCancellationRequested) break;
 
                 try
                 {
-                    var result = await _journalService.CreateJournalEntryFromExpenseAsync(expenseId, ct);
-                    if (result.Success)
-                        success++;
-                    else
+                    var expectedAccount = ResolveExpenseAccount(expense, accountsByNumber, miscExpenseAccount, accounts);
+                    if (expectedAccount == null)
                     {
                         failed++;
-                        errors.Add($"Expense#{expenseId}: {result.Message}");
+                        errors.Add($"Expense#{expense.Id}: no suitable expense account");
+                        continue;
+                    }
+
+                    if (existingByExpense.TryGetValue(expense.Id, out var jes))
+                    {
+                        if (RepointExpenseEntries(jes, expectedAccount, accounts))
+                            repointed++;
+                        else
+                            skipped++;
+                    }
+                    else
+                    {
+                        var monthly = BuildMonthlyExpenseEntries(expense, expectedAccount, cashAccount, accounts, ref nextSeq);
+                        if (monthly.Count == 0)
+                        {
+                            failed++;
+                            errors.Add($"Expense#{expense.Id}: no allocations produced");
+                            continue;
+                        }
+                        newEntries.AddRange(monthly);
+                        created++;
                     }
                 }
                 catch (Exception ex)
                 {
                     failed++;
-                    errors.Add($"Expense#{expenseId}: exception - {ex.Message}");
+                    errors.Add($"Expense#{expense.Id}: {ex.GetBaseException().Message}");
+                    _logger.LogError(ex, "Category backfill failed for expense {ExpenseId}", expense.Id);
                 }
             }
 
+            foreach (var je in newEntries)
+            {
+                await _journalRepo.AddAsync(je, ct);
+            }
+
+            await _uow.SaveChangesAsync(ct);
+
+            sw.Stop();
+            _logger.LogInformation(
+                "Category {CategoryId} backfill done in {Elapsed}ms. Expenses={Total}, Created={Created}, Repointed={Repointed}, Skipped={Skipped}, Failed={Failed}",
+                categoryId, sw.ElapsedMilliseconds, expenses.Count, created, repointed, skipped, failed);
+
             return new BackfillResultDto(
-                Total: missingExpenseIds.Count,
-                Success: success,
+                Total: expenses.Count,
+                Success: created + repointed,
                 Failed: failed,
                 Errors: errors);
         }
@@ -576,24 +658,33 @@ namespace Application.Services
         private static Account? ResolveExpenseAccount(
             Expense expense,
             Dictionary<string, Account> accountsByNumber,
-            Account? miscExpenseAccount)
+            Account? miscExpenseAccount,
+            Dictionary<int, Account>? accountsById = null)
         {
-            if (expense.Category?.Account is { IsActive: true } mapped) return mapped;
+            if (expense.Category?.Account is { IsActive: true } mapped)
+            {
+                // CRITICAL: never return the Account instance loaded via
+                // expense.Category.Account directly. That instance:
+                //   (a) does NOT have AccountType eager-loaded (the Include
+                //       chain in BackfillCategoryAsync stops at .Account, so
+                //       AccountType is null → LineEffectOn would NPE), and
+                //   (b) is detached / AsNoTracking, so any CurrentBalance
+                //       mutation would silently fail to persist.
+                // Always swap it for the tracked instance from the accounts
+                // dictionary, which was loaded WITH AccountType and tracking.
+                if (accountsById != null && accountsById.TryGetValue(mapped.Id, out var tracked))
+                    return tracked;
+                return mapped;
+            }
 
-            // Keyword fallback (mirrors JournalService.DetermineExpenseAccountAsync).
-            var name = expense.Category?.Name?.ToLowerInvariant() ?? string.Empty;
-            string? acctNumber = null;
-            if (name.Contains("rent")) acctNumber = "5100";
-            else if (name.Contains("utilit") || name.Contains("electric")) acctNumber = "5200";
-            else if (name.Contains("internet") || name.Contains("telecom")) acctNumber = "5300";
-            else if (name.Contains("salary") || name.Contains("wage")) acctNumber = "5400";
-            else if (name.Contains("marketing") || name.Contains("social")) acctNumber = "5500";
-            else if (name.Contains("maintenance") || name.Contains("repair")) acctNumber = "5600";
-            else if (name.Contains("office") || name.Contains("supplies")) acctNumber = "5800";
-
-            if (acctNumber != null && accountsByNumber.TryGetValue(acctNumber, out var byKeyword))
-                return byKeyword;
-
+            // Keyword fallback intentionally removed (was mirroring the same
+            // code in JournalService.DetermineExpenseAccountAsync). It used to
+            // route any category whose name contained "utilit"/"electric" to
+            // header account 5200, "rent" to 5100, etc. — which is exactly
+            // why prod ended up with ~$9k posted directly onto the 5200
+            // "Utilities Expense" header even though no category mapped to
+            // it. We now require an explicit Category->Account mapping, and
+            // unmapped expenses land on miscExpenseAccount (5900) only.
             return miscExpenseAccount;
         }
 

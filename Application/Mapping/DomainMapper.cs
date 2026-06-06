@@ -142,7 +142,8 @@ namespace Application.Mapping
             e.ModifiedBy,
             e.IsOffer,
             e.IsOpenHour,
-            e.IsDayPass
+            e.IsDayPass,
+            e.IsActive
         );
 
         public partial Setting ToEntity(SettingCreateDto dto);

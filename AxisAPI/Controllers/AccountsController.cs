@@ -245,5 +245,26 @@ namespace AxisAPI.Controllers
                 return StatusCode(500, "Error getting expense accounts");
             }
         }
+
+        /// <summary>
+        /// Returns every active account that allows manual entry, with its account
+        /// type. Used by the Expense Categories form so a category can be mapped to
+        /// any account (e.g. an Equity account for owner draws, or a Revenue
+        /// account for manual revenue entries), not just 5xxx expense accounts.
+        /// </summary>
+        [HttpGet("postable")]
+        public async Task<IActionResult> GetPostableAccounts(CancellationToken ct)
+        {
+            try
+            {
+                var accounts = await _accountService.GetPostableAccountsAsync(ct);
+                return Ok(accounts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting postable accounts");
+                return StatusCode(500, "Error getting postable accounts");
+            }
+        }
     }
 }

@@ -7,6 +7,10 @@ namespace Application.IServices
     {
 
         Task<List<ExpenseAccountDto>> GetExpenseAccountsAsync(CancellationToken ct);
+        // Active accounts with AllowManualEntry=true, regardless of account type.
+        // Used by the Expense Categories UI so categories can map to any account
+        // (Equity, Revenue, Asset, Liability, Expense), not just 5xxx expenses.
+        Task<List<PostableAccountDto>> GetPostableAccountsAsync(CancellationToken ct);
         Task<BaseResponse<IReadOnlyList<AccountTypeDto>>> GetAllAccountTypesAsync(CancellationToken ct = default);
 
         Task<BaseResponse<AccountTypeDto>> GetAccountTypeByIdAsync(int id, CancellationToken ct = default);

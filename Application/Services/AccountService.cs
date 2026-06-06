@@ -862,11 +862,41 @@ namespace Application.Services
             return accounts;
         }
 
+        // Returns every active account that can have manual postings, regardless
+        // of type. The Expense-Categories UI uses this so a category can be mapped
+        // to an Equity account (e.g. Owner Draws / "Omar cash out") or a Revenue
+        // account (e.g. "Toters income") — not just 5xxx expense accounts.
+        public async Task<List<PostableAccountDto>> GetPostableAccountsAsync(CancellationToken ct)
+        {
+            return await _accountRepo.Query()
+                .Where(a => a.IsActive && a.AllowManualEntry)
+                .OrderBy(a => a.AccountNumber)
+                .Select(a => new PostableAccountDto
+                {
+                    Id = a.Id,
+                    AccountNumber = a.AccountNumber,
+                    AccountName = a.AccountName,
+                    AccountTypeId = a.AccountTypeId,
+                    AccountTypeName = a.AccountType.TypeName
+                })
+                .ToListAsync(ct);
+        }
+
     }
+
     public class ExpenseAccountDto
     {
         public int Id { get; set; }
         public string AccountNumber { get; set; }
         public string AccountName { get; set; }
+    }
+
+    public class PostableAccountDto
+    {
+        public int Id { get; set; }
+        public string AccountNumber { get; set; } = string.Empty;
+        public string AccountName { get; set; } = string.Empty;
+        public int AccountTypeId { get; set; }
+        public string AccountTypeName { get; set; } = string.Empty;
     }
 }

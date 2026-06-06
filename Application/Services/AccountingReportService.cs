@@ -104,9 +104,15 @@ namespace Application.Services
 
             var grossProfit = totalRevenue - tcgCogs;
 
-            // ── 3. Expenses ─────────────────────────────────────────────
-            // Filter expenses whose period overlaps the selected range.
-            // An expense overlaps [from, to] if: expense.FromDate <= to AND expense.ToDate >= from
+            // ── 3. Manual entries (Expense table) ──────────────────────
+            // Filter rows whose period overlaps the selected range:
+            //   e.FromDate <= to  AND  e.ToDate >= from
+            // We also pull the mapped Account + AccountType + AccountNumber so we
+            // can classify each row by what it actually is (Expense / Equity /
+            // Revenue / Asset / Liability) — not by the fact that it lives in
+            // the `expenses` table. This is what stops "Omar cash out" (an
+            // Equity draw) and "Toters income" (a Revenue line) from being
+            // counted as operating expenses.
             var expQ = _expenseRepo.Query()
                 .Where(e => e.Category != null);
 
@@ -115,24 +121,36 @@ namespace Application.Services
             if (to.HasValue)
                 expQ = expQ.Where(e => e.FromDate <= to.Value.Date);
 
-            var expenseLines = await expQ
+            var manualEntries = await expQ
                 .Select(e => new
                 {
                     CategoryName = e.Category.Name,
                     IsCapital = e.Category.IsCapital,
-                    e.Amount
+                    Amount = e.Amount,
+                    AccountTypeName = e.Category.Account != null && e.Category.Account.AccountType != null
+                        ? e.Category.Account.AccountType.TypeName
+                        : null,
+                    AccountNumber = e.Category.Account != null
+                        ? e.Category.Account.AccountNumber
+                        : null
                 })
                 .ToListAsync(ct);
 
-            var operatingLines = expenseLines
-                .Where(x => !x.IsCapital)
+            // Real expenses only: either explicitly mapped to an Expense-type
+            // account, OR not mapped at all (legacy rows — treat as expense so
+            // they still show up somewhere until they're remapped).
+            bool IsExpenseLike(string? typeName)
+                => typeName == null || string.Equals(typeName, "Expense", StringComparison.OrdinalIgnoreCase);
+
+            var operatingLines = manualEntries
+                .Where(x => !x.IsCapital && IsExpenseLike(x.AccountTypeName))
                 .GroupBy(x => x.CategoryName)
                 .Select(g => new ExpenseCategoryLineDto(g.Key, g.Sum(x => x.Amount)))
                 .OrderByDescending(x => x.Amount)
                 .ToList();
 
-            var capitalLines = expenseLines
-                .Where(x => x.IsCapital)
+            var capitalLines = manualEntries
+                .Where(x => x.IsCapital && IsExpenseLike(x.AccountTypeName))
                 .GroupBy(x => x.CategoryName)
                 .Select(g => new ExpenseCategoryLineDto(g.Key, g.Sum(x => x.Amount)))
                 .OrderByDescending(x => x.Amount)
@@ -148,7 +166,69 @@ namespace Application.Services
                 Lines: capitalLines
             );
 
+            // ── 3b. Classify by AccountType ────────────────────────────
+            // Bucket every manual entry by the AccountType of its mapped
+            // Account. Unmapped rows fall under "Unmapped" so they remain
+            // visible — they're typically what the user wants to clean up.
+            var byTypeLines = manualEntries
+                .GroupBy(x => x.AccountTypeName ?? "Unmapped")
+                .Select(g => new AccountTypeLineDto(
+                    AccountTypeName: g.Key,
+                    Amount: g.Sum(x => x.Amount),
+                    Categories: g
+                        .GroupBy(x => x.CategoryName)
+                        .Select(cg => new ExpenseCategoryLineDto(cg.Key, cg.Sum(x => x.Amount)))
+                        .OrderByDescending(c => c.Amount)
+                        .ToList()
+                ))
+                .OrderByDescending(t => t.Amount)
+                .ToList();
+
+            decimal SumByType(string type) =>
+                byTypeLines.Where(l => string.Equals(l.AccountTypeName, type, StringComparison.OrdinalIgnoreCase))
+                           .Sum(l => l.Amount);
+
+            var byAccountType = new AccountTypeBreakdownDto(
+                Asset: SumByType("Asset"),
+                Liability: SumByType("Liability"),
+                Equity: SumByType("Equity"),
+                Revenue: SumByType("Revenue"),
+                Expense: SumByType("Expense"),
+                Lines: byTypeLines
+            );
+
+            // ── 3c. Subtotals by account-number prefix ─────────────────
+            // Useful sanity check: "5000-5999 Expense", "3000-3999 Equity", etc.
+            // Rows with no mapped account get bucketed under "Unmapped".
+            static (string label, string prefix) RangeFor(string? accountNumber)
+            {
+                if (string.IsNullOrWhiteSpace(accountNumber)) return ("Unmapped", "?");
+                var head = accountNumber.Trim()[0];
+                return head switch
+                {
+                    '1' => ("1000-1999 Asset", "1"),
+                    '2' => ("2000-2999 Liability", "2"),
+                    '3' => ("3000-3999 Equity", "3"),
+                    '4' => ("4000-4999 Revenue", "4"),
+                    '5' => ("5000-5999 Expense", "5"),
+                    _ => ($"{head}000-{head}999", head.ToString())
+                };
+            }
+
+            var byRange = manualEntries
+                .Select(x => new { Range = RangeFor(x.AccountNumber), x.Amount })
+                .GroupBy(x => x.Range)
+                .Select(g => new AccountRangeLineDto(
+                    RangeLabel: g.Key.label,
+                    Prefix: g.Key.prefix,
+                    Amount: g.Sum(x => x.Amount)))
+                .OrderBy(r => r.Prefix)
+                .ToList();
+
             // ── 4. Net Income ────────────────────────────────────────────
+            // Note: operatingExpenses.Total now excludes Equity/Revenue
+            // misclassifications, so Net Income is no longer dragged down by
+            // owner draws (Omar cash out) or inflated by mis-bucketed revenue.
             var netIncome = grossProfit - operatingExpenses.Total;
             var netMargin = totalRevenue == 0 ? 0m
                 : Math.Round(netIncome / totalRevenue * 100, 1);
@@ -167,12 +247,18 @@ namespace Application.Services
                 Cogs: cogs,
                 GrossProfit: grossProfit,
                 NetIncome: netIncome,
-                NetMarginPercent: netMargin
+                NetMarginPercent: netMargin,
+                ByAccountType: byAccountType,
+                ByAccountNumberRange: byRange
             );
         }
 
         public async Task<List<ExpenseCategoryLineDto>> GetExpensesBreakdownAsync(DateTime? from, DateTime? to, bool capitalOnly, CancellationToken ct = default)
         {
+            // Mirror the dashboard rule: only return rows that are actual
+            // expenses (mapped to an Expense-type account, or unmapped legacy
+            // rows). Equity draws and Revenue lines should not appear in an
+            // "Expenses Breakdown" report.
             var expQ = _expenseRepo.Query()
                 .Where(e => e.Category != null)
                 .Where(e => e.Category.IsCapital == capitalOnly);
@@ -186,11 +272,16 @@ namespace Application.Services
                 .Select(e => new
                 {
                     CategoryName = e.Category.Name,
-                    e.Amount
+                    e.Amount,
+                    AccountTypeName = e.Category.Account != null && e.Category.Account.AccountType != null
+                        ? e.Category.Account.AccountType.TypeName
+                        : null
                 })
                 .ToListAsync(ct);
 
             return lines
+                .Where(x => x.AccountTypeName == null
+                            || string.Equals(x.AccountTypeName, "Expense", StringComparison.OrdinalIgnoreCase))
                 .GroupBy(x => x.CategoryName)
                 .Select(g => new ExpenseCategoryLineDto(g.Key, g.Sum(x => x.Amount)))
                 .OrderByDescending(x => x.Amount)

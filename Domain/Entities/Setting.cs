@@ -20,7 +20,12 @@
         public bool IsOpenHour { get; set; } = false;
         public bool IsDayPass { get; set; } = false;
 
-
+        // Soft-hide flag. Backed by a manually added DB column (one-off ALTER):
+        //   ALTER TABLE "Settings" ADD COLUMN "IsActive" boolean NOT NULL DEFAULT true;
+        // Default true keeps existing rows visible. The Delete endpoint flips this
+        // to false instead of removing the row, so referenced GameSettings stay
+        // intact for historical TransactionRecord/GameSession joins.
+        public bool IsActive { get; set; } = true;
 
     }
 }

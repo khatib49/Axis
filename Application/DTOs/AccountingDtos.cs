@@ -17,7 +17,39 @@
         CogsSummaryDto Cogs,
         decimal GrossProfit,
         decimal NetIncome,
-        decimal NetMarginPercent
+        decimal NetMarginPercent,
+        // Net classification by AccountType, derived from the mapped Account on
+        // each manual entry. Entries with no mapping (or whose mapped account is
+        // an Expense) still flow through Operating/CapitalExpenses; this block
+        // gives the dashboard a way to surface Equity (owner draws like "Omar
+        // cash out") and Revenue (manual income like "Toters income") that were
+        // historically lumped into Expenses.
+        AccountTypeBreakdownDto? ByAccountType = null,
+        // Subtotals grouped by the leading account-number prefix (1xxx Asset,
+        // 2xxx Liability, 3xxx Equity, 4xxx Revenue, 5xxx Expense). Same data,
+        // different lens — useful when the AccountType column is dirty.
+        List<AccountRangeLineDto>? ByAccountNumberRange = null
+    );
+
+    public record AccountTypeBreakdownDto(
+        decimal Asset,
+        decimal Liability,
+        decimal Equity,    // owner draws etc.
+        decimal Revenue,   // manual revenue lines
+        decimal Expense,   // real expenses
+        List<AccountTypeLineDto> Lines
+    );
+
+    public record AccountTypeLineDto(
+        string AccountTypeName,
+        decimal Amount,
+        List<ExpenseCategoryLineDto> Categories
+    );
+
+    public record AccountRangeLineDto(
+        string RangeLabel,   // e.g. "5000-5999 Expense"
+        string Prefix,       // e.g. "5"
+        decimal Amount
     );
 
     public record RevenueBreakdownDto(

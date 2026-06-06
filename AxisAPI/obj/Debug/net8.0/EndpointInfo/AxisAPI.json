@@ -12,24 +12,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/BackfillResultDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BackfillResultDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BackfillResultDto"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       }
@@ -41,24 +24,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/BackfillResultDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BackfillResultDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BackfillResultDto"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       }
@@ -566,6 +532,18 @@
       }
     },
     "/api/Accounts/expense-accounts": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Accounts/postable": {
       "get": {
         "tags": [
           "Accounts"
@@ -1692,6 +1670,46 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ExpenseCategory/{id}/rebuild": {
+      "post": {
+        "tags": [
+          "ExpenseCategory"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResultDto"
+                }
+              }
+            }
           }
         }
       }
@@ -5207,6 +5225,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "includeHidden",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -7129,6 +7155,24 @@
         },
         "additionalProperties": false
       },
+      "AccountRangeLineDto": {
+        "type": "object",
+        "properties": {
+          "rangeLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "prefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "AccountSearchDto": {
         "type": "object",
         "properties": {
@@ -7157,6 +7201,60 @@
           "pageSize": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccountTypeBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "type": "number",
+            "format": "double"
+          },
+          "liability": {
+            "type": "number",
+            "format": "double"
+          },
+          "equity": {
+            "type": "number",
+            "format": "double"
+          },
+          "revenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "expense": {
+            "type": "number",
+            "format": "double"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountTypeLineDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccountTypeLineDto": {
+        "type": "object",
+        "properties": {
+          "accountTypeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseCategoryLineDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7217,6 +7315,16 @@
           "netMarginPercent": {
             "type": "number",
             "format": "double"
+          },
+          "byAccountType": {
+            "$ref": "#/components/schemas/AccountTypeBreakdownDto"
+          },
+          "byAccountNumberRange": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountRangeLineDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9625,6 +9733,10 @@
           },
           "isDayPass": {
             "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false

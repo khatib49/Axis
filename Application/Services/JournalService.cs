@@ -956,29 +956,20 @@ namespace Application.Services
             return result;
         }
 
-        // Fallback keyword matching
-        private async Task<Account?> DetermineExpenseAccountAsync(
+        // Keyword fallback was disabled on purpose. It used to silently route any
+        // category whose name contained "utilit"/"electric" to 5200, "rent" to
+        // 5100, etc. — which are header accounts in the chart of accounts. That's
+        // how 5200 (Utilities Expense, header) ended up with ~$9k of postings
+        // even though no category was mapped to it. Now every expense MUST have
+        // its Category mapped to a real leaf account; if it isn't, we fall back
+        // only to 5900 (Miscellaneous Expenses), and the caller surfaces an
+        // error if even that doesn't exist. This keeps header accounts clean and
+        // forces explicit, auditable mappings.
+        private Task<Account?> DetermineExpenseAccountAsync(
             string categoryName,
             CancellationToken ct)
         {
-            var lowerName = categoryName.ToLower();
-
-            if (lowerName.Contains("rent"))
-                return await GetAccountByNumberAsync("5100", ct);
-            if (lowerName.Contains("utilit") || lowerName.Contains("electric"))
-                return await GetAccountByNumberAsync("5200", ct);
-            if (lowerName.Contains("internet") || lowerName.Contains("telecom"))
-                return await GetAccountByNumberAsync("5300", ct);
-            if (lowerName.Contains("salary") || lowerName.Contains("wage"))
-                return await GetAccountByNumberAsync("5400", ct);
-            if (lowerName.Contains("marketing") || lowerName.Contains("social"))
-                return await GetAccountByNumberAsync("5500", ct);
-            if (lowerName.Contains("maintenance") || lowerName.Contains("repair"))
-                return await GetAccountByNumberAsync("5600", ct);
-            if (lowerName.Contains("office") || lowerName.Contains("supplies"))
-                return await GetAccountByNumberAsync("5800", ct);
-
-            return null;
+            return Task.FromResult<Account?>(null);
         }
 
         private async Task<Account?> GetAccountByNumberAsync(

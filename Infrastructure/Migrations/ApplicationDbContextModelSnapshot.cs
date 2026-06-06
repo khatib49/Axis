@@ -965,6 +965,10 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("Hours")
                         .HasColumnType("numeric");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsDayPass")
                         .HasColumnType("boolean");
 

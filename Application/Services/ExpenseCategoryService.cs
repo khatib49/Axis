@@ -1,6 +1,7 @@
 ﻿using Application.DTOs;
 using Application.IServices;
 using Domain.Entities;
+using Hangfire;
 using Infrastructure.IRepositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -97,8 +98,10 @@ namespace Application.Services
                     throw new ArgumentException("Invalid account ID.");
             }
 
-            // Track if AccountId is being newly assigned
-            bool accountJustMapped = !entity.AccountId.HasValue && dto.AccountId.HasValue;
+            // Capture the previous account id BEFORE we overwrite it so we can
+            // tell whether the mapping is new, changed, or unchanged.
+            int? originalAccountId = entity.AccountId;
+            bool accountJustMapped = !originalAccountId.HasValue && dto.AccountId.HasValue;
 
             entity.Name = dto.Name.Trim();
             entity.Description = dto.Description;
@@ -108,17 +111,23 @@ namespace Application.Services
             _catRepo.Update(entity);
             await _uow.SaveChangesAsync(ct);
 
-            // Auto-backfill all expenses in this category that have no journal entry
-            if (accountJustMapped)
+            // Auto-backfill journal entries for every expense in this category:
+            //  - re-point existing entries to the newly mapped account
+            //  - create entries for any expenses that had none yet
+            //
+            // We enqueue on EVERY save where a mapping exists, even if it
+            // didn't change. Re-clicking Save effectively means "rebuild this
+            // category" — which is what the admin expects, and the backfill
+            // is idempotent (RepointExpenseEntries only touches lines that
+            // currently point to the wrong account).
+            //
+            // Hangfire is used (not Task.Run) because the request-scoped
+            // DbContext is disposed as soon as the HTTP response is sent;
+            // a fire-and-forget Task would silently die on its first DB call.
+            if (dto.AccountId.HasValue)
             {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _backfillService.BackfillCategoryAsync(id, CancellationToken.None);
-                    }
-                    catch { /* already logged inside BackfillService */ }
-                });
+                BackgroundJob.Enqueue<IBackfillService>(
+                    s => s.BackfillCategoryAsync(id, CancellationToken.None));
             }
 
             return await GetDtoAsync(entity.Id, ct);

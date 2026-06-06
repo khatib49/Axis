@@ -27,9 +27,14 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> List([FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
+        public async Task<IActionResult> List([FromQuery] BasePaginationRequestDto pagination, [FromQuery] bool includeHidden = false, CancellationToken ct = default)
         {
-            var settings = await _settingService.ListAsync(pagination, ct);
+            // Only admins are allowed to see hidden (soft-deleted) settings. The
+            // cashier UI never passes this flag, so it keeps seeing active-only.
+            if (includeHidden && !(User?.IsInRole("admin") ?? false))
+                includeHidden = false;
+
+            var settings = await _settingService.ListAsync(pagination, includeHidden, ct);
             return Ok(settings);
         }
 
