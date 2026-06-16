@@ -140,6 +140,53 @@
         }
       }
     },
+    "/api/Accounting/audit-revenue-coverage": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueCoverageAuditDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueCoverageAuditDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueCoverageAuditDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Accounts/types": {
       "get": {
         "tags": [
@@ -579,6 +626,18 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Accounts/hierarchy-audit": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -9818,6 +9877,91 @@
             "format": "double"
           },
           "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "gamingGross": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "fnbGross": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tcgGross": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "totalGross": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "discountsGiven": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RevenueCoverageAuditDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "transactionsCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "transactionsTotalNet": {
+            "type": "number",
+            "format": "double"
+          },
+          "transactionsTotalGross": {
+            "type": "number",
+            "format": "double"
+          },
+          "transactionsWithJE": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "transactionsWithoutJE": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "orphanTransactionIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "revenueAccountsCredit": {
+            "type": "number",
+            "format": "double"
+          },
+          "salesDiscountsDebit": {
+            "type": "number",
+            "format": "double"
+          },
+          "netRevenueOnBooks": {
+            "type": "number",
+            "format": "double"
+          },
+          "discrepancy": {
             "type": "number",
             "format": "double"
           }

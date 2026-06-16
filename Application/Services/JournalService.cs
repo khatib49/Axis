@@ -497,10 +497,11 @@ namespace Application.Services
                     .Include(t => t.TransactionItems)
                         .ThenInclude(ti => ti.Item)
                             .ThenInclude(i => i.Category)
-                                .ThenInclude(c => c.Account) // NEW: load mapped account
+                                .ThenInclude(c => c.Account)
                     .Include(t => t.Game)
                         .ThenInclude(g => g.Category)
-                            .ThenInclude(c => c.Account) // NEW: load mapped account
+                            .ThenInclude(c => c.Account)
+                    .Include(t => t.Discount) // NEW: needed to split JE into gross + discount
                     .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
 
                 if (transaction == null)
@@ -520,9 +521,34 @@ namespace Application.Services
                 if (transaction.TotalPrice <= 0)
                     return new BaseResponse<JournalEntryDto>(false, "Transaction has zero amount, skipping", "", null);
 
+                // ── Compute gross + discount amount ─────────────────────────
+                // TotalPrice is the NET (what the customer actually paid). The
+                // Discount.Percentage was applied at the cashier:
+                //     net = gross * (1 - pct/100)   =>   gross = net / (1 - pct/100)
+                // The 3-line JE now shows revenue at GROSS, with the discount
+                // booked separately to 4900 Sales Discounts so the owner can
+                // see how much margin is being given away.
+                var net = transaction.TotalPrice;
+                decimal gross = net;
+                decimal discountAmount = 0m;
+                var pct = transaction.Discount?.Percentage ?? 0;
+                if (pct > 0 && pct < 100)
+                {
+                    var factor = 1m - (pct / 100m);
+                    gross = Math.Round(net / factor, 2);
+                    discountAmount = Math.Round(gross - net, 2);
+                }
+                else if (pct >= 100)
+                {
+                    // Degenerate 100% discount: there's no gross we can recover
+                    // (everything was given away). Fall back to net=0 semantics.
+                    gross = net;
+                    discountAmount = 0m;
+                }
+
                 var lines = new List<JournalEntryLineCreateDto>();
 
-                // DEBIT: Cash on Hand (1000)
+                // DEBIT: Cash on Hand (1000) — what the customer actually paid
                 var cashAccount = await _accountRepo.Query()
                     .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
 
@@ -531,19 +557,49 @@ namespace Application.Services
 
                 lines.Add(new JournalEntryLineCreateDto(
                     cashAccount.Id,
-                    transaction.TotalPrice,
+                    net,
                     0,
                     "Cash received"
                 ));
 
-                // CREDIT: Revenue accounts — determined by mapped Account on Category
+                // DEBIT: 4900 Sales Discounts (contra-revenue) for the discount
+                // amount, only if there is a discount. If 4900 isn't configured,
+                // log a warning and fall back to NET revenue accounting so the
+                // sale isn't blocked.
+                Account? salesDiscountAccount = null;
+                if (discountAmount > 0)
+                {
+                    salesDiscountAccount = await _accountRepo.Query()
+                        .FirstOrDefaultAsync(a => a.AccountNumber == "4900" && a.IsActive, ct);
+
+                    if (salesDiscountAccount == null)
+                    {
+                        _logger.LogWarning(
+                            "Sales Discounts account (4900) not found. Tx {TxId} will book NET revenue instead of gross.",
+                            transactionId);
+                        // No 4900 → treat as if there were no discount (legacy NET behavior).
+                        gross = net;
+                        discountAmount = 0m;
+                    }
+                    else
+                    {
+                        lines.Add(new JournalEntryLineCreateDto(
+                            salesDiscountAccount.Id,
+                            discountAmount,
+                            0,
+                            $"Discount given ({pct}%)"
+                        ));
+                    }
+                }
+
+                // CREDIT: Revenue accounts — at GROSS now, distributed across
+                // categories the same way as before.
                 if (transaction.GameId != null)
                 {
                     // ── Gaming transaction ──────────────────────────────────────
                     var gameCategory = transaction.Game?.Category;
                     var revenueAccount = gameCategory?.Account;
 
-                    // Fallback: default gaming revenue account if no mapping
                     if (revenueAccount == null)
                     {
                         revenueAccount = await _accountRepo.Query()
@@ -557,16 +613,15 @@ namespace Application.Services
                     lines.Add(new JournalEntryLineCreateDto(
                         revenueAccount.Id,
                         0,
-                        transaction.TotalPrice,
+                        gross,
                         $"Gaming revenue - {transaction.Game?.Name ?? "Game"}"
                     ));
                 }
                 else if (transaction.TransactionItems.Any())
                 {
                     // ── FNB / TCG ───────────────────────────────────────────
-                    // Use TotalPrice as the authoritative total (discount already baked in).
-                    // Distribute TotalPrice proportionally across item categories.
-
+                    // Distribute GROSS proportionally across item categories
+                    // (same proportions as before, just on gross instead of net).
                     var itemsByCat = transaction.TransactionItems
                         .Where(ti => ti.Item != null)
                         .GroupBy(ti => ti.Item!.Category)
@@ -588,9 +643,8 @@ namespace Application.Services
 
                     foreach (var catGroup in itemsByCat)
                     {
-                        // Proportional share of TotalPrice
                         var proportion = catGroup.FullPrice / fullTotal;
-                        var lineAmount = Math.Round(transaction.TotalPrice * proportion, 2);
+                        var lineAmount = Math.Round(gross * proportion, 2);
 
                         Account? revenueAccount = catGroup.Category?.Account;
 
@@ -622,8 +676,8 @@ namespace Application.Services
                         return new BaseResponse<JournalEntryDto>(false,
                             $"Transaction {transactionId}: no revenue lines could be created", "", null);
 
-                    // Fix any rounding difference on the last line
-                    var roundingDiff = transaction.TotalPrice - totalCredited;
+                    // Fix rounding so credit total equals gross
+                    var roundingDiff = gross - totalCredited;
                     if (Math.Abs(roundingDiff) > 0 && catLines.Count > 0)
                     {
                         var last = catLines[^1];
@@ -632,9 +686,6 @@ namespace Application.Services
                     }
 
                     lines.AddRange(catLines);
-
-                    // The cash debit is exactly TotalPrice — no reconciliation needed
-                    // (already set above as the first line)
                 }
                 else
                 {
@@ -643,7 +694,10 @@ namespace Application.Services
                         $"Transaction {transactionId} has no game and no items, skipping", "", null);
                 }
 
-                // Final balance check before creating
+                // Final balance check before creating. With the 3-line shape:
+                //   Debits  = net (cash) + discountAmount (4900) = gross
+                //   Credits = gross (4xxx revenue)
+                // They should be exactly equal; any tiny rounding goes to cash.
                 var totalDebits = lines.Sum(l => l.DebitAmount);
                 var totalCredits = lines.Sum(l => l.CreditAmount);
 
@@ -653,11 +707,10 @@ namespace Application.Services
                         "Transaction {TxId}: entry not balanced. Debits={Debits}, Credits={Credits}. Forcing balance.",
                         transactionId, totalDebits, totalCredits);
 
-                    // Force balance by adjusting the cash debit line
                     var cashLine = lines.FirstOrDefault(l => l.DebitAmount > 0 && l.AccountId == cashAccount.Id);
                     if (cashLine != null)
                     {
-                        var balanced = cashLine with { DebitAmount = totalCredits };
+                        var balanced = cashLine with { DebitAmount = cashLine.DebitAmount + (totalCredits - totalDebits) };
                         lines.Remove(cashLine);
                         lines.Add(balanced);
                     }

@@ -52,11 +52,78 @@
         decimal Amount
     );
 
+    // Single account reference used inside the hierarchy audit findings.
+    public record HierarchyAccountRefDto(
+        int Id,
+        string AccountNumber,
+        string AccountName,
+        int AccountTypeId,
+        string AccountTypeName,
+        bool IsActive
+    );
+
+    // One row per type-mismatch issue: a child whose AccountType differs from
+    // its parent's. Lets the admin see the actual mismatch at a glance and
+    // jump straight to the bad child to remap it.
+    public record HierarchyTypeMismatchDto(
+        HierarchyAccountRefDto Child,
+        HierarchyAccountRefDto Parent
+    );
+
+    // Header = account with at least one child. We surface ones that still
+    // have AllowManualEntry=true (a misconfig — headers should never accept
+    // direct postings) and ones that already DO have a non-zero direct
+    // balance (someone in the past posted to a header).
+    public record HierarchyHeaderIssueDto(
+        HierarchyAccountRefDto Account,
+        int ChildCount,
+        bool AllowsManualEntry,
+        decimal DirectBalance
+    );
+
+    public record AccountHierarchyAuditDto(
+        int TotalAccounts,
+        int TotalActive,
+        List<HierarchyTypeMismatchDto> TypeMismatches,
+        List<HierarchyHeaderIssueDto> HeadersAllowingManualEntry,
+        List<HierarchyHeaderIssueDto> HeadersWithDirectPostings,
+        List<HierarchyAccountRefDto> InactiveParentsWithActiveChildren
+    );
+
+    // Returned by GET /api/Accounting/audit-revenue-coverage. Lets the admin
+    // see exactly how many paid transactions are missing journal entries and
+    // what the resulting discrepancy is between the calculator (sum of
+    // TransactionRecord.TotalPrice) and the chart of accounts revenue side.
+    public record RevenueCoverageAuditDto(
+        DateTime? From,
+        DateTime? To,
+        int TransactionsCount,
+        decimal TransactionsTotalNet,
+        decimal TransactionsTotalGross,
+        int TransactionsWithJE,
+        int TransactionsWithoutJE,
+        List<int> OrphanTransactionIds,
+        decimal RevenueAccountsCredit,      // Sum of credits on 4xxx revenue accounts in range
+        decimal SalesDiscountsDebit,        // Sum of debits on 4900 in range
+        decimal NetRevenueOnBooks,          // RevenueAccountsCredit - SalesDiscountsDebit
+        decimal Discrepancy                 // TransactionsTotalNet - NetRevenueOnBooks
+    );
+
     public record RevenueBreakdownDto(
         decimal Gaming,
         decimal Fnb,
         decimal Tcg,
-        decimal Total
+        decimal Total,
+        // Gross-of-discount breakdown. Total = Net (matches what the cashier
+        // actually received and what hits Cash on Hand). Gross is the sum of
+        // menu prices before discount. DiscountsGiven = Gross - Total. All
+        // trailing nullable defaults keep this record backward-compatible
+        // with positional callers (existing tests, etc.).
+        decimal? GamingGross = null,
+        decimal? FnbGross = null,
+        decimal? TcgGross = null,
+        decimal? TotalGross = null,
+        decimal? DiscountsGiven = null
     );
 
     public record ExpenseSummaryDto(

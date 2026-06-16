@@ -282,5 +282,17 @@ namespace AxisAPI.Controllers
             var result = await _accountService.RepointJournalEntryLinesAsync(dto, userId, ct);
             return result.Success ? Ok(result) : BadRequest(result);
         }
+
+        /// <summary>
+        /// Hierarchy health audit. Surfaces type-mismatched children, headers
+        /// that still allow manual entry, headers with non-zero direct
+        /// postings, and inactive parents with active children. Read-only.
+        /// </summary>
+        [HttpGet("hierarchy-audit")]
+        public async Task<IActionResult> HierarchyAudit(CancellationToken ct)
+        {
+            var result = await _accountService.GetHierarchyAuditAsync(ct);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
     }
 }

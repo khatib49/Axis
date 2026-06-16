@@ -69,5 +69,22 @@ namespace AxisAPI.Controllers
             var result = await _svc.GetExpensesBreakdownAsync(from, to, capitalOnly, ct);
             return Ok(result);
         }
+
+        /// <summary>
+        /// Revenue coverage audit. Shows whether the chart of accounts revenue
+        /// side matches the calculator (sum of TransactionRecord.TotalPrice).
+        /// Returns orphan transaction ids that have no journal entry, plus a
+        /// before/after style discrepancy figure. Pair this with the
+        /// /Accounting/backfill/transactions endpoint to close the gap.
+        /// </summary>
+        [HttpGet("audit-revenue-coverage")]
+        public async Task<ActionResult<RevenueCoverageAuditDto>> AuditRevenueCoverage(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken ct = default)
+        {
+            var result = await _svc.GetRevenueCoverageAuditAsync(from, to, ct);
+            return Ok(result);
+        }
     }
 }

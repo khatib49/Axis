@@ -68,13 +68,15 @@ namespace Application.Services
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
             // 1) Pull every completed, non-zero transaction in one shot, with everything
-            // needed to compute the right revenue account per line.
+            // needed to compute the right revenue account per line AND the discount
+            // percentage so we can split into gross + 4900 sales discounts.
             var transactions = await _txRepo.Query()
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
                         .ThenInclude(i => i.Category)
                 .Include(t => t.Game)
                     .ThenInclude(g => g.Category)
+                .Include(t => t.Discount)
                 .Where(t => t.StatusId == 6 && t.TotalPrice > 0)
                 .AsNoTracking()
                 .ToListAsync(ct);
@@ -97,6 +99,11 @@ namespace Application.Services
 
             accountsByNumber.TryGetValue("4000", out var fallbackGamingRevenue);
             accountsByNumber.TryGetValue("4100", out var fallbackItemRevenue);
+            // 4900 Sales Discounts (contra-revenue) — required for discount
+            // accounting. If it's missing, we silently fall back to NET
+            // accounting per-transaction (with a log warning inside the
+            // builder), so the backfill never blocks on a missing account.
+            accountsByNumber.TryGetValue("4900", out var salesDiscountsAccount);
 
             // 3) Pull all existing transaction JEs once, keyed by ReferenceId.
             var txIds = transactions.Select(t => t.Id).ToList();
@@ -124,9 +131,10 @@ namespace Application.Services
             // once per insert.
             var nextSeq = await ComputeNextEntryNumberSequenceAsync(ct);
 
-            int created = 0, repointed = 0, skipped = 0, failed = 0;
+            int created = 0, reissued = 0, skipped = 0, failed = 0;
             var errors = new List<string>();
             var newEntries = new List<JournalEntry>();
+            var entriesToDelete = new List<JournalEntry>();
 
             foreach (var tx in transactions)
             {
@@ -134,25 +142,28 @@ namespace Application.Services
 
                 try
                 {
+                    // If a JE already exists for this transaction, we now
+                    // delete it (reversing its posted balance impact) and
+                    // rebuild it in the new 3-line shape. This was previously a
+                    // line-by-line "repoint" — that worked when JE structure
+                    // was stable, but we just switched to Gross + 4900
+                    // Discount + Cash, so existing 2-line JEs need to be
+                    // completely replaced.
                     if (existingByTx.TryGetValue(tx.Id, out var existingJe))
                     {
-                        if (RepointTransactionEntry(existingJe, tx, accounts, accountsByNumber, categoriesByName, fallbackGamingRevenue, fallbackItemRevenue))
-                            repointed++;
-                        else
-                            skipped++;
+                        ReverseEntryBalanceImpact(existingJe, accounts);
+                        entriesToDelete.Add(existingJe);
                     }
-                    else
+
+                    var je = BuildTransactionEntry(tx, accounts, accountsByNumber, cashAccount, salesDiscountsAccount, fallbackGamingRevenue, fallbackItemRevenue, ref nextSeq);
+                    if (je == null)
                     {
-                        var je = BuildTransactionEntry(tx, accounts, accountsByNumber, cashAccount, fallbackGamingRevenue, fallbackItemRevenue, ref nextSeq);
-                        if (je == null)
-                        {
-                            failed++;
-                            errors.Add($"Tx#{tx.Id}: could not build entry (missing data or no revenue lines)");
-                            continue;
-                        }
-                        newEntries.Add(je);
-                        created++;
+                        failed++;
+                        errors.Add($"Tx#{tx.Id}: could not build entry (missing data or no revenue lines)");
+                        continue;
                     }
+                    newEntries.Add(je);
+                    if (existingByTx.ContainsKey(tx.Id)) reissued++; else created++;
                 }
                 catch (Exception ex)
                 {
@@ -162,6 +173,12 @@ namespace Application.Services
                 }
             }
 
+            // Delete old JEs first (with their lines), then add the new ones.
+            foreach (var je in entriesToDelete)
+            {
+                _journalLineRepo.RemoveRange(je.Lines);
+                _journalRepo.Remove(je);
+            }
             foreach (var je in newEntries)
             {
                 await _journalRepo.AddAsync(je, ct);
@@ -171,14 +188,28 @@ namespace Application.Services
 
             sw.Stop();
             _logger.LogInformation(
-                "Transaction backfill done in {Elapsed}ms. Total={Total}, Created={Created}, Repointed={Repointed}, Skipped={Skipped}, Failed={Failed}",
-                sw.ElapsedMilliseconds, transactions.Count, created, repointed, skipped, failed);
+                "Transaction backfill done in {Elapsed}ms. Total={Total}, Created={Created}, Reissued={Reissued}, Skipped={Skipped}, Failed={Failed}",
+                sw.ElapsedMilliseconds, transactions.Count, created, reissued, skipped, failed);
 
             return new BackfillResultDto(
                 Total: transactions.Count,
-                Success: created + repointed,
+                Success: created + reissued,
                 Failed: failed,
                 Errors: errors);
+        }
+
+        // Reverse the posted-balance impact of an existing JE before deleting
+        // it. Mirror of BuildTransactionEntry's "Apply posted balance impact"
+        // block, but with the sign flipped. Skips voided entries (they never
+        // contributed) and unposted entries (same).
+        private static void ReverseEntryBalanceImpact(JournalEntry entry, Dictionary<int, Account> accounts)
+        {
+            if (!entry.IsPosted || entry.IsVoided) return;
+            foreach (var line in entry.Lines)
+            {
+                if (!accounts.TryGetValue(line.AccountId, out var acct)) continue;
+                acct.CurrentBalance -= LineEffectOn(acct, line.DebitAmount, line.CreditAmount);
+            }
         }
 
         // ============================================
@@ -536,22 +567,61 @@ namespace Application.Services
             Dictionary<int, Account> accounts,
             Dictionary<string, Account> accountsByNumber,
             Account cashAccount,
+            Account? salesDiscountsAccount,
             Account? fallbackGamingRevenue,
             Account? fallbackItemRevenue,
             ref int nextSeq)
         {
+            // ── Discount split ─────────────────────────────────────────────
+            // net   = what the customer paid (TransactionRecord.TotalPrice)
+            // gross = what the menu price was before discount
+            // disc  = gross - net (booked to 4900 Sales Discounts)
+            //
+            // If pct >= 100, treat as if there was no discount (degenerate
+            // case — would otherwise divide by zero / produce infinite gross).
+            // If 4900 isn't in the chart, silently fall back to NET accounting
+            // so the backfill never blocks on a missing account; balances will
+            // still reconcile, the dashboard just won't show the discount line.
+            var net = tx.TotalPrice;
+            decimal gross = net;
+            decimal disc = 0m;
+            var pct = tx.Discount?.Percentage ?? 0;
+            if (pct > 0 && pct < 100 && salesDiscountsAccount != null)
+            {
+                var factor = 1m - (pct / 100m);
+                gross = Math.Round(net / factor, 2);
+                disc = Math.Round(gross - net, 2);
+            }
+
             var lines = new List<JournalEntryLine>
             {
+                // Line 1 — Debit Cash for what was actually received (net)
                 new JournalEntryLine
                 {
                     AccountId = cashAccount.Id,
-                    DebitAmount = tx.TotalPrice,
+                    DebitAmount = net,
                     CreditAmount = 0,
                     Description = "Cash received",
                     LineNumber = 1,
                     CreatedAt = DateTime.UtcNow
                 }
             };
+
+            int nextLineNum = 2;
+            if (disc > 0 && salesDiscountsAccount != null)
+            {
+                // Line 2 — Debit 4900 Sales Discounts (contra-revenue) for
+                // the discount amount.
+                lines.Add(new JournalEntryLine
+                {
+                    AccountId = salesDiscountsAccount.Id,
+                    DebitAmount = disc,
+                    CreditAmount = 0,
+                    Description = $"Discount given ({pct}%)",
+                    LineNumber = nextLineNum++,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
 
             if (tx.GameId != null)
             {
@@ -565,9 +635,9 @@ namespace Application.Services
                 {
                     AccountId = revenueAccount.Id,
                     DebitAmount = 0,
-                    CreditAmount = tx.TotalPrice,
+                    CreditAmount = gross, // GROSS revenue
                     Description = $"Gaming revenue - {tx.Game?.Name ?? "Game"}",
-                    LineNumber = 2,
+                    LineNumber = nextLineNum++,
                     CreatedAt = DateTime.UtcNow
                 });
             }
@@ -587,11 +657,11 @@ namespace Application.Services
                 if (fullTotal == 0 || itemsByCat.Count == 0) return null;
 
                 decimal totalCredited = 0m;
-                int lineNum = 2;
                 foreach (var catGroup in itemsByCat)
                 {
                     var proportion = catGroup.FullPrice / fullTotal;
-                    var lineAmount = Math.Round(tx.TotalPrice * proportion, 2);
+                    // Allocate GROSS across category lines.
+                    var lineAmount = Math.Round(gross * proportion, 2);
 
                     var revenueAccount = catGroup.Category?.AccountId is int catAcctId && accounts.TryGetValue(catAcctId, out var mapped)
                         ? mapped
@@ -605,7 +675,7 @@ namespace Application.Services
                         DebitAmount = 0,
                         CreditAmount = lineAmount,
                         Description = $"Sales - {catGroup.Category?.Name ?? "Item"}",
-                        LineNumber = lineNum++,
+                        LineNumber = nextLineNum++,
                         CreatedAt = DateTime.UtcNow
                     });
 
@@ -614,8 +684,8 @@ namespace Application.Services
 
                 if (totalCredited == 0) return null;
 
-                // Absorb rounding drift on the last credit line so totals match exactly.
-                var drift = tx.TotalPrice - totalCredited;
+                // Absorb rounding drift on the last credit line so credits = gross.
+                var drift = gross - totalCredited;
                 if (Math.Abs(drift) > 0)
                 {
                     var lastCredit = lines.Where(l => l.CreditAmount > 0).LastOrDefault();
@@ -628,6 +698,8 @@ namespace Application.Services
                 return null;
             }
 
+            // The TotalAmount field on JournalEntry is informational; use gross
+            // (the magnitude of the sale on the revenue side).
             var entry = new JournalEntry
             {
                 EntryNumber = FormatEntryNumber(nextSeq++),
@@ -635,7 +707,7 @@ namespace Application.Services
                 Description = $"Transaction #{tx.Id} - Sale",
                 ReferenceType = "Transaction",
                 ReferenceId = tx.Id,
-                TotalAmount = tx.TotalPrice,
+                TotalAmount = gross,
                 IsPosted = true,
                 PostedAt = DateTime.UtcNow,
                 IsVoided = false,

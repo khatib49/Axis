@@ -1028,6 +1028,88 @@ namespace Application.Services
             }
         }
 
+        // Hierarchy health audit. Single pass over every account, in memory,
+        // returning four buckets of issues for the UI to render.
+        public async Task<BaseResponse<AccountHierarchyAuditDto>> GetHierarchyAuditAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                var all = await _accountRepo.Query()
+                    .Include(a => a.AccountType)
+                    .ToListAsync(ct);
+
+                var byId = all.ToDictionary(a => a.Id);
+                var childrenByParent = all
+                    .Where(a => a.ParentAccountId.HasValue)
+                    .GroupBy(a => a.ParentAccountId!.Value)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                HierarchyAccountRefDto Ref(Account a) =>
+                    new HierarchyAccountRefDto(
+                        a.Id, a.AccountNumber, a.AccountName,
+                        a.AccountTypeId, a.AccountType.TypeName, a.IsActive);
+
+                // 1. Type mismatches — child.AccountTypeId != parent.AccountTypeId
+                var typeMismatches = new List<HierarchyTypeMismatchDto>();
+                foreach (var child in all)
+                {
+                    if (!child.ParentAccountId.HasValue) continue;
+                    if (!byId.TryGetValue(child.ParentAccountId.Value, out var parent)) continue;
+                    if (parent.AccountTypeId == child.AccountTypeId) continue;
+                    typeMismatches.Add(new HierarchyTypeMismatchDto(Ref(child), Ref(parent)));
+                }
+
+                // 2. Headers (accounts with children) that still allow manual entry.
+                //    AllowManualEntry=true on a header means someone could post directly
+                //    to the grouping account — the bug behind the old 5200 Utilities
+                //    Expense $4,480 issue.
+                var headersAllowingManual = new List<HierarchyHeaderIssueDto>();
+                foreach (var (parentId, kids) in childrenByParent)
+                {
+                    if (!byId.TryGetValue(parentId, out var parent)) continue;
+                    if (!parent.AllowManualEntry) continue;
+                    headersAllowingManual.Add(new HierarchyHeaderIssueDto(
+                        Ref(parent), kids.Count, true, parent.CurrentBalance));
+                }
+
+                // 3. Headers with non-zero direct postings.
+                var headersWithPostings = new List<HierarchyHeaderIssueDto>();
+                foreach (var (parentId, kids) in childrenByParent)
+                {
+                    if (!byId.TryGetValue(parentId, out var parent)) continue;
+                    if (Math.Abs(parent.CurrentBalance) < 0.005m) continue;
+                    headersWithPostings.Add(new HierarchyHeaderIssueDto(
+                        Ref(parent), kids.Count, parent.AllowManualEntry, parent.CurrentBalance));
+                }
+
+                // 4. Inactive parents that still have active children.
+                var inactiveParents = new List<HierarchyAccountRefDto>();
+                foreach (var (parentId, kids) in childrenByParent)
+                {
+                    if (!byId.TryGetValue(parentId, out var parent)) continue;
+                    if (parent.IsActive) continue;
+                    if (!kids.Any(c => c.IsActive)) continue;
+                    inactiveParents.Add(Ref(parent));
+                }
+
+                var dto = new AccountHierarchyAuditDto(
+                    TotalAccounts: all.Count,
+                    TotalActive: all.Count(a => a.IsActive),
+                    TypeMismatches: typeMismatches.OrderBy(x => x.Child.AccountNumber).ToList(),
+                    HeadersAllowingManualEntry: headersAllowingManual.OrderBy(x => x.Account.AccountNumber).ToList(),
+                    HeadersWithDirectPostings: headersWithPostings.OrderBy(x => x.Account.AccountNumber).ToList(),
+                    InactiveParentsWithActiveChildren: inactiveParents.OrderBy(x => x.AccountNumber).ToList()
+                );
+
+                return new BaseResponse<AccountHierarchyAuditDto>(true, null, null, dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error running hierarchy audit");
+                return new BaseResponse<AccountHierarchyAuditDto>(false, "Error running hierarchy audit", null);
+            }
+        }
+
         // Returns every active account that can have manual postings, regardless
         // of type. The Expense-Categories UI uses this so a category can be mapped
         // to an Equity account (e.g. Owner Draws / "Omar cash out") or a Revenue

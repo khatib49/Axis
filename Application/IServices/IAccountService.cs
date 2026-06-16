@@ -21,6 +21,13 @@ namespace Application.IServices
             RepointLinesRequestDto dto,
             int? actorUserId,
             CancellationToken ct = default);
+
+        // Hierarchy health audit — scans every account and surfaces:
+        //   * children whose AccountType doesn't match their parent's
+        //   * headers (accounts with children) that still allow manual entry
+        //   * headers with non-zero direct balance (postings sitting on headers)
+        //   * inactive parents with active children
+        Task<BaseResponse<AccountHierarchyAuditDto>> GetHierarchyAuditAsync(CancellationToken ct = default);
         Task<BaseResponse<IReadOnlyList<AccountTypeDto>>> GetAllAccountTypesAsync(CancellationToken ct = default);
 
         Task<BaseResponse<AccountTypeDto>> GetAccountTypeByIdAsync(int id, CancellationToken ct = default);
