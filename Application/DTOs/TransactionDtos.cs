@@ -39,7 +39,11 @@
         // Null = in-house / direct. Trailing nullable defaults keep this
         // field backward-compatible with positional callers.
         int? ChannelId = null,
-        string? ChannelName = null
+        string? ChannelName = null,
+        // Stock warnings produced by the sale — non-null only when at least
+        // one ingredient went negative. The cashier UI shows these as a
+        // yellow toast naming the affected ingredients.
+        List<StockConsumptionWarningDto>? StockWarnings = null
      );
     public record RemoveItemFromInvoiceDto(int ItemId);
     public record UpdateSetRequest(int? SetId);

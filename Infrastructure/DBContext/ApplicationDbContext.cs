@@ -47,6 +47,12 @@ namespace Infrastructure.Persistence
         public DbSet<MonthlyWinner> MonthlyWinners { get; set; }
         public DbSet<TransactionAuditLog> TransactionAuditLogs => Set<TransactionAuditLog>();
         public DbSet<Channel> Channels => Set<Channel>();
+        public DbSet<Ingredient> Ingredients => Set<Ingredient>();
+        public DbSet<RecipeLine> RecipeLines => Set<RecipeLine>();
+        public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+        public DbSet<Supplier> Suppliers => Set<Supplier>();
+        public DbSet<Purchase> Purchases => Set<Purchase>();
+        public DbSet<PurchaseLine> PurchaseLines => Set<PurchaseLine>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -85,6 +91,127 @@ namespace Infrastructure.Persistence
                  .HasForeignKey(x => x.ChannelId)
                  .OnDelete(DeleteBehavior.SetNull);
                 e.HasIndex(x => x.ChannelId);
+            });
+
+            // ─── Stock management ─────────────────────────────────────────
+            // Tables, indexes, and FKs are also created manually via the
+            // 2026-06-stock-management.sql script — this block keeps EF
+            // Core's model in sync so future migrations don't try to
+            // recreate them.
+            b.Entity<Ingredient>(e =>
+            {
+                e.ToTable("Ingredients");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Name).IsRequired().HasMaxLength(150);
+                e.Property(x => x.Unit).IsRequired().HasMaxLength(20);
+                e.Property(x => x.QuantityOnHand).HasColumnType("numeric(18,3)");
+                e.Property(x => x.ReorderLevel).HasColumnType("numeric(18,3)");
+                e.Property(x => x.BuyPricePerUnit).HasColumnType("numeric(18,4)");
+                e.Property(x => x.IsActive).HasDefaultValue(true);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                // Case-insensitive unique by Name (matches the LOWER(Name) DB index)
+                e.HasIndex(x => x.Name).HasDatabaseName("IX_Ingredients_Name_LOWER");
+            });
+
+            b.Entity<RecipeLine>(e =>
+            {
+                e.ToTable("RecipeLines");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Quantity).HasColumnType("numeric(18,3)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+
+                e.HasOne(x => x.Item)
+                 .WithMany(i => i.RecipeLines)
+                 .HasForeignKey(x => x.ItemId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.Ingredient)
+                 .WithMany(i => i.RecipeLines)
+                 .HasForeignKey(x => x.IngredientId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                // No two lines for the same (Item, Ingredient) pair
+                e.HasIndex(x => new { x.ItemId, x.IngredientId }).IsUnique();
+            });
+
+            b.Entity<StockMovement>(e =>
+            {
+                e.ToTable("StockMovements");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Quantity).HasColumnType("numeric(18,3)");
+                e.Property(x => x.BalanceAfter).HasColumnType("numeric(18,3)");
+                e.Property(x => x.Type).IsRequired().HasMaxLength(50);
+                e.Property(x => x.ReferenceType).HasMaxLength(50);
+                e.Property(x => x.WasteReason).HasMaxLength(100);
+                e.Property(x => x.CreatedBy).HasMaxLength(200);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.Property(x => x.UnitCost).HasColumnType("numeric(18,4)");
+                e.Property(x => x.TotalCost).HasColumnType("numeric(18,2)");
+
+                e.HasOne(x => x.Ingredient)
+                 .WithMany(i => i.Movements)
+                 .HasForeignKey(x => x.IngredientId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.IngredientId);
+                e.HasIndex(x => x.CreatedOn);
+                e.HasIndex(x => new { x.ReferenceType, x.ReferenceId });
+                e.HasIndex(x => x.Type);
+            });
+
+            // ─── Suppliers / Purchases (v2) ───────────────────────────────
+            b.Entity<Supplier>(e =>
+            {
+                e.ToTable("Suppliers");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Name).IsRequired().HasMaxLength(150);
+                e.Property(x => x.ContactInfo).HasMaxLength(500);
+                e.Property(x => x.Notes).HasMaxLength(1000);
+                e.Property(x => x.IsActive).HasDefaultValue(true);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.Name).HasDatabaseName("IX_Suppliers_Name_LOWER");
+            });
+
+            b.Entity<Purchase>(e =>
+            {
+                e.ToTable("Purchases");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.InvoiceNumber).HasMaxLength(100);
+                e.Property(x => x.TotalCost).HasColumnType("numeric(18,2)");
+                e.Property(x => x.Notes).HasMaxLength(1000);
+                e.Property(x => x.CreatedBy).HasMaxLength(200);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+
+                e.HasOne(x => x.Supplier)
+                 .WithMany(s => s.Purchases)
+                 .HasForeignKey(x => x.SupplierId)
+                 .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasIndex(x => x.SupplierId);
+                e.HasIndex(x => x.PurchaseDate);
+            });
+
+            b.Entity<PurchaseLine>(e =>
+            {
+                e.ToTable("PurchaseLines");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Quantity).HasColumnType("numeric(18,3)");
+                e.Property(x => x.UnitCost).HasColumnType("numeric(18,4)");
+                e.Property(x => x.LineTotal).HasColumnType("numeric(18,2)");
+                e.Property(x => x.Notes).HasMaxLength(500);
+
+                e.HasOne(x => x.Purchase)
+                 .WithMany(p => p.Lines)
+                 .HasForeignKey(x => x.PurchaseId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.Ingredient)
+                 .WithMany()
+                 .HasForeignKey(x => x.IngredientId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.PurchaseId);
+                e.HasIndex(x => x.IngredientId);
             });
 
             // KitchenBarOrder Configuration

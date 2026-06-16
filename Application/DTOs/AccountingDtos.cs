@@ -138,7 +138,13 @@
 
     public record CogsSummaryDto(
         decimal TcgCogs,  // BuyPrice x Qty for TCG items sold
-        decimal Total
+        decimal Total,
+        // Ingredient COGS = sum of StockMovement.TotalCost on Consumption
+        // movements in the period. Drives Food Cost % and dish margins.
+        // Trailing nullable defaults keep this record backward-compatible
+        // with positional callers (tests, other services).
+        decimal? IngredientCogs = null,
+        decimal? FoodCostPercent = null  // ingredient cogs / total revenue * 100
     );
 
     public record AccountTypeDto(

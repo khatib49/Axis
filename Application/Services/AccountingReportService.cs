@@ -14,6 +14,7 @@ namespace Application.Services
         private readonly IBaseRepository<JournalEntry> _journalRepo;
         private readonly IBaseRepository<JournalEntryLine> _journalLineRepo;
         private readonly IBaseRepository<Account> _accountRepo;
+        private readonly IBaseRepository<StockMovement> _movementRepo;
 
         // TCG category IDs — items whose Category.Name contains "TCG" or "Card"
         // We identify TCG items by checking Item.Category name at query time
@@ -25,7 +26,8 @@ namespace Application.Services
             IBaseRepository<ExpenseCategory> catRepo,
             IBaseRepository<JournalEntry> journalRepo,
             IBaseRepository<JournalEntryLine> journalLineRepo,
-            IBaseRepository<Account> accountRepo)
+            IBaseRepository<Account> accountRepo,
+            IBaseRepository<StockMovement> movementRepo)
         {
             _txRepo = txRepo;
             _expenseRepo = expenseRepo;
@@ -33,6 +35,7 @@ namespace Application.Services
             _journalRepo = journalRepo;
             _journalLineRepo = journalLineRepo;
             _accountRepo = accountRepo;
+            _movementRepo = movementRepo;
         }
 
         public async Task<AccountingDashboardDto> GetDashboardAsync(DateTime? from, DateTime? to, CancellationToken ct = default)
@@ -145,9 +148,36 @@ namespace Application.Services
                 .Where(x => x.BuyPrice.HasValue)
                 .Sum(x => x.BuyPrice!.Value * x.Quantity);
 
-            var cogs = new CogsSummaryDto(TcgCogs: tcgCogs, Total: tcgCogs);
+            // ── 2b. Ingredient COGS ────────────────────────────────────
+            // Sum of StockMovement.TotalCost for Consumption movements in
+            // the period. Each Consumption movement was created when an
+            // F&B item was sold; TotalCost was snapshotted using the
+            // ingredient's BuyPricePerUnit at that moment. So this is the
+            // accurate cost-of-sales for FNB ingredients.
+            //
+            // Voided transactions create reversal movements with the
+            // OPPOSITE sign on TotalCost so they net to zero — no special
+            // handling needed here.
+            var ingredientCogs = await _movementRepo.Query()
+                .Where(m => m.Type == "Consumption"
+                         && m.TotalCost != null
+                         && (from == null || m.CreatedOn >= from.Value.Date)
+                         && (toExclusive == null || m.CreatedOn < toExclusive.Value))
+                .SumAsync(m => (decimal?)m.TotalCost, ct) ?? 0m;
+            ingredientCogs = Math.Round(ingredientCogs, 2);
 
-            var grossProfit = totalRevenue - tcgCogs;
+            var totalCogs = Math.Round(tcgCogs + ingredientCogs, 2);
+            var foodCostPct = totalRevenue > 0
+                ? Math.Round(ingredientCogs / totalRevenue * 100m, 1)
+                : 0m;
+
+            var cogs = new CogsSummaryDto(
+                TcgCogs: tcgCogs,
+                Total: totalCogs,
+                IngredientCogs: ingredientCogs,
+                FoodCostPercent: foodCostPct);
+
+            var grossProfit = totalRevenue - totalCogs;
 
             // ── 3. Manual entries (Expense table) ──────────────────────
             // Filter by the expense's PERIOD (FromDate/ToDate), not by when it

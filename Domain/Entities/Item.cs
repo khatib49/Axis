@@ -25,5 +25,11 @@ namespace Domain.Entities
         public ICollection<CoffeeShopOrder> CoffeeShopOrders { get; set; } = new List<CoffeeShopOrder>();
 
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
+
+        // Recipe lines — empty for items that don't track stock yet
+        // (drinks, packaged goods at rollout, anything not configured by
+        // the chef). Items with no recipe sell normally and don't deduct
+        // anything, per the rollout decision.
+        public ICollection<RecipeLine> RecipeLines { get; set; } = new List<RecipeLine>();
     }
 }

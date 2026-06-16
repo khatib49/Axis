@@ -41,13 +41,15 @@ namespace Application.Services
         private readonly IBaseRepository<KitchenBarOrder> _repoKitchenBar;
         private readonly IHubContext<KitchenBarHub> _hubContext;
         private readonly IBaseRepository<TransactionAuditLog> _repoAuditLog;
+        private readonly IStockService _stockService;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
             IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
         IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor,
         IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext,
-        IBaseRepository<TransactionAuditLog> repoAuditLog)
+        IBaseRepository<TransactionAuditLog> repoAuditLog,
+        IStockService stockService)
         {
             _repoAuditLog = repoAuditLog;
             _hubContext = hubContext;
@@ -66,6 +68,7 @@ namespace Application.Services
             _logger = logger;
             _journalService = journalService;
             _http = httpContextAccessor;
+            _stockService = stockService;
         }
 
         public async Task<BaseResponse<bool>> RemoveItemFromOpenInvoiceAsync(int transactionId, int itemId, CancellationToken ct = default)
@@ -625,6 +628,11 @@ namespace Application.Services
 
 
 
+            // Collected stock warnings (ingredients that went negative) so we
+            // can surface them on the response to the cashier UI as a yellow
+            // toast. Lives outside the try so it's available after the block.
+            IReadOnlyList<StockConsumptionWarningDto> stockWarnings = Array.Empty<StockConsumptionWarningDto>();
+
             try
             {
                 _logger.LogInformation("CS/Order BEFORE_SAVE ReqId={ReqId} Total={Total} Items={Count}", reqId, totalPrice, trxItems.Count);
@@ -634,6 +642,30 @@ namespace Application.Services
                 await _repoTrxItem.AddRangeAsync(trxItems, ct);
 
                 await _uow.SaveChangesAsync(ct);
+
+                // ─── Stock consumption ──────────────────────────────────
+                // After we have trx.Id, deduct ingredient stock based on the
+                // recipes of each item sold. Items without a recipe are
+                // silently skipped (per the rollout decision). Warnings list
+                // any ingredient whose post-balance went negative; we surface
+                // them to the cashier UI but the sale still goes through.
+                // SaveChanges below batches the stock updates with the rest
+                // of the order so it's all atomic.
+                try
+                {
+                    stockWarnings = await _stockService.ConsumeForOrderAsync(
+                        trx.Id,
+                        trxItems.Select(ti => (ti.ItemId, (decimal)ti.Quantity)).ToList(),
+                        createdBy,
+                        ct);
+                }
+                catch (Exception stockEx)
+                {
+                    // Never block a sale because stock tracking failed. Log
+                    // loudly so the chef can investigate.
+                    _logger.LogError(stockEx,
+                        "CS/Order STOCK_FAILED ReqId={ReqId} TxId={TxId}", reqId, trx.Id);
+                }
 
                 await CreateKitchenBarOrdersAsync(trx, trxItems, createdBy,
                     tableNumber: null, guestName: null, ct);
@@ -731,6 +763,12 @@ namespace Application.Services
                     "Transaction saved but could not reload.");
 
             TransactionDto transactionDto = _mapper.ToDto(reloaded);
+            // Attach any stock warnings produced during consumption so the
+            // cashier UI can show a yellow toast naming what went negative.
+            if (stockWarnings != null && stockWarnings.Count > 0)
+            {
+                transactionDto = transactionDto with { StockWarnings = stockWarnings.ToList() };
+            }
             try
             {
                 var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(

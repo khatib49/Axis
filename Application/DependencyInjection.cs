@@ -65,6 +65,12 @@ namespace Application
             services.AddScoped<IKitchenBarOrderService, KitchenBarOrderService>();
             services.AddScoped<IReceiptPrintingService, ReceiptPrintingService>();
             services.AddScoped<IChannelService, ChannelService>();
+            services.AddScoped<IIngredientService, IngredientService>();
+            services.AddScoped<IRecipeService, RecipeService>();
+            services.AddScoped<IStockService, StockService>();
+            services.AddScoped<ISupplierService, SupplierService>();
+            services.AddScoped<IPurchaseService, PurchaseService>();
+            services.AddScoped<IInventoryValuationService, InventoryValuationService>();
 
             return services;
         }
