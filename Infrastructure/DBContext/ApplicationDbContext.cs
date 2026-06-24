@@ -53,6 +53,14 @@ namespace Infrastructure.Persistence
         public DbSet<Supplier> Suppliers => Set<Supplier>();
         public DbSet<Purchase> Purchases => Set<Purchase>();
         public DbSet<PurchaseLine> PurchaseLines => Set<PurchaseLine>();
+        public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+
+        // AI chatbot + integrations
+        public DbSet<IntegrationSetting> IntegrationSettings => Set<IntegrationSetting>();
+        public DbSet<AiConversation>     AiConversations    => Set<AiConversation>();
+        public DbSet<AiMessage>          AiMessages         => Set<AiMessage>();
+        public DbSet<PendingAiAction>    PendingAiActions   => Set<PendingAiAction>();
+        public DbSet<WhatsAppMessage>    WhatsAppMessages   => Set<WhatsAppMessage>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -212,6 +220,100 @@ namespace Infrastructure.Persistence
 
                 e.HasIndex(x => x.PurchaseId);
                 e.HasIndex(x => x.IngredientId);
+            });
+
+            b.Entity<AdminAuditLog>(e =>
+            {
+                e.ToTable("AdminAuditLogs");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.EntityType).IsRequired().HasMaxLength(60);
+                e.Property(x => x.EntityName).HasMaxLength(300);
+                e.Property(x => x.Action).IsRequired().HasMaxLength(20);
+                e.Property(x => x.ChangedBy).HasMaxLength(200);
+                e.Property(x => x.ChangedOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.ChangedOn);
+                e.HasIndex(x => x.EntityType);
+                e.HasIndex(x => x.Action);
+                e.HasIndex(x => x.ChangedBy);
+                e.HasIndex(x => new { x.EntityType, x.EntityId });
+            });
+
+            // --- AI chatbot + integrations ---------------------------------
+            // Columns are TIMESTAMPTZ in the DB (see 2026-06-ai-tz-fix.sql).
+            // EF defaults to "timestamp with time zone" for DateTime under
+            // Npgsql so no explicit HasColumnType needed — kept lean.
+            b.Entity<IntegrationSetting>(e =>
+            {
+                e.ToTable("IntegrationSettings");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Key).IsRequired().HasMaxLength(80);
+                e.HasIndex(x => x.Key).IsUnique();
+                e.Property(x => x.Description).HasMaxLength(500);
+                e.Property(x => x.UpdatedBy).HasMaxLength(200);
+                e.Property(x => x.UpdatedOn).HasDefaultValueSql("NOW()");
+            });
+
+            b.Entity<AiConversation>(e =>
+            {
+                e.ToTable("AiConversations");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Title).IsRequired().HasMaxLength(200);
+                e.Property(x => x.CreatedBy).HasMaxLength(200);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.Property(x => x.LastMessageOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.LastMessageOn);
+                e.HasMany(x => x.Messages)
+                    .WithOne(m => m.Conversation!)
+                    .HasForeignKey(m => m.ConversationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            b.Entity<AiMessage>(e =>
+            {
+                e.ToTable("AiMessages");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Role).IsRequired().HasMaxLength(20);
+                e.Property(x => x.ToolCallId).HasMaxLength(100);
+                e.Property(x => x.ToolName).HasMaxLength(100);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => new { x.ConversationId, x.Id });
+            });
+
+            b.Entity<PendingAiAction>(e =>
+            {
+                e.ToTable("PendingAiActions");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Type).IsRequired().HasMaxLength(50);
+                e.Property(x => x.Title).IsRequired().HasMaxLength(300);
+                e.Property(x => x.Payload).IsRequired();
+                e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+                e.Property(x => x.ProposedBy).HasMaxLength(200);
+                e.Property(x => x.ProposedOn).HasDefaultValueSql("NOW()");
+                e.Property(x => x.DecidedBy).HasMaxLength(200);
+                e.HasOne(x => x.Conversation)
+                    .WithMany()
+                    .HasForeignKey(x => x.ConversationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => new { x.Status, x.ProposedOn });
+                e.HasIndex(x => x.ConversationId);
+            });
+
+            b.Entity<WhatsAppMessage>(e =>
+            {
+                e.ToTable("WhatsAppMessages");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.RecipientPhone).IsRequired().HasMaxLength(40);
+                e.Property(x => x.RecipientName).HasMaxLength(200);
+                e.Property(x => x.TemplateName).HasMaxLength(80);
+                e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+                e.Property(x => x.ProviderMessageId).HasMaxLength(100);
+                e.Property(x => x.QueuedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.PendingAction)
+                    .WithMany()
+                    .HasForeignKey(x => x.PendingActionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.PendingActionId);
+                e.HasIndex(x => new { x.Status, x.QueuedOn });
             });
 
             // KitchenBarOrder Configuration

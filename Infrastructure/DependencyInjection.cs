@@ -13,10 +13,20 @@ namespace Infrastructure
         {
             var conn = cfg.GetConnectionString("Postgres");
 
-            services.AddDbContext<ApplicationDbContext>(opt =>
+            // Interceptor needs HttpContext to read the current user's
+            // identity. Register it as scoped (one per request).
+            services.AddScoped<AdminAuditInterceptor>();
+
+            services.AddDbContext<ApplicationDbContext>((sp, opt) =>
             {
                 opt.UseNpgsql(conn, b => b.MigrationsAssembly("Infrastructure"));
                 // opt.UseSnakeCaseNamingConvention();
+
+                // Wire the SaveChanges interceptor that writes
+                // AdminAuditLog rows for every Create/Update/Delete on the
+                // allow-listed entities. Runs inside the same DB transaction
+                // as the actual change, so audits are atomic with the work.
+                opt.AddInterceptors(sp.GetRequiredService<AdminAuditInterceptor>());
             });
 
 

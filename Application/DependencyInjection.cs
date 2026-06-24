@@ -72,6 +72,18 @@ namespace Application
             services.AddScoped<IPurchaseService, PurchaseService>();
             services.AddScoped<IInventoryValuationService, InventoryValuationService>();
 
+            // Admin audit (read side — write side is the EF interceptor)
+            services.AddScoped<IAdminAuditService, AdminAuditService>();
+
+            // AI chatbot stack
+            services.AddScoped<IIntegrationSettingsService, IntegrationSettingsService>();
+            services.AddScoped<Application.Services.Ai.ClaudeApiClient>();
+            services.AddScoped<Application.Services.Ai.AiToolExecutor>();
+            services.AddScoped<IAiChatService, Application.Services.Ai.AiChatService>();
+            services.AddScoped<IWhatsAppService, Application.Services.Ai.WhatsAppService>();
+            services.AddScoped<IPendingActionService, Application.Services.Ai.PendingActionService>();
+            services.AddScoped<Application.Services.Ai.AiMonitorJobs>();
+
             return services;
         }
     }

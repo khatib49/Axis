@@ -78,6 +78,7 @@ builder.Host.UseSerilog((ctx, sp, cfg) =>
 builder.Services.AddInfrastructure(builder.Configuration); // DbContext + repos
 builder.Services.AddApplication();                         // <-- registers IAuthService & IGameService
 builder.Services.AddScoped<IImageStorageService, LocalImageStorageService>();
+builder.Services.AddHttpClient();                          // for Anthropic + WhatsApp clients
 
 
 // Program.cs
@@ -218,6 +219,18 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new AllowAllDashboardAuthorizationFilter() }
 });
+
+// AI monitor jobs. Both no-op when their AiMonitor.*Enabled flag is 'false'
+// in IntegrationSettings (default). Admin flips them on in /admin/integrations.
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Ai.AiMonitorJobs>(
+    "ai-occupancy-monitor",
+    j => j.RunOccupancyMonitorAsync(CancellationToken.None),
+    "*/30 * * * *");                  // every 30 minutes
+
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Ai.AiMonitorJobs>(
+    "ai-pattern-monitor",
+    j => j.RunPatternMonitorAsync(CancellationToken.None),
+    "0 10 * * *");                    // daily 10:00 UTC
 
 app.UseHttpsRedirection();
 //app.UseForce403ForUnauthorized();
