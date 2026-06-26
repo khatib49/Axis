@@ -41,6 +41,10 @@ namespace Application.Services
         private readonly IBaseRepository<KitchenBarOrder> _repoKitchenBar;
         private readonly IHubContext<KitchenBarHub> _hubContext;
         private readonly IBaseRepository<TransactionAuditLog> _repoAuditLog;
+        // Permanent admin-action log — no FK to TransactionRecord, so entries
+        // survive a transaction delete (TransactionAuditLog cascades and dies
+        // along with its parent, which is no good for "who deleted this tx").
+        private readonly IBaseRepository<AdminAuditLog> _repoAdminAuditLog;
         private readonly IStockService _stockService;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
@@ -49,9 +53,11 @@ namespace Application.Services
         IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor,
         IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext,
         IBaseRepository<TransactionAuditLog> repoAuditLog,
+        IBaseRepository<AdminAuditLog> repoAdminAuditLog,
         IStockService stockService)
         {
             _repoAuditLog = repoAuditLog;
+            _repoAdminAuditLog = repoAdminAuditLog;
             _hubContext = hubContext;
             _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -88,17 +94,53 @@ namespace Application.Services
             if (itemToRemove is null)
                 return new BaseResponse<bool>(false, "Not found", "Item not found in this transaction.", false);
 
-            // Return stock
+            var actor = _http?.HttpContext?.User?.Identity?.Name ?? "system";
+            var removedQty = itemToRemove.Quantity;
+
+            // 1) Item.Quantity counter (legacy per-item stock)
             var dbItem = await _repoItem.GetByIdAsync(itemId, asNoTracking: false, ct);
             if (dbItem is not null)
-                dbItem.Quantity += itemToRemove.Quantity;
+                dbItem.Quantity += removedQty;
+
+            // 2) Ingredient.QuantityOnHand via recipe — restore exactly
+            //    what this line consumed. Skips silently for non-recipe
+            //    items, same as ConsumeForOrderAsync. If this throws, log
+            //    and continue rather than block the line removal from
+            //    persisting (otherwise the UI is stuck in a half-state).
+            try
+            {
+                await _stockService.RestoreForLinesAsync(
+                    transactionId,
+                    new[] { (itemId, (decimal)removedQty) },
+                    reason: $"Item removed from invoice #{transactionId}",
+                    actor: actor,
+                    ct: ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Stock restore failed when removing item {ItemId} from invoice {InvoiceId}. Item line will still be removed; manual ingredient adjustment may be needed.",
+                    itemId, transactionId);
+            }
 
             // Recalculate total
-            tx.TotalPrice -= itemToRemove.Quantity * (dbItem?.Price ?? 0);
+            tx.TotalPrice -= removedQty * (dbItem?.Price ?? 0);
             if (tx.TotalPrice < 0) tx.TotalPrice = 0;
 
             _repoTrxItem.Remove(itemToRemove);
             tx.ModifiedOn = DateTime.UtcNow;
+
+            // Audit — TransactionAuditLog survives because the parent isn't
+            // deleted here; only the line is removed.
+            await LogAuditAsync(
+                transactionId: transactionId,
+                changedBy: actor,
+                action: "LineRemoved",
+                fieldChanged: "TransactionItems",
+                oldValue: $"{dbItem?.Name ?? "Item#" + itemId} x{removedQty}",
+                newValue: "(removed)",
+                notes: $"NewTotal={tx.TotalPrice:F2}",
+                ct: ct);
 
             await _uow.SaveChangesAsync(ct);
             return new BaseResponse<bool>(true, null, "Item removed successfully.", true);
@@ -896,7 +938,15 @@ namespace Application.Services
 
             if (e is null) return false;
 
-            // If it's a coffee-shop order (no GameId), return stock
+            var actor = _http?.HttpContext?.User?.Identity?.Name ?? "system";
+
+            // If it's a coffee-shop order (no GameId), return stock — TWO
+            // places need touching:
+            //   1) Item.Quantity (the legacy per-item counter we still
+            //      decrement on sale)
+            //   2) Ingredient.QuantityOnHand via RestoreForOrderAsync —
+            //      mirrors every Consumption StockMovement this tx wrote
+            //      so the kitchen's actual stock reflects the void.
             if (e.GameId == null && e.TransactionItems?.Count > 0)
             {
                 var itemIds = e.TransactionItems.Select(i => i.ItemId).Distinct().ToList();
@@ -909,7 +959,48 @@ namespace Application.Services
                     var qty = e.TransactionItems.Where(x => x.ItemId == it.Id).Sum(x => x.Quantity);
                     it.Quantity += qty;
                 }
+
+                // Reverse all Consumption StockMovements for this tx.
+                // No-op if there were none (non-recipe items, or older
+                // transaction predating stock V1).
+                try
+                {
+                    await _stockService.RestoreForOrderAsync(e.Id, actor, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Stock reversal failed for deleted transaction {Id}; continuing with delete to avoid leaving a half-state. Manual stock adjustment may be needed.",
+                        e.Id);
+                }
             }
+
+            // Permanent record in AdminAuditLogs (no FK to TransactionRecord,
+            // so this survives the cascade delete). TransactionAuditLog is
+            // wired with OnDelete=Cascade so its rows die with the parent —
+            // including any "Deleted" entry we'd add there. AdminAuditLog
+            // keeps the receipt.
+            var lineSummary = e.TransactionItems == null || e.TransactionItems.Count == 0
+                ? "no items"
+                : string.Join(", ",
+                    e.TransactionItems.GroupBy(x => x.ItemId)
+                        .Select(g => $"Item#{g.Key} x{g.Sum(x => x.Quantity)}"));
+            await LogPermanentAdminAuditAsync(
+                transactionId: id,
+                entityName: $"Transaction #{id} (Total ${e.TotalPrice:F2})",
+                action: "Deleted",
+                changedBy: actor,
+                summary: $"Total ${e.TotalPrice:F2}, status {e.StatusId}, items: {lineSummary}",
+                payload: new
+                {
+                    e.Id,
+                    e.TotalPrice,
+                    e.StatusId,
+                    e.GameId,
+                    e.RoomId,
+                    Items = e.TransactionItems?.Select(ti => new { ti.ItemId, ti.Quantity })
+                },
+                ct: ct);
 
             // Cancel any scheduled job if you persist it
             // if (!string.IsNullOrEmpty(e.HangfireJobId)) BackgroundJob.Delete(e.HangfireJobId);
@@ -1531,6 +1622,24 @@ namespace Application.Services
                 notes: $"Added {itemsRequest.Count} item(s). NewTotal={trx.TotalPrice:F2}",
                 ct: ct
             );
+
+            // Consume ingredient stock for the newly added lines via the
+            // recipe — matches the create-order path. We pass only the
+            // delta (the qty being added now), NOT the line's full new qty,
+            // because earlier consumption already accounted for the
+            // pre-existing portion.
+            try
+            {
+                var consumeLines = requested.Select(kv => (kv.Key, (decimal)kv.Value)).ToList();
+                await _stockService.ConsumeForOrderAsync(invoiceId, consumeLines, updatedBy, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Stock consumption failed when adding items to invoice {InvoiceId}; line was added but ingredient stock NOT decremented. Manual adjustment may be needed.",
+                    invoiceId);
+            }
+
             try
             {
                 _logger.LogInformation(
@@ -1850,6 +1959,35 @@ namespace Application.Services
             };
             await _repoAuditLog.AddAsync(log, ct);
             // Caller must call SaveChangesAsync — log is batched with the main save
+        }
+
+        /// <summary>
+        /// Writes a row to the permanent AdminAuditLogs table. Use this for
+        /// transaction deletes — TransactionAuditLog cascade-deletes with
+        /// its parent, so without this we lose the "who deleted invoice #X"
+        /// history the moment the delete commits.
+        /// </summary>
+        private async Task LogPermanentAdminAuditAsync(
+            int transactionId,
+            string entityName,
+            string action,                  // 'Deleted' | 'LineRemoved' | 'ItemsAdded' | ...
+            string changedBy,
+            string? summary,
+            object? payload,
+            CancellationToken ct = default)
+        {
+            await _repoAdminAuditLog.AddAsync(new AdminAuditLog
+            {
+                EntityType = "TransactionRecord",
+                EntityId = transactionId,
+                EntityName = entityName.Length > 300 ? entityName[..300] : entityName,
+                Action = action,
+                FieldChanges = payload == null ? null : JsonSerializer.Serialize(payload),
+                Snapshot = summary,
+                ChangedBy = changedBy ?? "system",
+                ChangedOn = DateTime.UtcNow,
+            }, ct);
+            // Caller saves.
         }
 
         // ===========================================================

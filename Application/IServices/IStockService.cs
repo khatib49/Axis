@@ -35,5 +35,19 @@ namespace Application.IServices
             int transactionId,
             string? actor,
             CancellationToken ct = default);
+
+        /// <summary>
+        /// Partial reversal — when one item is removed from an open
+        /// invoice (or the qty is reduced), restore only that item's
+        /// share of stock. Uses the item's current recipe to compute how
+        /// much of each ingredient to add back, mirroring ConsumeForOrderAsync
+        /// in reverse. Writes one positive StockMovement per ingredient.
+        /// </summary>
+        Task RestoreForLinesAsync(
+            int transactionId,
+            IReadOnlyList<(int itemId, decimal quantity)> lines,
+            string? reason,
+            string? actor,
+            CancellationToken ct = default);
     }
 }

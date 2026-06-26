@@ -187,5 +187,76 @@ namespace Application.Services
             }
             // Caller saves.
         }
+
+        public async Task RestoreForLinesAsync(
+            int transactionId,
+            IReadOnlyList<(int itemId, decimal quantity)> lines,
+            string? reason,
+            string? actor,
+            CancellationToken ct = default)
+        {
+            // Symmetric to ConsumeForOrderAsync, but adds stock back. Used
+            // when the admin removes an item from an open invoice (or
+            // reduces a line's quantity) — we restore exactly the share
+            // that line consumed, based on the item's current recipe.
+            if (lines == null || lines.Count == 0) return;
+
+            var itemIds = lines.Select(l => l.itemId).Distinct().ToList();
+            var recipes = await _recipeRepo.Query()
+                .Where(r => itemIds.Contains(r.ItemId))
+                .ToListAsync(ct);
+            if (recipes.Count == 0) return; // non-recipe items: nothing to restore on the ingredient side
+
+            // Aggregate per ingredient.
+            var perIngredient = new Dictionary<int, decimal>();
+            foreach (var (itemId, qty) in lines)
+            {
+                if (qty <= 0) continue;
+                foreach (var rl in recipes.Where(r => r.ItemId == itemId))
+                {
+                    if (!perIngredient.ContainsKey(rl.IngredientId)) perIngredient[rl.IngredientId] = 0m;
+                    perIngredient[rl.IngredientId] += rl.Quantity * qty;
+                }
+            }
+            if (perIngredient.Count == 0) return;
+
+            var ingIds = perIngredient.Keys.ToList();
+            var ingredients = await _ingredientRepo.Query(asNoTracking: false)
+                .Where(i => ingIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, ct);
+
+            var now = DateTime.UtcNow;
+            foreach (var (ingId, qty) in perIngredient)
+            {
+                if (!ingredients.TryGetValue(ingId, out var ing)) continue;
+
+                ing.QuantityOnHand = Math.Round(ing.QuantityOnHand + qty, 3);
+                ing.ModifiedOn = now;
+
+                // Cost mirrors the consume cost basis — use the ingredient's
+                // current latest-cost since we don't snapshot per-line cost
+                // here. Reverses cleanly in COGS reports.
+                var unitCost = ing.BuyPricePerUnit;
+                var totalCost = unitCost.HasValue ? -(unitCost.Value * qty) : (decimal?)null;
+
+                await _movementRepo.AddAsync(new StockMovement
+                {
+                    IngredientId = ing.Id,
+                    Quantity = qty,                       // positive — adding back
+                    Type = "Consumption",                  // same type so it pairs with the original in reports
+                    ReferenceType = "Transaction",
+                    ReferenceId = transactionId,
+                    BalanceAfter = ing.QuantityOnHand,
+                    UnitCost = unitCost,
+                    TotalCost = totalCost,
+                    Notes = string.IsNullOrWhiteSpace(reason)
+                        ? "Partial reversal (line removed from invoice)"
+                        : $"Partial reversal: {reason}",
+                    CreatedBy = actor,
+                    CreatedOn = now
+                }, ct);
+            }
+            // Caller saves.
+        }
     }
 }
