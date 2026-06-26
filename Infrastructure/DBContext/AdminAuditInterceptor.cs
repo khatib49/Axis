@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Domain.Entities;
+using Domain.Identity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -39,6 +40,7 @@ namespace Infrastructure.Persistence
             nameof(Expense),
             nameof(Account),
             nameof(AccountType),
+            nameof(AppUser),                // user create / update / delete by admin
             // Notably NOT audited (their own audit/history covers them):
             //   TransactionRecord / TransactionItem  → TransactionAuditLog
             //   JournalEntry / JournalEntryLine      → posted/voided lifecycle
@@ -46,11 +48,36 @@ namespace Infrastructure.Persistence
         };
 
         // Properties we don't want noise from in field-change deltas.
+        // These are bookkeeping fields the app sets automatically.
         private static readonly HashSet<string> IgnoredFields = new(StringComparer.Ordinal)
         {
             "Id", "CreatedOn", "ModifiedOn", "CreatedAt", "ModifiedAt",
-            "CreatedBy", "ModifiedBy"
+            "CreatedBy", "ModifiedBy",
+            // Identity bookkeeping noise (Lockout counters, security stamp churn,
+            // login tokens) — none of these are "admin actions".
+            "AccessFailedCount", "LockoutEnd", "LockoutEnabled",
+            "ConcurrencyStamp", "SecurityStamp",
+            "LastLoginAt", "RefreshToken", "RefreshTokenExpiry",
+            // SECURITY: never persist password material into the audit log.
+            // Snapshot + delta paths both skip these.
+            "PasswordHash", "PasswordSalt",
         };
+
+        // System-managed fields: these are recomputed by background jobs
+        // (balance rebuild, stock movements, sales). An Update where the
+        // ONLY modified field belongs to this list is not an admin action —
+        // skip it entirely so the Admin Activity tab stays clean.
+        // Key = entity type name; value = set of field names.
+        private static readonly Dictionary<string, HashSet<string>> SystemManagedFields
+            = new(StringComparer.Ordinal)
+            {
+                [nameof(Account)]    = new(StringComparer.Ordinal) { "CurrentBalance", "Balance" },
+                [nameof(Item)]       = new(StringComparer.Ordinal) { "Quantity", "QuantityOnHand" },
+                [nameof(Ingredient)] = new(StringComparer.Ordinal) { "QuantityOnHand", "BuyPricePerUnit" },
+                // BuyPricePerUnit is auto-updated by purchases (latest-cost rule)
+                // so admin edits to it via the UI will be drowned out by purchase
+                // events — keep it out of the admin feed.
+            };
 
         public AdminAuditInterceptor(IHttpContextAccessor http)
         {
@@ -159,10 +186,12 @@ namespace Infrastructure.Persistence
             catch { return null; }
         }
 
-        // Best-effort friendly name — common fields like Name/Title/AccountName.
+        // Best-effort friendly name — common fields across entities, with
+        // UserName / Email added so deleted users show up as e.g.
+        // "user@axislb.com" rather than just "#42".
         private static string? TryGetFriendlyName(EntityEntry entry)
         {
-            foreach (var prop in new[] { "Name", "AccountName", "Title", "InvoiceNumber" })
+            foreach (var prop in new[] { "Name", "AccountName", "Title", "InvoiceNumber", "UserName", "Email", "FullName" })
             {
                 var meta = entry.Metadata.FindProperty(prop);
                 if (meta == null) continue;
@@ -176,12 +205,21 @@ namespace Infrastructure.Persistence
 
         private static Dictionary<string, object> BuildDeltas(EntityEntry entry)
         {
+            // Look up the system-managed field set for this entity type
+            // (Account.CurrentBalance, Item.Quantity, etc.). Those fields
+            // are excluded from the delta — if they were the ONLY thing
+            // that changed, the result is an empty dictionary and the
+            // caller drops the row, keeping the Admin Activity feed clean.
+            var typeName = entry.Entity.GetType().Name;
+            SystemManagedFields.TryGetValue(typeName, out var sysFields);
+
             var deltas = new Dictionary<string, object>();
             foreach (var prop in entry.Properties)
             {
                 if (!prop.IsModified) continue;
                 var name = prop.Metadata.Name;
                 if (IgnoredFields.Contains(name)) continue;
+                if (sysFields != null && sysFields.Contains(name)) continue;
                 var oldV = prop.OriginalValue;
                 var newV = prop.CurrentValue;
                 if (Equals(oldV, newV)) continue;
