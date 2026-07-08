@@ -131,22 +131,36 @@ namespace Application.Services
             var discountsGiven = Math.Round(totalGross - totalRevenue, 2);
 
             // ── 2. COGS (TCG only — BuyPrice × Qty) ────────────────────
-            var tcgCogsLines = await txQ
+            // IMPORTANT: use the same NESTED-projection pattern as the
+            // revenue block above (line 81). A server-side SelectMany here
+            // was over-counting COGS by ~2.6x on prod because EF's SQL
+            // translation was producing duplicated line rows when other
+            // navigations on TransactionRecord (Discount / TransactionAuditLog /
+            // JournalEntries / KitchenBarOrders / etc.) got pulled in during
+            // the flatten. Keeping it as `Select(t => new { Items = ... })`
+            // produces one row per transaction with a nested items collection
+            // and matches the Item Revenue Report exactly.
+            var tcgCogsTxs = await txQ
                 .Where(t => t.GameId == null)
-                .SelectMany(t => t.TransactionItems.Select(ti => new
+                .Select(t => new
                 {
-                    CategoryName = ti.Item != null && ti.Item.Category != null
-                        ? ti.Item.Category.Name
-                        : "",
-                    BuyPrice = ti.Item != null ? ti.Item.BuyPrice : null,
-                    Quantity = ti.Quantity
-                }))
-                .Where(x => x.CategoryName.Contains(TcgCategoryKeyword))
+                    Items = t.TransactionItems.Select(ti => new
+                    {
+                        CategoryName = ti.Item != null && ti.Item.Category != null
+                            ? ti.Item.Category.Name
+                            : "",
+                        BuyPrice = ti.Item != null ? ti.Item.BuyPrice : null,
+                        Quantity = ti.Quantity
+                    })
+                })
                 .ToListAsync(ct);
 
-            var tcgCogs = tcgCogsLines
-                .Where(x => x.BuyPrice.HasValue)
+            var tcgCogs = tcgCogsTxs
+                .SelectMany(t => t.Items)
+                .Where(x => x.BuyPrice.HasValue
+                         && x.CategoryName.Contains(TcgCategoryKeyword, StringComparison.OrdinalIgnoreCase))
                 .Sum(x => x.BuyPrice!.Value * x.Quantity);
+            tcgCogs = Math.Round(tcgCogs, 2);
 
             // ── 2b. Ingredient COGS ────────────────────────────────────
             // Sum of StockMovement.TotalCost for Consumption movements in

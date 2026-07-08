@@ -13,6 +13,15 @@ namespace Application.IServices
         // ingredient on the active list.
         Task<bool> DeactivateAsync(int id, string? actor, CancellationToken ct = default);
 
+        /// <summary>
+        /// Permanently remove the ingredient row from the DB. Refuses if
+        /// referenced by any RecipeLine, StockMovement, or PurchaseLine —
+        /// callers should Deactivate instead in that case to preserve
+        /// audit history. Throws InvalidOperationException with a
+        /// human-readable message when blocked.
+        /// </summary>
+        Task<bool> HardDeleteAsync(int id, string? actor, CancellationToken ct = default);
+
         // Stock events — each writes one StockMovement and updates QuantityOnHand.
         Task<IngredientDto> AddStockAsync(AddStockRequestDto dto, string? actor, CancellationToken ct = default);
         Task<IngredientDto> RecordWasteAsync(RecordWasteRequestDto dto, string? actor, CancellationToken ct = default);

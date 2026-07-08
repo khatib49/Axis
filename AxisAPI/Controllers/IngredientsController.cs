@@ -62,6 +62,23 @@ namespace AxisAPI.Controllers
             return ok ? NoContent() : NotFound();
         }
 
+        // Permanent delete. Requires no historical references (recipes,
+        // stock movements, purchase lines). Otherwise returns 409 Conflict
+        // with a message telling the caller to hide the ingredient instead.
+        [HttpDelete("{id:int}/hard")]
+        public async Task<IActionResult> HardDelete(int id, CancellationToken ct)
+        {
+            try
+            {
+                var ok = await _svc.HardDeleteAsync(id, Actor, ct);
+                return ok ? NoContent() : NotFound();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
+
         // ── Stock events ──────────────────────────────────────────────
         [HttpPost("add-stock")]
         public async Task<ActionResult<IngredientDto>> AddStock([FromBody] AddStockRequestDto dto, CancellationToken ct)

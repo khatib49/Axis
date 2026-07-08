@@ -45,6 +45,10 @@ namespace Application.Services
         // survive a transaction delete (TransactionAuditLog cascades and dies
         // along with its parent, which is no good for "who deleted this tx").
         private readonly IBaseRepository<AdminAuditLog> _repoAdminAuditLog;
+        // Used to identify recipe-driven items so the Item.Quantity out-of-
+        // stock check can be bypassed — for recipe items the real stock is
+        // on Ingredients, not on Item.Quantity.
+        private readonly IBaseRepository<RecipeLine> _repoRecipeLine;
         private readonly IStockService _stockService;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
@@ -54,10 +58,12 @@ namespace Application.Services
         IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext,
         IBaseRepository<TransactionAuditLog> repoAuditLog,
         IBaseRepository<AdminAuditLog> repoAdminAuditLog,
+        IBaseRepository<RecipeLine> repoRecipeLine,
         IStockService stockService)
         {
             _repoAuditLog = repoAuditLog;
             _repoAdminAuditLog = repoAdminAuditLog;
+            _repoRecipeLine = repoRecipeLine;
             _hubContext = hubContext;
             _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -583,9 +589,23 @@ namespace Application.Services
             }
 
 
+            // Only enforce the Item.Quantity counter on items WITHOUT a
+            // recipe. Recipe-driven items report their real stock via
+            // Ingredient.QuantityOnHand — the consume-on-sale path will
+            // decrement ingredients and produce warnings if any go
+            // negative, but the sale itself is allowed even when the
+            // (unused) Item.Quantity counter is 0.
+            var recipeItemIds = new HashSet<int>(
+                await _repoRecipeLine.Query()
+                    .Where(r => ids.Contains(r.ItemId))
+                    .Select(r => r.ItemId)
+                    .Distinct()
+                    .ToListAsync(ct));
+
             var outOfStock = new List<string>();
             foreach (var it in dbItems)
             {
+                if (recipeItemIds.Contains(it.Id)) continue; // recipe covers it
                 var need = requested[it.Id];
                 if (it.Quantity < need)
                     outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})");
@@ -866,6 +886,7 @@ namespace Application.Services
             if (dto.TotalPrice.HasValue) changedFields.Add($"TotalPrice={dto.TotalPrice}");
             if (dto.StatusId.HasValue) changedFields.Add($"StatusId={dto.StatusId}");
             if (dto.DiscountId.HasValue) changedFields.Add($"DiscountId={dto.DiscountId}");
+            if (dto.UserId.HasValue) changedFields.Add($"UserId={dto.UserId}");
             Discount? discount = null;
             var updatedBy = _http.HttpContext?.User?.Identity?.Name ?? "admin";
             if (dto.DiscountId.HasValue)
@@ -883,6 +904,26 @@ namespace Application.Services
                 {
                     // remove discount
                     e.DiscountId = null;
+                }
+            }
+
+            // Client attach/detach. Value > 0 = set that client; value == 0 = clear.
+            // Null (default) leaves the field untouched so existing PUT callers
+            // that don't know about UserId keep working unchanged.
+            if (dto.UserId.HasValue)
+            {
+                if (dto.UserId.Value > 0)
+                {
+                    var clientExists = await _userManager.Users
+                        .AsNoTracking()
+                        .AnyAsync(u => u.Id == dto.UserId.Value, ct);
+                    if (!clientExists)
+                        throw new ArgumentException("Invalid UserId (client not found).");
+                    e.UserId = dto.UserId.Value;
+                }
+                else
+                {
+                    e.UserId = null;
                 }
             }
             // Validate Room/Set relationship only if either changed and both are present
@@ -1538,10 +1579,19 @@ namespace Application.Services
                     $"The following item IDs do not exist: {string.Join(", ", missing)}");
             }
 
-            // Stock check
+            // Stock check — skip recipe items (their real stock is on
+            // Ingredient.QuantityOnHand, not the Item.Quantity counter).
+            var recipeItemIds = new HashSet<int>(
+                await _repoRecipeLine.Query()
+                    .Where(r => ids.Contains(r.ItemId))
+                    .Select(r => r.ItemId)
+                    .Distinct()
+                    .ToListAsync(ct));
+
             var outOfStock = new List<string>();
             foreach (var it in dbItems)
             {
+                if (recipeItemIds.Contains(it.Id)) continue;
                 var need = requested[it.Id];
                 if (it.Quantity < need)
                     outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})");

@@ -11,6 +11,9 @@ namespace Application.Services
     {
         private readonly IBaseRepository<Ingredient> _repo;
         private readonly IBaseRepository<StockMovement> _movementRepo;
+        // Both used only for the HardDelete FK-safety pre-check.
+        private readonly IBaseRepository<RecipeLine> _recipeRepo;
+        private readonly IBaseRepository<PurchaseLine> _purchaseLineRepo;
         private readonly IUnitOfWork _uow;
         private readonly ILogger<IngredientService> _logger;
 
@@ -24,11 +27,15 @@ namespace Application.Services
         public IngredientService(
             IBaseRepository<Ingredient> repo,
             IBaseRepository<StockMovement> movementRepo,
+            IBaseRepository<RecipeLine> recipeRepo,
+            IBaseRepository<PurchaseLine> purchaseLineRepo,
             IUnitOfWork uow,
             ILogger<IngredientService> logger)
         {
             _repo = repo;
             _movementRepo = movementRepo;
+            _recipeRepo = recipeRepo;
+            _purchaseLineRepo = purchaseLineRepo;
             _uow = uow;
             _logger = logger;
         }
@@ -139,6 +146,36 @@ namespace Application.Services
             entity.ModifiedOn = DateTime.UtcNow;
             _repo.Update(entity);
             await _uow.SaveChangesAsync(ct);
+            return true;
+        }
+
+        public async Task<bool> HardDeleteAsync(int id, string? actor, CancellationToken ct = default)
+        {
+            var entity = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(i => i.Id == id, ct);
+            if (entity == null) return false;
+
+            // FK-safety: block if any historical record still points at this
+            // ingredient. Deactivate is the right tool in those cases —
+            // hiding preserves the audit trail. We check in this order to
+            // give the most useful error message.
+            var recipeCount = await _recipeRepo.Query().CountAsync(r => r.IngredientId == id, ct);
+            if (recipeCount > 0)
+                throw new InvalidOperationException(
+                    $"Cannot delete '{entity.Name}': it is used in {recipeCount} recipe line(s). Remove it from those recipes first, or hide the ingredient instead.");
+
+            var movementCount = await _movementRepo.Query().CountAsync(m => m.IngredientId == id, ct);
+            if (movementCount > 0)
+                throw new InvalidOperationException(
+                    $"Cannot delete '{entity.Name}': it has {movementCount} stock movement(s) in the history. Hide it instead to preserve the audit trail.");
+
+            var purchaseCount = await _purchaseLineRepo.Query().CountAsync(p => p.IngredientId == id, ct);
+            if (purchaseCount > 0)
+                throw new InvalidOperationException(
+                    $"Cannot delete '{entity.Name}': it appears on {purchaseCount} purchase line(s). Hide it instead.");
+
+            _repo.Remove(entity);
+            await _uow.SaveChangesAsync(ct);
+            _logger.LogInformation("Ingredient {Id} '{Name}' hard-deleted by {Actor}", id, entity.Name, actor ?? "system");
             return true;
         }
 

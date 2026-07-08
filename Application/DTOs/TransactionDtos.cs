@@ -103,7 +103,7 @@
         int ItemsCount
     );
     public record TransactionUpdateDto(
-    int? RoomId,    
+    int? RoomId,
     int? GameTypeId,
     int? GameId,
     int? GameSettingId,
@@ -111,7 +111,11 @@
     decimal? TotalPrice,
     int? StatusId,
     int? SetId,
-    int? DiscountId
+    int? DiscountId,
+    // Client attached to the session. Non-null → set/replace; null → leave
+    // alone (only fields explicitly present in the incoming JSON get patched).
+    // Cashier uses this to attach a client on an open Board/PS5 session.
+    int? UserId = null
         );
 
     public record TransactionItemDto(
