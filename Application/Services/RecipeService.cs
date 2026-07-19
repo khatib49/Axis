@@ -37,7 +37,7 @@ namespace Application.Services
                 .OrderBy(l => l.Ingredient.Name)
                 .Select(l => new RecipeLineDto(
                     l.Id, l.ItemId, l.IngredientId, l.Ingredient.Name, l.Ingredient.Unit,
-                    l.Quantity, l.Notes))
+                    l.Quantity, l.Notes, l.Unit))
                 .ToListAsync(ct);
         }
 
@@ -90,6 +90,7 @@ namespace Application.Services
                 if (existingByIng.TryGetValue(line.IngredientId, out var current))
                 {
                     current.Quantity = Math.Round(line.Quantity, 3);
+                    current.Unit = string.IsNullOrWhiteSpace(line.Unit) ? current.Unit : line.Unit.Trim();
                     current.Notes = line.Notes?.Trim();
                     _lineRepo.Update(current);
                     existingByIng.Remove(line.IngredientId);
@@ -101,6 +102,7 @@ namespace Application.Services
                         ItemId = dto.ItemId,
                         IngredientId = line.IngredientId,
                         Quantity = Math.Round(line.Quantity, 3),
+                        Unit = string.IsNullOrWhiteSpace(line.Unit) ? null : line.Unit.Trim(),
                         Notes = line.Notes?.Trim(),
                         CreatedOn = DateTime.UtcNow
                     }, ct);

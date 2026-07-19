@@ -114,7 +114,10 @@ namespace Application.Mapping
                 e.GameSetting?.IsDayPass ?? false,
                 e.Comment,
         e.UserId,
-        e.User?.DisplayName ?? e.User?.UserName,
+        // Robust display name for the attached client. Prefers a full name,
+        // falls back to UserName, phone, email, then "Client #id" so the
+        // card never renders blank when a user is actually attached.
+        ResolveUserDisplay(e.User),
         e.ChannelId,
         e.Channel != null ? e.Channel.Name : null
             );
@@ -122,6 +125,22 @@ namespace Application.Mapping
 
         public partial TransactionRecord ToEntity(TransactionCreateDto dto);
         public partial void MapTo(TransactionUpdateDto dto, [MappingTarget] TransactionRecord e);
+
+        // Called from ToDto(TransactionRecord). Picks the best display string
+        // for an attached client. Clients created via /users/client only
+        // populate FirstName/LastName + Phone, not DisplayName — so relying
+        // only on DisplayName made the session card show blank on refresh.
+        private static string? ResolveUserDisplay(AppUser? u)
+        {
+            if (u == null) return null;
+            if (!string.IsNullOrWhiteSpace(u.DisplayName)) return u.DisplayName;
+            var full = $"{u.FirstName} {u.LastName}".Trim();
+            if (!string.IsNullOrWhiteSpace(full)) return full;
+            if (!string.IsNullOrWhiteSpace(u.UserName)) return u.UserName;
+            if (!string.IsNullOrWhiteSpace(u.PhoneNumber)) return u.PhoneNumber;
+            if (!string.IsNullOrWhiteSpace(u.Email)) return u.Email;
+            return $"Client #{u.Id}";
+        }
 
         // ---------- Receipt ----------
         public partial ReceiptDto ToDto(Receipt e);

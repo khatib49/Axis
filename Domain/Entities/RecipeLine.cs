@@ -31,6 +31,14 @@ namespace Domain.Entities
         [Column(TypeName = "numeric(18,3)")]
         public decimal Quantity { get; set; }
 
+        // Unit for Quantity above. May differ from the parent ingredient's
+        // canonical Unit — e.g. Ingredient stored in "kg", RecipeLine in "g".
+        // StockService converts to the ingredient unit before touching stock
+        // or computing COGS. When null (legacy rows before the migration),
+        // falls back to the ingredient's Unit which is a no-op.
+        [MaxLength(20)]
+        public string? Unit { get; set; }
+
         [MaxLength(500)]
         public string? Notes { get; set; }
 

@@ -1297,6 +1297,10 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("Quantity")
                         .HasColumnType("numeric(18,3)");
 
+                    b.Property<string>("Unit")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IngredientId");

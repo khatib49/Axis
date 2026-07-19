@@ -126,6 +126,7 @@ namespace Infrastructure.Persistence
                 e.ToTable("RecipeLines");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Quantity).HasColumnType("numeric(18,3)");
+                e.Property(x => x.Unit).HasMaxLength(20); // nullable — falls back to ingredient's Unit
                 e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
 
                 e.HasOne(x => x.Item)

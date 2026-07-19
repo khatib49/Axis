@@ -157,6 +157,27 @@ namespace AxisAPI.Controllers
             if (!success) return NotFound();
             return NoContent();
         }
+
+        // Narrow, cashier-safe endpoint: only touches UserId. Wider roles
+        // allowed so the game cashier can attach a client to an open PS5 /
+        // board-game session from their own screen without needing admin.
+        public record AttachClientRequest(int? UserId);
+
+        [HttpPut("{id:int}/client")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> AttachClient(int id, [FromBody] AttachClientRequest body, CancellationToken ct)
+        {
+            try
+            {
+                var ok = await _transactionService.AttachClientAsync(id, body?.UserId, ct);
+                if (!ok) return NotFound();
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
         [Authorize]
         [HttpPost("CreateGame")]
         [Authorize(Roles = "admin")]

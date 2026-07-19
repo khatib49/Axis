@@ -65,25 +65,50 @@ namespace Application.Services
             var recipesByItem = recipes.GroupBy(r => r.ItemId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            var required = new Dictionary<int, decimal>(); // ingredientId -> total qty to deduct
+            // Load the ingredient units first — we need them to normalise
+            // recipe quantities before aggregating. Otherwise a "beef" recipe
+            // in grams would be summed as-is with a "beef" ingredient stored
+            // in kilograms, producing 1000× the intended consumption and
+            // blowing up COGS. (This was the Bug#9 root cause.)
+            var ingredientIds = recipes.Select(r => r.IngredientId).Distinct().ToList();
+            var ingredients = await _ingredientRepo.Query(asNoTracking: false)
+                .Where(i => ingredientIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, ct);
+
+            var required = new Dictionary<int, decimal>(); // ingredientId -> total qty (in ingredient's unit)
             foreach (var line in lines)
             {
                 if (!recipesByItem.TryGetValue(line.itemId, out var rlines)) continue;
                 foreach (var r in rlines)
                 {
-                    var need = Math.Round(r.Quantity * line.quantity, 3);
+                    if (!ingredients.TryGetValue(r.IngredientId, out var ing))
+                    {
+                        _logger.LogWarning(
+                            "Stock: recipe references missing IngredientId {IngId} for Tx {TxId}",
+                            r.IngredientId, transactionId);
+                        continue;
+                    }
+
+                    // Convert the recipe qty into the ingredient's canonical
+                    // unit before multiplying by items sold. r.Unit may be
+                    // null on legacy pre-migration rows; fall back to the
+                    // ingredient's unit so the converter treats it as no-op.
+                    var recipeUnit = r.Unit ?? ing.Unit;
+                    var perItem = UnitConverter.Convert(r.Quantity, recipeUnit, ing.Unit, out var ok);
+                    if (!ok)
+                    {
+                        _logger.LogWarning(
+                            "Stock: incompatible unit conversion for Recipe {RecipeId} ({From} → {To}) — using raw quantity",
+                            r.Id, recipeUnit, ing.Unit);
+                    }
+
+                    var need = Math.Round(perItem * line.quantity, 3);
                     if (need <= 0) continue;
                     required[r.IngredientId] = required.GetValueOrDefault(r.IngredientId) + need;
                 }
             }
 
             if (required.Count == 0) return Array.Empty<StockConsumptionWarningDto>();
-
-            // 3) Load + lock the affected ingredients with tracking.
-            var ingredientIds = required.Keys.ToList();
-            var ingredients = await _ingredientRepo.Query(asNoTracking: false)
-                .Where(i => ingredientIds.Contains(i.Id))
-                .ToDictionaryAsync(i => i.Id, ct);
 
             var warnings = new List<StockConsumptionWarningDto>();
 
@@ -207,23 +232,30 @@ namespace Application.Services
                 .ToListAsync(ct);
             if (recipes.Count == 0) return; // non-recipe items: nothing to restore on the ingredient side
 
-            // Aggregate per ingredient.
+            // Load ingredients up front so we can normalise recipe qty into
+            // each ingredient's unit before aggregating — same pattern as
+            // ConsumeForOrderAsync, must stay symmetric or reversals will
+            // over/under-shoot the original consumption.
+            var ingIdsAll = recipes.Select(r => r.IngredientId).Distinct().ToList();
+            var ingredients = await _ingredientRepo.Query(asNoTracking: false)
+                .Where(i => ingIdsAll.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, ct);
+
+            // Aggregate per ingredient (in the ingredient's canonical unit).
             var perIngredient = new Dictionary<int, decimal>();
             foreach (var (itemId, qty) in lines)
             {
                 if (qty <= 0) continue;
                 foreach (var rl in recipes.Where(r => r.ItemId == itemId))
                 {
+                    if (!ingredients.TryGetValue(rl.IngredientId, out var ing)) continue;
+                    var recipeUnit = rl.Unit ?? ing.Unit;
+                    var perItem = UnitConverter.Convert(rl.Quantity, recipeUnit, ing.Unit);
                     if (!perIngredient.ContainsKey(rl.IngredientId)) perIngredient[rl.IngredientId] = 0m;
-                    perIngredient[rl.IngredientId] += rl.Quantity * qty;
+                    perIngredient[rl.IngredientId] += perItem * qty;
                 }
             }
             if (perIngredient.Count == 0) return;
-
-            var ingIds = perIngredient.Keys.ToList();
-            var ingredients = await _ingredientRepo.Query(asNoTracking: false)
-                .Where(i => ingIds.Contains(i.Id))
-                .ToDictionaryAsync(i => i.Id, ct);
 
             var now = DateTime.UtcNow;
             foreach (var (ingId, qty) in perIngredient)

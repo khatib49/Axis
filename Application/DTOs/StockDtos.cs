@@ -93,15 +93,23 @@ namespace Application.DTOs
         int ItemId,
         int IngredientId,
         string IngredientName,
+        // Ingredient's canonical unit — kept for backward compatibility.
+        // FE uses it to show the "stored as: kg" hint next to the picker.
         string Unit,
         decimal Quantity,
-        string? Notes
+        string? Notes,
+        // Unit the recipe line's Quantity is expressed in. May be null on
+        // legacy rows (pre-Bug#9), in which case it falls back to Unit.
+        // Backend converts to Unit before touching stock.
+        string? RecipeUnit = null
     );
 
     public record RecipeLineUpsertDto(
         int IngredientId,
         decimal Quantity,
-        string? Notes
+        string? Notes,
+        // Optional per-line unit; null = "same as ingredient's unit".
+        string? Unit = null
     );
 
     public record RecipeUpsertRequestDto(

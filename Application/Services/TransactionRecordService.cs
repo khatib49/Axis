@@ -971,6 +971,48 @@ namespace Application.Services
             await _uow.SaveChangesAsync(ct);
             return true;
         }
+
+        public async Task<bool> AttachClientAsync(int transactionId, int? userId, CancellationToken ct = default)
+        {
+            // Narrow, cashier-safe version of UpdateAsync. Only touches the
+            // UserId column, so it doesn't need admin role on the controller.
+            var e = await _repo.Query(asNoTracking: false)
+                .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+            if (e is null) return false;
+
+            var actor = _http?.HttpContext?.User?.Identity?.Name ?? "system";
+            var oldValue = e.UserId?.ToString() ?? "(none)";
+
+            if (userId.HasValue && userId.Value > 0)
+            {
+                var clientExists = await _userManager.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.Id == userId.Value, ct);
+                if (!clientExists)
+                    throw new ArgumentException("Invalid UserId (client not found).");
+                e.UserId = userId.Value;
+            }
+            else
+            {
+                e.UserId = null;
+            }
+
+            e.ModifiedOn = DateTime.UtcNow;
+
+            await LogAuditAsync(
+                transactionId: transactionId,
+                changedBy: actor,
+                action: "ClientAttached",
+                fieldChanged: "UserId",
+                oldValue: oldValue,
+                newValue: e.UserId?.ToString() ?? "(detached)",
+                notes: "Cashier attached/changed client on open session",
+                ct: ct);
+
+            await _uow.SaveChangesAsync(ct);
+            return true;
+        }
+
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query(asNoTracking: false)
@@ -1173,38 +1215,51 @@ namespace Application.Services
             // 4) Players
             var persons = tx.numberOfPersons > 0 ? tx.numberOfPersons : 1;
 
-            // 5) Rounding logic for hours (ONLY hour rounding stays)
+            // 5) Rounding logic — Rami's rule (2026-07):
+            //
+            //   Board games (GameTypeId == 2):
+            //     0 to 60 min  → 1.0 hour
+            //     61 to 90 min → 1.5 hours
+            //     91+ min      → DAY PASS (flat, no hours)
+            //
+            //   PS5 (GameTypeId == 6):
+            //     0 to 60 min   → 1.0 hour
+            //     61 to 90 min  → 1.5 hours
+            //     91 to 120 min → 2.0 hours
+            //     121 to 150 min→ 2.5 hours
+            //     151 to 180 min→ 3.0 hours
+            //     ... same 30-min snap indefinitely.
+            //
+            // The 5-minute grace at line 1204 (startedOn = CreatedOn+5min)
+            // means a customer who leaves in the first 5 minutes racks up
+            // ~0 real minutes here, but Rami's rule says "0 to 1 = 1 hour"
+            // so even a 1-min stay bills 1 full hour. That's intentional.
             bool isBoardGame = tx.GameTypeId == 2;
 
-            decimal GetBilledHours(decimal h)
+            // Board game half-hour snap up to 90 min; anything beyond → day pass.
+            static decimal GetBilledHoursBoardGame(double minutes)
             {
-                if (h <= 0m || h <= 0.25m)
-                    return 0m;
-
-                // Minimum 1 hour for anything up to 1h 15m
-                if (h <= 1.25m) // 1.25h = 1h 15min
-                    return 1m;
-
-                // From here, apply the repeating pattern around each whole hour
-                var n = Math.Floor(h); // base whole hour: 1, 2, 3, ...
-
-                // x:00 → x:15  => x.0
-                if (h < n + 0.25m)
-                    return n;
-
-                // x:15 → x:45  => x.5
-                if (h < n + 0.75m)
-                    return n + 0.5m;
-
-                // x:45 → (x+1):15  => x+1
-                return n + 1m;
+                if (minutes <= 0) return 0m;
+                if (minutes <= 60) return 1.0m;
+                return 1.5m;    // 61-90 min (91+ is caught by the day-pass branch below)
             }
 
-            decimal billedHours = GetBilledHours(rawHours);
+            // PS5: 60 → 1.0, then every 30 min adds 0.5 hour. Ceiling on the
+            // 30-min block starting AFTER the first hour so 61-90 = 1.5,
+            // 91-120 = 2.0, 121-150 = 2.5, 151-180 = 3.0, ...
+            static decimal GetBilledHoursPs5(double minutes)
+            {
+                if (minutes <= 0) return 0m;
+                if (minutes <= 60) return 1.0m;
+                var overrun = minutes - 60.0;                // minutes past the first hour
+                var extraHalfHours = (int)Math.Ceiling(overrun / 30.0);
+                return 1.0m + 0.5m * extraHalfHours;
+            }
 
-            // 6) Board game day-pass override
+            // Board game day-pass kicks in the moment we cross 1h30 (91 min).
             decimal totalPriceBeforeDiscount;
-            if (isBoardGame && rawHours > 2m)
+            decimal billedHours;
+            if (isBoardGame && totalMinutes > 90)
             {
                 var dayPass = await _repoSetting.Query()
                     .AsNoTracking()
@@ -1212,16 +1267,33 @@ namespace Application.Services
 
                 if (dayPass != null && dayPass.Price > 0)
                 {
+                    // Flat day-pass. Hours field on the receipt still needs
+                    // a value — show actual runtime rounded up to whole
+                    // hours so it's informative (e.g. "3 hours") even
+                    // though the price is flat.
+                    billedHours = Math.Ceiling((decimal)(totalMinutes / 60.0));
+                    if (billedHours < 1m) billedHours = 1m;
                     totalPriceBeforeDiscount = dayPass.Price * persons;
                 }
                 else
                 {
+                    // Configuration gap: no day-pass setting exists for
+                    // this game. Fall back to the PS5-style snap so we
+                    // still charge something rather than crash.
+                    billedHours = GetBilledHoursPs5(totalMinutes);
                     totalPriceBeforeDiscount = setting.Price * billedHours * persons;
                 }
             }
+            else if (isBoardGame)
+            {
+                // 0-90 min board-game window
+                billedHours = GetBilledHoursBoardGame(totalMinutes);
+                totalPriceBeforeDiscount = setting.Price * billedHours * persons;
+            }
             else
             {
-                // Normal (PS5 + board games <=2h)
+                // PS5 (or any non-board category) — infinite half-hour snap.
+                billedHours = GetBilledHoursPs5(totalMinutes);
                 totalPriceBeforeDiscount = setting.Price * billedHours * persons;
             }
 
@@ -1391,7 +1463,12 @@ namespace Application.Services
                 .Include(t => t.Set)
                 .Include(t => t.Game)
                 .Include(t => t.GameType)
-                .Include(t => t.GameSetting).AsSplitQuery()
+                .Include(t => t.GameSetting)
+                // Client attached via /transactions/{id}/client. Without
+                // this Include the mapper sees e.User == null and returns
+                // userName: null, so the card blanks out on every refresh.
+                .Include(t => t.User)
+                .AsSplitQuery()
                 .OrderByDescending(t => t.CreatedOn);
 
             var entities = await query.ToListAsync(ct);

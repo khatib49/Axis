@@ -17,6 +17,15 @@ namespace Application.IServices
         Task<TransactionDto> CreateAsync(TransactionCreateDto dto, string createdBy, CancellationToken ct = default);
         Task<bool> UpdateAsync(int id, TransactionUpdateDto dto, CancellationToken ct = default);
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
+
+        /// <summary>
+        /// Narrow endpoint used by the cashier UI to attach / detach a
+        /// client on an open session card. Same net effect as UpdateAsync
+        /// with only UserId set, but doesn't require the admin role that
+        /// the full PUT endpoint has. userId = null clears the client,
+        /// > 0 sets it, 0 clears it.
+        /// </summary>
+        Task<bool> AttachClientAsync(int transactionId, int? userId, CancellationToken ct = default);
         Task<BaseResponse<TransactionDto>> UpdateOpenInvoiceSet(int invoiceId, int? setId, string updatedBy, CancellationToken ct);
         Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null, int? channelId = null);
         Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, string createdBy, int roomSetId, int discountId,
