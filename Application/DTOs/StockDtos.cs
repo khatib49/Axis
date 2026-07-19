@@ -126,4 +126,48 @@ namespace Application.DTOs
         string Unit,
         decimal QuantityAfter
     );
+
+    // ─── One-shot rebuild of historical Consumption costs (Bug#10) ───────
+    public record RebuildConsumptionCostsFilterDto(
+        DateTime? From = null,
+        DateTime? To = null,
+        // When true, no writes happen. Use this to preview the impact
+        // before flipping DryRun=false and applying.
+        bool DryRun = true,
+        // Cap the details list returned so the payload stays reasonable.
+        int DetailLimit = 200
+    );
+
+    public record RebuildLineDto(
+        int MovementId,
+        int TransactionId,
+        int IngredientId,
+        string IngredientName,
+        decimal OldQuantity,
+        decimal NewQuantity,
+        decimal? OldUnitCost,
+        decimal? NewUnitCost,
+        decimal? OldTotalCost,
+        decimal? NewTotalCost,
+        // Explains why this row was rebuilt (recipe change, ingredient
+        // gone, missing cost, etc.). Purely for the summary UI.
+        string Reason
+    );
+
+    public record RebuildConsumptionCostsResultDto(
+        bool DryRun,
+        DateTime? From,
+        DateTime? To,
+        int MovementsScanned,
+        int MovementsChanged,
+        int TransactionsAffected,
+        decimal OldTotalCogs,
+        decimal NewTotalCogs,
+        decimal Delta,
+        // Per-ingredient QoH adjustments applied (or that WOULD apply on
+        // a non-dry run). Positive = ingredient stock was over-consumed
+        // historically and got restored; negative = the opposite.
+        Dictionary<string, decimal> QoHAdjustments,
+        IReadOnlyList<RebuildLineDto> Details
+    );
 }

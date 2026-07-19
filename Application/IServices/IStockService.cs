@@ -49,5 +49,22 @@ namespace Application.IServices
             string? reason,
             string? actor,
             CancellationToken ct = default);
+
+        /// <summary>
+        /// One-shot repair of historical Consumption StockMovements after
+        /// Bug#9 (recipe unit conversion). Walks every Consumption movement
+        /// in the filter window, re-derives the correct qty per ingredient
+        /// using CURRENT recipes + UnitConverter, and updates the row's
+        /// Quantity / UnitCost / TotalCost. Also adjusts each affected
+        /// Ingredient.QuantityOnHand by the net delta so stock levels heal
+        /// alongside COGS.
+        ///
+        /// Supports a dry-run mode: pass DryRun=true to preview the impact
+        /// without persisting anything.
+        /// </summary>
+        Task<RebuildConsumptionCostsResultDto> RebuildConsumptionCostsAsync(
+            RebuildConsumptionCostsFilterDto filter,
+            string? actor,
+            CancellationToken ct = default);
     }
 }

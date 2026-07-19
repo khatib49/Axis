@@ -17,6 +17,11 @@ namespace Application.Services
         private readonly IBaseRepository<RecipeLine> _recipeRepo;
         private readonly IBaseRepository<Ingredient> _ingredientRepo;
         private readonly IBaseRepository<StockMovement> _movementRepo;
+        // Used by the historical rebuild path (Bug#10) — it needs to walk
+        // transactions and their items to re-derive what SHOULD have been
+        // consumed given today's recipes.
+        private readonly IBaseRepository<TransactionRecord> _txRepo;
+        private readonly IBaseRepository<TransactionItem> _txItemRepo;
         private readonly IUnitOfWork _uow;
         private readonly ILogger<StockService> _logger;
 
@@ -25,6 +30,8 @@ namespace Application.Services
             IBaseRepository<RecipeLine> recipeRepo,
             IBaseRepository<Ingredient> ingredientRepo,
             IBaseRepository<StockMovement> movementRepo,
+            IBaseRepository<TransactionRecord> txRepo,
+            IBaseRepository<TransactionItem> txItemRepo,
             IUnitOfWork uow,
             ILogger<StockService> logger)
         {
@@ -32,6 +39,8 @@ namespace Application.Services
             _recipeRepo = recipeRepo;
             _ingredientRepo = ingredientRepo;
             _movementRepo = movementRepo;
+            _txRepo = txRepo;
+            _txItemRepo = txItemRepo;
             _uow = uow;
             _logger = logger;
         }
@@ -289,6 +298,229 @@ namespace Application.Services
                 }, ct);
             }
             // Caller saves.
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  HISTORICAL REBUILD — Bug#10
+        // -----------------------------------------------------------------
+        //  Recomputes every existing Consumption StockMovement using:
+        //    (a) the transaction's items (what was actually sold)
+        //    (b) each item's CURRENT recipe (units + qtys, post Bug#9 fix)
+        //    (c) UnitConverter to normalise recipe unit → ingredient unit
+        //    (d) the ingredient's CURRENT BuyPricePerUnit for the cost snapshot
+        //
+        //  Movements are updated IN PLACE so the audit trail (ReferenceId,
+        //  CreatedOn, CreatedBy) is preserved. Notes gets appended with a
+        //  rebuild marker so anyone auditing later can see this row was
+        //  rewritten.
+        //
+        //  Ingredient.QuantityOnHand is also adjusted by the net delta —
+        //  historical over-consumption gets restored, historical under-
+        //  consumption gets debited. Dry-run mode skips ALL writes and just
+        //  reports what would happen.
+        //
+        //  Only Consumption-type movements with ReferenceType="Transaction"
+        //  are touched. Purchases, waste, adjustments etc. are left alone.
+        // ═══════════════════════════════════════════════════════════════════
+        public async Task<RebuildConsumptionCostsResultDto> RebuildConsumptionCostsAsync(
+            RebuildConsumptionCostsFilterDto filter,
+            string? actor,
+            CancellationToken ct = default)
+        {
+            var from = filter.From;
+            var toExclusive = filter.To?.Date.AddDays(1);
+
+            // 1) Pull every Consumption movement in scope.
+            var movementsQ = _movementRepo.Query(asNoTracking: false)
+                .Where(m => m.Type == "Consumption"
+                         && m.ReferenceType == "Transaction"
+                         && m.ReferenceId != null);
+            if (from.HasValue)
+                movementsQ = movementsQ.Where(m => m.CreatedOn >= from.Value);
+            if (toExclusive.HasValue)
+                movementsQ = movementsQ.Where(m => m.CreatedOn < toExclusive.Value);
+
+            var movements = await movementsQ.ToListAsync(ct);
+            if (movements.Count == 0)
+            {
+                return new RebuildConsumptionCostsResultDto(
+                    filter.DryRun, from, filter.To, 0, 0, 0, 0m, 0m, 0m,
+                    new Dictionary<string, decimal>(),
+                    Array.Empty<RebuildLineDto>());
+            }
+
+            // 2) Load the transactions and their items in one go so the
+            //    per-transaction lookup below is O(1).
+            var txIds = movements.Select(m => m.ReferenceId!.Value).Distinct().ToList();
+            var txItems = await _txItemRepo.Query()
+                .Where(ti => txIds.Contains(ti.TransactionRecordId))
+                .Select(ti => new { ti.TransactionRecordId, ti.ItemId, ti.Quantity })
+                .ToListAsync(ct);
+            var itemsByTx = txItems
+                .GroupBy(ti => ti.TransactionRecordId)
+                .ToDictionary(g => g.Key, g => g.Select(x => (x.ItemId, x.Quantity)).ToList());
+
+            // 3) Load ALL current recipes for the items involved, and the
+            //    ingredients they reference.
+            var allItemIds = txItems.Select(ti => ti.ItemId).Distinct().ToList();
+            var recipes = await _recipeRepo.Query()
+                .Where(r => allItemIds.Contains(r.ItemId))
+                .ToListAsync(ct);
+            var recipesByItem = recipes.GroupBy(r => r.ItemId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var ingIds = movements.Select(m => m.IngredientId)
+                .Concat(recipes.Select(r => r.IngredientId))
+                .Distinct().ToList();
+            var ingredients = await _ingredientRepo.Query(asNoTracking: !filter.DryRun ? false : true)
+                .Where(i => ingIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, ct);
+
+            // 4) Walk each movement. Compute what SHOULD be here today,
+            //    compare, prepare the update / delta.
+            var details = new List<RebuildLineDto>();
+            decimal oldTotalCogs = 0m;
+            decimal newTotalCogs = 0m;
+            int changed = 0;
+            var affectedTxIds = new HashSet<int>();
+
+            // ingredientId → net qty delta (positive means Ingredient.QoH should INCREASE)
+            var qohDeltaPerIngredient = new Dictionary<int, decimal>();
+
+            foreach (var m in movements)
+            {
+                var txId = m.ReferenceId!.Value;
+                var oldQty = m.Quantity;                              // signed: negative for consumption
+                var oldTotal = m.TotalCost ?? 0m;
+                oldTotalCogs += oldTotal;
+
+                // For a movement, the "correct" qty is the sum-across-items
+                // of recipe_qty (converted) × items_sold, restricted to
+                // THIS ingredient. Then applied with the same sign as the
+                // original movement (consumption = negative, reversal = positive).
+                if (!ingredients.TryGetValue(m.IngredientId, out var ing))
+                {
+                    // Ingredient deleted — leave the movement alone but
+                    // note it in the summary so admin can investigate.
+                    newTotalCogs += oldTotal;
+                    details.Add(new RebuildLineDto(m.Id, txId, m.IngredientId, "(deleted)",
+                        oldQty, oldQty, m.UnitCost, m.UnitCost, oldTotal, oldTotal,
+                        "Ingredient no longer exists — skipped"));
+                    continue;
+                }
+
+                if (!itemsByTx.TryGetValue(txId, out var lines))
+                {
+                    // Transaction (or its items) no longer exist. Leave it.
+                    newTotalCogs += oldTotal;
+                    details.Add(new RebuildLineDto(m.Id, txId, m.IngredientId, ing.Name,
+                        oldQty, oldQty, m.UnitCost, m.UnitCost, oldTotal, oldTotal,
+                        "Transaction/items missing — skipped"));
+                    continue;
+                }
+
+                decimal correctPositiveQty = 0m; // in ingredient's unit
+                foreach (var (itemId, itemQty) in lines)
+                {
+                    if (!recipesByItem.TryGetValue(itemId, out var rls)) continue;
+                    foreach (var r in rls.Where(x => x.IngredientId == m.IngredientId))
+                    {
+                        var perItem = UnitConverter.Convert(
+                            r.Quantity, r.Unit ?? ing.Unit, ing.Unit);
+                        correctPositiveQty += perItem * itemQty;
+                    }
+                }
+                correctPositiveQty = Math.Round(correctPositiveQty, 3);
+
+                // Preserve sign: reversal rows have positive Quantity; the
+                // "correct" quantity there is a positive number too.
+                var isReversal = oldQty > 0m;
+                var newQty = isReversal ? correctPositiveQty : -correctPositiveQty;
+
+                var newUnitCost = ing.BuyPricePerUnit;
+                var newTotal = newUnitCost.HasValue
+                    ? Math.Round(newUnitCost.Value * Math.Abs(newQty) * (isReversal ? -1 : 1), 2)
+                    : (decimal?)null;
+                // Consumption cost is stored as positive; reversal as negative
+                // (mirrors what RestoreForLinesAsync writes today).
+                if (newTotal.HasValue && !isReversal) newTotal = Math.Abs(newTotal.Value);
+                if (newTotal.HasValue && isReversal) newTotal = -Math.Abs(newTotal.Value);
+
+                newTotalCogs += newTotal ?? 0m;
+
+                var qtyChanged = newQty != oldQty;
+                var costChanged = (newTotal ?? 0m) != oldTotal
+                                || newUnitCost != m.UnitCost;
+
+                if (qtyChanged || costChanged)
+                {
+                    changed++;
+                    affectedTxIds.Add(txId);
+
+                    // Net QoH delta: how much stock we need to give back
+                    // (or take away) to make Ingredient.QuantityOnHand
+                    // consistent with the new movement quantities.
+                    var qohDelta = newQty - oldQty; // e.g. was -100, now -0.1 → delta +99.9
+                    qohDeltaPerIngredient[m.IngredientId] =
+                        qohDeltaPerIngredient.GetValueOrDefault(m.IngredientId) + qohDelta;
+
+                    if (!filter.DryRun)
+                    {
+                        m.Quantity = newQty;
+                        m.UnitCost = newUnitCost;
+                        m.TotalCost = newTotal;
+                        m.Notes = $"[rebuilt {DateTime.UtcNow:yyyy-MM-dd}] {m.Notes}";
+                        _movementRepo.Update(m);
+                    }
+
+                    if (details.Count < filter.DetailLimit)
+                    {
+                        details.Add(new RebuildLineDto(
+                            m.Id, txId, m.IngredientId, ing.Name,
+                            oldQty, newQty, m.UnitCost, newUnitCost, oldTotal, newTotal,
+                            correctPositiveQty == 0m && !isReversal
+                                ? "Item no longer has a recipe line for this ingredient"
+                                : "Recipe / unit / cost rebuilt"));
+                    }
+                }
+            }
+
+            // 5) Apply the QoH deltas (not on dry-run).
+            var qohReport = new Dictionary<string, decimal>();
+            foreach (var (ingId, delta) in qohDeltaPerIngredient)
+            {
+                if (delta == 0m) continue;
+                if (!ingredients.TryGetValue(ingId, out var ing)) continue;
+                qohReport[$"{ing.Name} ({ing.Unit})"] = delta;
+
+                if (!filter.DryRun)
+                {
+                    ing.QuantityOnHand = Math.Round(ing.QuantityOnHand + delta, 3);
+                    ing.ModifiedOn = DateTime.UtcNow;
+                    _ingredientRepo.Update(ing);
+                }
+            }
+
+            if (!filter.DryRun && changed > 0)
+            {
+                await _uow.SaveChangesAsync(ct);
+                _logger.LogInformation(
+                    "Consumption rebuild committed by {Actor}: {Changed} movement(s) updated, {TxCount} tx affected, delta ${Delta}",
+                    actor ?? "system", changed, affectedTxIds.Count, newTotalCogs - oldTotalCogs);
+            }
+
+            return new RebuildConsumptionCostsResultDto(
+                DryRun: filter.DryRun,
+                From: from,
+                To: filter.To,
+                MovementsScanned: movements.Count,
+                MovementsChanged: changed,
+                TransactionsAffected: affectedTxIds.Count,
+                OldTotalCogs: Math.Round(oldTotalCogs, 2),
+                NewTotalCogs: Math.Round(newTotalCogs, 2),
+                Delta: Math.Round(newTotalCogs - oldTotalCogs, 2),
+                QoHAdjustments: qohReport,
+                Details: details);
         }
     }
 }
