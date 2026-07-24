@@ -1219,6 +1219,186 @@
     ]
   },
   {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "ClaimPrize",
+    "RelativePath": "api/Loyalty/admin/claim-prize",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "AxisAPI.Controllers.ClaimPrizeRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "ConductMonthlyDraw",
+    "RelativePath": "api/Loyalty/admin/draw/monthly",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "Application.DTOs.DrawRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.DrawResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "ConductWeeklyDraw",
+    "RelativePath": "api/Loyalty/admin/draw/weekly",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "Application.DTOs.DrawRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.DrawResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "InvalidateExpiredTickets",
+    "RelativePath": "api/Loyalty/admin/invalidate-expired",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "GetUnclaimedPrizes",
+    "RelativePath": "api/Loyalty/admin/unclaimed-prizes",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "CalculateTickets",
+    "RelativePath": "api/Loyalty/calculate-tickets",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "Application.DTOs.CalculateTicketsRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.CalculateTicketsResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "GetCustomerBalance",
+    "RelativePath": "api/Loyalty/customer/{phone}/balance",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "phone",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.CustomerBalanceResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "GetMonthlyLeaderboard",
+    "RelativePath": "api/Loyalty/leaderboard/monthly",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.LeaderboardEntryDTO, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.LoyaltyController",
+    "Method": "GetWeeklyLeaderboard",
+    "RelativePath": "api/Loyalty/leaderboard/weekly",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.LeaderboardEntryDTO, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
     "ContainingType": "AxisAPI.Controllers.MenuController",
     "Method": "GetCategories",
     "RelativePath": "api/Menu/categories",
@@ -1523,6 +1703,156 @@
         "StatusCode": 200
       }
     ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.RoleCategoryController",
+    "Method": "GetAllMappings",
+    "RelativePath": "api/RoleCategory",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.RoleCategoryDto, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.RoleCategoryController",
+    "Method": "RemoveCategoryFromRole",
+    "RelativePath": "api/RoleCategory/{mappingId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "mappingId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.RoleCategoryController",
+    "Method": "AssignCategoryToRole",
+    "RelativePath": "api/RoleCategory/assign",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "Application.DTOs.RoleCategoryCreateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.RoleCategoryDto",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.RoleCategoryController",
+    "Method": "BulkAssignCategoriesToRole",
+    "RelativePath": "api/RoleCategory/bulk-assign",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "Application.DTOs.RoleCategoryBulkAssignDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.RoleCategoryDto, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.RoleCategoryController",
+    "Method": "GetAllConfigurations",
+    "RelativePath": "api/RoleCategory/configurations",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.AllRoleConfigurationsDto",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.RoleCategoryController",
+    "Method": "GetRoleConfiguration",
+    "RelativePath": "api/RoleCategory/configurations/{roleName}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "roleName",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "Application.DTOs.RoleConfigurationDto",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.RoleCategoryController",
+    "Method": "RemoveAllCategoriesFromRole",
+    "RelativePath": "api/RoleCategory/role/{roleName}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "roleName",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
   },
   {
     "ContainingType": "AxisAPI.Controllers.RoomController",
@@ -2107,6 +2437,43 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "AddItemsToOpenInvoice",
+    "RelativePath": "api/transactions/AddItemsToOpenInvoice/{invoiceId}",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "invoiceId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemsRequest",
+        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.OrderItemRequest, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "CloseOpenInvoice",
+    "RelativePath": "api/transactions/CloseOpenInvoice/{invoiceId}",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "invoiceId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
     "Method": "CreateCoffeeShopOrder",
     "RelativePath": "api/transactions/CreateCoffeeShopOrder",
     "HttpMethod": "POST",
@@ -2114,24 +2481,9 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "userId",
-        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
-        "IsRequired": false
-      },
-      {
-        "Name": "itemsRequest",
-        "Type": "System.Collections.Generic.List\u00601[[Application.DTOs.OrderItemRequest, Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "Name": "request",
+        "Type": "Application.DTOs.CreateCoffeeShopOrderRequest",
         "IsRequired": true
-      },
-      {
-        "Name": "discountId",
-        "Type": "System.Int32",
-        "IsRequired": false
-      },
-      {
-        "Name": "comment",
-        "Type": "System.String",
-        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -2225,6 +2577,16 @@
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "GetOpenFnbInvoices",
+    "RelativePath": "api/transactions/GetOpenFnbInvoices",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
     "Method": "GetOpenPs5Sessions",
     "RelativePath": "api/transactions/GetOpenPs5Sessions",
     "HttpMethod": "GET",
@@ -2258,6 +2620,27 @@
         "StatusCode": 200
       }
     ]
+  },
+  {
+    "ContainingType": "AxisAPI.Controllers.TransactionsController",
+    "Method": "UpdateOpenInvoiceSet",
+    "RelativePath": "api/transactions/UpdateOpenInvoiceSet/{invoiceId}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "invoiceId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "Application.DTOs.UpdateSetRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
   },
   {
     "ContainingType": "AxisAPI.Controllers.TransactionsReportsController",

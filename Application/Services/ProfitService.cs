@@ -26,43 +26,38 @@ namespace Application.Services
         }
 
         public async Task<ProfitDto> CalculateFnbProfitAsync(
-            DateTime? from,
-            DateTime? to,
-            string? categoryIds,
-            CancellationToken ct = default)
+    DateTime? from,
+    DateTime? to,
+    string? categoryIds,
+    CancellationToken ct = default)
         {
             var catList = ParseCategoryIds(categoryIds);
             var tcgCategoryIds = await GetTcgRetailCategoryIds(ct);
 
-            // FNB Revenue: item transactions excluding TCG Retail
             var revenueQuery = _transactionRepo.Query()
                 .Where(t => t.StatusId == 6)
                 .Where(t => t.GameId == null);
 
-            if (from.HasValue)
-                revenueQuery = revenueQuery.Where(t => t.CreatedOn >= from.Value);
-            if (to.HasValue)
-                revenueQuery = revenueQuery.Where(t => t.CreatedOn < to.Value.AddDays(1));
+            if (from.HasValue) revenueQuery = revenueQuery.Where(t => t.CreatedOn >= from.Value.Date);
+            if (to.HasValue) revenueQuery = revenueQuery.Where(t => t.CreatedOn < to.Value.Date.AddDays(1));
 
-            // Exclude TCG Retail items
+            // Exclude TCG Retail transactions (same logic you had)
             revenueQuery = revenueQuery.Where(t =>
                 !t.TransactionItems.Any(ti => ti.Item != null && tcgCategoryIds.Contains(ti.Item.CategoryId)));
 
+            // If user selected categories, keep only transactions that include at least 1 item in those categories
             if (catList.Count > 0)
             {
                 revenueQuery = revenueQuery.Where(t =>
                     t.TransactionItems.Any(ti => ti.Item != null && catList.Contains(ti.Item.CategoryId)));
             }
 
+            // ✅ Revenue WITH discount (actual collected)
             var totalRevenue = await revenueQuery
-                .SelectMany(t => t.TransactionItems
-                    .Where(ti => ti.Item != null && !tcgCategoryIds.Contains(ti.Item.CategoryId))
-                    .Select(ti => (ti.Item!.Price * ti.Quantity)))
-                .SumAsync(x => (decimal?)x, ct) ?? 0m;
+                .SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
 
             var transactionCount = await revenueQuery.CountAsync(ct);
 
-            // FNB Expenses
             var totalExpenses = await CalculateExpensesAsync(from, to, await GetFnbExpenseCategoryIds(ct), catList, ct);
 
             var netProfit = totalRevenue - totalExpenses;
@@ -78,6 +73,7 @@ namespace Application.Services
                 ToDate: to
             );
         }
+
 
         public async Task<ProfitDto> CalculateGamingProfitAsync(
             DateTime? from,

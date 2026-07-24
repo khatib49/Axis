@@ -1,8 +1,10 @@
 ﻿using Domain.Entities;
 // IMPORTANT for Npgsql extensions like UseSnakeCaseNamingConvention()
 using Domain.Identity;
+using Domain.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 
 namespace Infrastructure.Persistence
 {
@@ -31,6 +33,12 @@ namespace Infrastructure.Persistence
 
         public DbSet<Set> Sets => Set<Set>();
         public DbSet<Discount> Discounts => Set<Discount>();
+        public DbSet<RoleCategory> RoleCategories { get; set; }
+        public DbSet<LoyaltyTicket> LoyaltyTickets { get; set; }
+        public DbSet<LoyaltyCustomer> LoyaltyCustomers { get; set; }
+        public DbSet<WeeklyWinner> WeeklyWinners { get; set; }
+        public DbSet<MonthlyWinner> MonthlyWinners { get; set; }
+
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
@@ -230,7 +238,77 @@ namespace Infrastructure.Persistence
                  .HasForeignKey(x => x.FK_CategoryId)
                  .OnDelete(DeleteBehavior.Restrict); // or your intended behavior
             });
+            b.Entity<RoleCategory>(entity =>
+            {
+                entity.HasKey(e => e.Id);
 
+                entity.HasIndex(e => e.RoleName);
+
+                entity.HasIndex(e => new { e.RoleName, e.CategoryId })
+                    .IsUnique();
+
+                entity.HasOne(e => e.Category)
+                    .WithMany()
+                    .HasForeignKey(e => e.CategoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedOn)
+                    .HasDefaultValueSql("NOW()");
+            });
+
+            b.Entity<LoyaltyCustomer>(entity =>
+            {
+                entity.HasKey(e => e.PhoneNumber);
+                entity.HasIndex(e => e.PhoneNumber).IsUnique();
+                entity.HasIndex(e => e.TotalTicketsCurrentMonth);
+            });
+
+            // LoyaltyTicket configuration
+            b.Entity<LoyaltyTicket>(entity =>
+            {
+                entity.HasKey(e => e.TicketId);
+                entity.HasIndex(e => e.CustomerPhone);
+                entity.HasIndex(e => e.TransactionId);
+                entity.HasIndex(e => e.DrawMonth);
+                entity.HasIndex(e => new { e.CustomerPhone, e.DrawMonth });
+                entity.HasIndex(e => new { e.DrawMonth, e.IsValid });
+
+                entity.HasOne(e => e.Customer)
+                    .WithMany(c => c.Tickets)
+                    .HasForeignKey(e => e.CustomerPhone)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // WeeklyWinner configuration
+            b.Entity<WeeklyWinner>(entity =>
+            {
+                entity.HasKey(e => e.WinnerId);
+                entity.HasIndex(e => e.CustomerPhone);
+                entity.HasIndex(e => e.DrawWeek);
+                entity.HasIndex(e => e.DrawDate);
+
+                entity.HasOne(e => e.Customer)
+                    .WithMany(c => c.WeeklyWins)
+                    .HasForeignKey(e => e.CustomerPhone)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // MonthlyWinner configuration
+            b.Entity<MonthlyWinner>(entity =>
+            {
+                entity.HasKey(e => e.WinnerId);
+                entity.HasIndex(e => e.CustomerPhone);
+                entity.HasIndex(e => e.DrawMonth);
+                entity.HasIndex(e => e.DrawDate);
+
+                entity.HasOne(e => e.Customer)
+                    .WithMany(c => c.MonthlyWins)
+                    .HasForeignKey(e => e.CustomerPhone)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

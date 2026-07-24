@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251208211029_AddRoleCategory")]
+    partial class AddRoleCategory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -437,53 +440,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("Receipts");
                 });
 
-            modelBuilder.Entity("Domain.Entities.RoleCategory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CategoryId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedOn")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RoleName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
-
-                    b.HasIndex("RoleName");
-
-                    b.HasIndex("RoleName", "CategoryId")
-                        .IsUnique();
-
-                    b.ToTable("RoleCategories");
-                });
-
             modelBuilder.Entity("Domain.Entities.Room", b =>
                 {
                     b.Property<int>("Id")
@@ -864,217 +820,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Domain.Models.LoyaltyCustomer", b =>
-                {
-                    b.Property<string>("PhoneNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("phone_number");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<DateTime>("LastUpdated")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_updated");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.Property<decimal>("PendingBalance")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("pending_balance");
-
-                    b.Property<int>("TotalTicketsCurrentMonth")
-                        .HasColumnType("integer")
-                        .HasColumnName("total_tickets_current_month");
-
-                    b.HasKey("PhoneNumber");
-
-                    b.HasIndex("PhoneNumber")
-                        .IsUnique();
-
-                    b.HasIndex("TotalTicketsCurrentMonth");
-
-                    b.ToTable("loyalty_customers");
-                });
-
-            modelBuilder.Entity("Domain.Models.LoyaltyTicket", b =>
-                {
-                    b.Property<int>("TicketId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("ticket_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("TicketId"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CustomerPhone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("customer_phone");
-
-                    b.Property<string>("DrawMonth")
-                        .IsRequired()
-                        .HasMaxLength(7)
-                        .HasColumnType("character varying(7)")
-                        .HasColumnName("draw_month");
-
-                    b.Property<DateTime>("EarnedDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("earned_date");
-
-                    b.Property<bool>("IsValid")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_valid");
-
-                    b.Property<int>("TicketsEarned")
-                        .HasColumnType("integer")
-                        .HasColumnName("tickets_earned");
-
-                    b.Property<int>("TransactionId")
-                        .HasColumnType("integer")
-                        .HasColumnName("transaction_id");
-
-                    b.HasKey("TicketId");
-
-                    b.HasIndex("CustomerPhone");
-
-                    b.HasIndex("DrawMonth");
-
-                    b.HasIndex("TransactionId");
-
-                    b.HasIndex("CustomerPhone", "DrawMonth");
-
-                    b.HasIndex("DrawMonth", "IsValid");
-
-                    b.ToTable("loyalty_tickets");
-                });
-
-            modelBuilder.Entity("Domain.Models.MonthlyWinner", b =>
-                {
-                    b.Property<int>("WinnerId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("winner_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("WinnerId"));
-
-                    b.Property<bool>("Claimed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("claimed");
-
-                    b.Property<DateTime?>("ClaimedDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("claimed_date");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CustomerPhone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("customer_phone");
-
-                    b.Property<DateTime>("DrawDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("draw_date");
-
-                    b.Property<string>("DrawMonth")
-                        .IsRequired()
-                        .HasMaxLength(7)
-                        .HasColumnType("character varying(7)")
-                        .HasColumnName("draw_month");
-
-                    b.Property<string>("PrizeName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("prize_name");
-
-                    b.Property<int>("TicketsHeld")
-                        .HasColumnType("integer")
-                        .HasColumnName("tickets_held");
-
-                    b.HasKey("WinnerId");
-
-                    b.HasIndex("CustomerPhone");
-
-                    b.HasIndex("DrawDate");
-
-                    b.HasIndex("DrawMonth");
-
-                    b.ToTable("monthly_winners");
-                });
-
-            modelBuilder.Entity("Domain.Models.WeeklyWinner", b =>
-                {
-                    b.Property<int>("WinnerId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("winner_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("WinnerId"));
-
-                    b.Property<bool>("Claimed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("claimed");
-
-                    b.Property<DateTime?>("ClaimedDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("claimed_date");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CustomerPhone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("customer_phone");
-
-                    b.Property<DateTime>("DrawDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("draw_date");
-
-                    b.Property<string>("DrawWeek")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("draw_week");
-
-                    b.Property<string>("PrizeName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("prize_name");
-
-                    b.Property<int>("TicketsHeld")
-                        .HasColumnType("integer")
-                        .HasColumnName("tickets_held");
-
-                    b.HasKey("WinnerId");
-
-                    b.HasIndex("CustomerPhone");
-
-                    b.HasIndex("DrawDate");
-
-                    b.HasIndex("DrawWeek");
-
-                    b.ToTable("weekly_winners");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.Property<int>("Id")
@@ -1353,17 +1098,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Domain.Entities.RoleCategory", b =>
-                {
-                    b.HasOne("Domain.Entities.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Category");
-                });
-
             modelBuilder.Entity("Domain.Entities.Room", b =>
                 {
                     b.HasOne("Domain.Entities.Category", "Category")
@@ -1518,39 +1252,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Status");
                 });
 
-            modelBuilder.Entity("Domain.Models.LoyaltyTicket", b =>
-                {
-                    b.HasOne("Domain.Models.LoyaltyCustomer", "Customer")
-                        .WithMany("Tickets")
-                        .HasForeignKey("CustomerPhone")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
-                });
-
-            modelBuilder.Entity("Domain.Models.MonthlyWinner", b =>
-                {
-                    b.HasOne("Domain.Models.LoyaltyCustomer", "Customer")
-                        .WithMany("MonthlyWins")
-                        .HasForeignKey("CustomerPhone")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
-                });
-
-            modelBuilder.Entity("Domain.Models.WeeklyWinner", b =>
-                {
-                    b.HasOne("Domain.Models.LoyaltyCustomer", "Customer")
-                        .WithMany("WeeklyWins")
-                        .HasForeignKey("CustomerPhone")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.HasOne("Domain.Identity.AppRole", null)
@@ -1665,15 +1366,6 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>
                 {
                     b.Navigation("TransactionItems");
-                });
-
-            modelBuilder.Entity("Domain.Models.LoyaltyCustomer", b =>
-                {
-                    b.Navigation("MonthlyWins");
-
-                    b.Navigation("Tickets");
-
-                    b.Navigation("WeeklyWins");
                 });
 #pragma warning restore 612, 618
         }
