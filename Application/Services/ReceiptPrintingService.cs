@@ -7,6 +7,12 @@ namespace Application.Services
     {
         byte[] GenerateKitchenBarReceipt(KitchenBarOrderDto order, List<KitchenBarOrderDto>? additionalOrders = null);
         string GenerateReceiptText(KitchenBarOrderDto order, List<KitchenBarOrderDto>? additionalOrders = null);
+
+        /// <summary>
+        /// Renders one consolidated ESC/POS ticket for a whole station (all of that
+        /// station's lines from a single order). Used by the multi-printer dispatcher.
+        /// </summary>
+        byte[] GenerateStationTicket(StationTicketDto ticket);
     }
 
     public class ReceiptPrintingService : IReceiptPrintingService
@@ -219,6 +225,109 @@ namespace Application.Services
             sb.AppendLine();
 
             return sb.ToString();
+        }
+
+        public byte[] GenerateStationTicket(StationTicketDto ticket)
+        {
+            var receipt = new List<byte>();
+
+            receipt.AddRange(EscPos.INIT);
+
+            // Header - Station name
+            receipt.AddRange(EscPos.ALIGN_CENTER);
+            receipt.AddRange(EscPos.TEXT_DOUBLE_SIZE);
+            receipt.AddRange(EscPos.BOLD_ON);
+            receipt.AddRange(Encoding.ASCII.GetBytes($"*** {ticket.Station.ToUpper()} ***"));
+            receipt.AddRange(EscPos.LF);
+            receipt.AddRange(EscPos.BOLD_OFF);
+            receipt.AddRange(EscPos.TEXT_NORMAL);
+            receipt.AddRange(EscPos.LF);
+
+            // Meta
+            receipt.AddRange(EscPos.ALIGN_LEFT);
+            if (ticket.TransactionId > 0)
+            {
+                receipt.AddRange(EscPos.BOLD_ON);
+                receipt.AddRange(Encoding.ASCII.GetBytes($"Order #{ticket.TransactionId}"));
+                receipt.AddRange(EscPos.BOLD_OFF);
+                receipt.AddRange(EscPos.LF);
+            }
+            receipt.AddRange(Encoding.ASCII.GetBytes($"Date: {ticket.OrderedAt:dd/MM/yyyy}"));
+            receipt.AddRange(EscPos.LF);
+            receipt.AddRange(Encoding.ASCII.GetBytes($"Time: {ticket.OrderedAt:HH:mm:ss}"));
+            receipt.AddRange(EscPos.LF);
+
+            if (!string.IsNullOrWhiteSpace(ticket.TableNumber))
+            {
+                receipt.AddRange(EscPos.BOLD_ON);
+                receipt.AddRange(Encoding.ASCII.GetBytes($"Table: {ticket.TableNumber}"));
+                receipt.AddRange(EscPos.BOLD_OFF);
+                receipt.AddRange(EscPos.LF);
+            }
+
+            if (!string.IsNullOrWhiteSpace(ticket.GuestName))
+            {
+                receipt.AddRange(Encoding.ASCII.GetBytes($"Guest: {Sanitize(ticket.GuestName)}"));
+                receipt.AddRange(EscPos.LF);
+            }
+
+            if (!string.IsNullOrWhiteSpace(ticket.CreatedByUsername))
+            {
+                receipt.AddRange(Encoding.ASCII.GetBytes($"By: {Sanitize(ticket.CreatedByUsername)}"));
+                receipt.AddRange(EscPos.LF);
+            }
+
+            // Separator
+            receipt.AddRange(Encoding.ASCII.GetBytes(EscPos.LINE_DOUBLE));
+            receipt.AddRange(EscPos.LF);
+
+            // Items — one block per line, larger for the kitchen/bar to read at a glance.
+            foreach (var line in ticket.Lines)
+            {
+                receipt.AddRange(EscPos.TEXT_DOUBLE_HEIGHT);
+                receipt.AddRange(EscPos.BOLD_ON);
+                receipt.AddRange(Encoding.ASCII.GetBytes($"{line.Quantity}x {Sanitize(line.ItemName)}"));
+                receipt.AddRange(EscPos.LF);
+                receipt.AddRange(EscPos.BOLD_OFF);
+                receipt.AddRange(EscPos.TEXT_NORMAL);
+
+                if (!string.IsNullOrWhiteSpace(line.Comment))
+                {
+                    receipt.AddRange(Encoding.ASCII.GetBytes($"   > {Sanitize(line.Comment)}"));
+                    receipt.AddRange(EscPos.LF);
+                }
+            }
+
+            // Order-level note
+            if (!string.IsNullOrWhiteSpace(ticket.Comment))
+            {
+                receipt.AddRange(Encoding.ASCII.GetBytes(EscPos.LINE_SINGLE));
+                receipt.AddRange(EscPos.LF);
+                receipt.AddRange(EscPos.BOLD_ON);
+                receipt.AddRange(Encoding.ASCII.GetBytes($"NOTE: {Sanitize(ticket.Comment)}"));
+                receipt.AddRange(EscPos.BOLD_OFF);
+                receipt.AddRange(EscPos.LF);
+            }
+
+            receipt.AddRange(Encoding.ASCII.GetBytes(EscPos.LINE_DOUBLE));
+            receipt.AddRange(EscPos.LF);
+
+            // Footer spacing + cut
+            receipt.AddRange(EscPos.LF);
+            receipt.AddRange(EscPos.LF);
+            receipt.AddRange(EscPos.LF);
+            receipt.AddRange(EscPos.CUT_PARTIAL);
+
+            return receipt.ToArray();
+        }
+
+        // Thermal printers use the single-byte ASCII code page; strip anything outside it
+        // so non-Latin characters don't render as garbage.
+        private static string Sanitize(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            var chars = text.Where(c => c >= 0x20 && c <= 0x7E).ToArray();
+            return new string(chars);
         }
     }
 }

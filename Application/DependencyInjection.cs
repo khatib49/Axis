@@ -65,6 +65,10 @@ namespace Application
             services.AddScoped<IKitchenBarOrderService, KitchenBarOrderService>();
             services.AddScoped<IReceiptPrintingService, ReceiptPrintingService>();
 
+            // Multi-printer routing: registry CRUD + SignalR dispatch to the on-site print agent.
+            services.AddScoped<IPrinterService, PrinterService>();
+            services.AddScoped<IPrintDispatchService, PrintDispatchService>();
+
             return services;
         }
     }

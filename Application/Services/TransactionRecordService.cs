@@ -41,15 +41,17 @@ namespace Application.Services
         private readonly IBaseRepository<KitchenBarOrder> _repoKitchenBar;
         private readonly IHubContext<KitchenBarHub> _hubContext;
         private readonly IBaseRepository<TransactionAuditLog> _repoAuditLog;
+        private readonly IPrintDispatchService _printDispatch;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
             IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
         IUnitOfWork uow, DomainMapper mapper, ILogger<TransactionRecordService> logger, IHttpContextAccessor httpContextAccessor,
         IJournalService journalService, IBaseRepository<KitchenBarOrder> repoKitchenBar, IHubContext<KitchenBarHub> hubContext,
-        IBaseRepository<TransactionAuditLog> repoAuditLog)
+        IBaseRepository<TransactionAuditLog> repoAuditLog, IPrintDispatchService printDispatch)
         {
             _repoAuditLog = repoAuditLog;
+            _printDispatch = printDispatch;
             _hubContext = hubContext;
             _loyaltyService = loyaltyService;
             _repo = repo; _uow = uow; _mapper = mapper;
@@ -632,6 +634,12 @@ namespace Application.Services
                     tableNumber: null, guestName: null, ct);
 
                 await _uow.SaveChangesAsync(ct);
+
+                // Push ESC/POS tickets to every configured kitchen/bar printer via the
+                // on-site print agent. Fire-and-forget-safe: never throws, so a downed
+                // printer or offline agent can't fail the sale.
+                await _printDispatch.DispatchOrderTicketsAsync(trx.Id, createdBy,
+                    tableNumber: null, guestName: null, ct);
 
                 await LogAuditAsync(
                         transactionId: trx.Id,
