@@ -327,11 +327,25 @@ namespace Application.Services
             string? actor,
             CancellationToken ct = default)
         {
-            var from = filter.From;
-            var toExclusive = filter.To?.Date.AddDays(1);
+            // Bug: DateTime.Date returns Kind=Unspecified. Npgsql refuses
+            // Unspecified when sending to a timestamptz column and the
+            // whole request 500s. Coerce every DateTime we ship to EF to
+            // Kind=Utc explicitly.
+            static DateTime ForceUtc(DateTime d) => d.Kind switch
+            {
+                DateTimeKind.Utc => d,
+                DateTimeKind.Local => d.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(d, DateTimeKind.Utc),
+            };
+            DateTime? from = filter.From.HasValue ? ForceUtc(filter.From.Value) : null;
+            DateTime? toExclusive = filter.To.HasValue
+                ? ForceUtc(filter.To.Value.Date.AddDays(1))
+                : null;
 
-            // 1) Pull every Consumption movement in scope.
-            var movementsQ = _movementRepo.Query(asNoTracking: false)
+            // 1) Pull every Consumption movement in scope. Read tracked
+            //    when we plan to commit; no-tracking otherwise so a dry-
+            //    run doesn't churn the change tracker on thousands of rows.
+            var movementsQ = _movementRepo.Query(asNoTracking: filter.DryRun)
                 .Where(m => m.Type == "Consumption"
                          && m.ReferenceType == "Transaction"
                          && m.ReferenceId != null);
@@ -372,7 +386,8 @@ namespace Application.Services
             var ingIds = movements.Select(m => m.IngredientId)
                 .Concat(recipes.Select(r => r.IngredientId))
                 .Distinct().ToList();
-            var ingredients = await _ingredientRepo.Query(asNoTracking: !filter.DryRun ? false : true)
+            // Track ingredients on commit (we're going to bump QoH); no-track on dry-run.
+            var ingredients = await _ingredientRepo.Query(asNoTracking: filter.DryRun)
                 .Where(i => ingIds.Contains(i.Id))
                 .ToDictionaryAsync(i => i.Id, ct);
 
@@ -466,11 +481,15 @@ namespace Application.Services
 
                     if (!filter.DryRun)
                     {
+                        // Entity is tracked (Query with asNoTracking=false).
+                        // Assigning properties is enough — EF will detect
+                        // the change on SaveChanges. Calling Update() on an
+                        // already-tracked entity can raise a duplicate-key
+                        // tracking error.
                         m.Quantity = newQty;
                         m.UnitCost = newUnitCost;
                         m.TotalCost = newTotal;
                         m.Notes = $"[rebuilt {DateTime.UtcNow:yyyy-MM-dd}] {m.Notes}";
-                        _movementRepo.Update(m);
                     }
 
                     if (details.Count < filter.DetailLimit)
@@ -495,9 +514,9 @@ namespace Application.Services
 
                 if (!filter.DryRun)
                 {
+                    // Same story — ing is tracked, don't double-track.
                     ing.QuantityOnHand = Math.Round(ing.QuantityOnHand + delta, 3);
                     ing.ModifiedOn = DateTime.UtcNow;
-                    _ingredientRepo.Update(ing);
                 }
             }
 
