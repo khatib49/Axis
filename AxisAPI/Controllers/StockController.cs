@@ -37,7 +37,7 @@ namespace AxisAPI.Controllers
         ///   POST /api/stock/rebuild-consumption-costs?dryRun=true&from=2026-06-01&to=2026-07-08
         /// </summary>
         [HttpPost("rebuild-consumption-costs")]
-        public async Task<ActionResult<RebuildConsumptionCostsResultDto>> RebuildConsumptionCosts(
+        public async Task<IActionResult> RebuildConsumptionCosts(
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
             [FromQuery] bool dryRun = true,
@@ -47,8 +47,25 @@ namespace AxisAPI.Controllers
             var actor = _http.HttpContext?.User?.Identity?.Name ?? "admin";
             var filter = new RebuildConsumptionCostsFilterDto(from, to, dryRun, detailLimit);
 
-            var result = await _svc.RebuildConsumptionCostsAsync(filter, actor, ct);
-            return Ok(result);
+            try
+            {
+                var result = await _svc.RebuildConsumptionCostsAsync(filter, actor, ct);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                // Return a JSON error rather than an empty 500 — the
+                // Consumption-Rebuild page can then surface the real
+                // message instead of the misleading "CORS policy" toast
+                // (an empty 500 has no CORS headers → the browser paints
+                // it as a CORS failure).
+                return StatusCode(500, new
+                {
+                    error = ex.Message,
+                    type = ex.GetType().Name,
+                    inner = ex.InnerException?.Message,
+                });
+            }
         }
     }
 }
