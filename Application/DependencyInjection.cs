@@ -84,6 +84,10 @@ namespace Application
             services.AddScoped<IPendingActionService, Application.Services.Ai.PendingActionService>();
             services.AddScoped<Application.Services.Ai.AiMonitorJobs>();
 
+            // Multi-printer routing: registry CRUD + SignalR dispatch to the on-site print agent.
+            services.AddScoped<IPrinterService, PrinterService>();
+            services.AddScoped<IPrintDispatchService, PrintDispatchService>();
+
             return services;
         }
     }

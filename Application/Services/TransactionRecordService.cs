@@ -41,6 +41,7 @@ namespace Application.Services
         private readonly IBaseRepository<KitchenBarOrder> _repoKitchenBar;
         private readonly IHubContext<KitchenBarHub> _hubContext;
         private readonly IBaseRepository<TransactionAuditLog> _repoAuditLog;
+        private readonly IPrintDispatchService _printDispatch;
         // Permanent admin-action log — no FK to TransactionRecord, so entries
         // survive a transaction delete (TransactionAuditLog cascades and dies
         // along with its parent, which is no good for "who deleted this tx").
@@ -60,8 +61,10 @@ namespace Application.Services
         IBaseRepository<AdminAuditLog> repoAdminAuditLog,
         IBaseRepository<RecipeLine> repoRecipeLine,
         IStockService stockService)
+        IBaseRepository<TransactionAuditLog> repoAuditLog, IPrintDispatchService printDispatch)
         {
             _repoAuditLog = repoAuditLog;
+            _printDispatch = printDispatch;
             _repoAdminAuditLog = repoAdminAuditLog;
             _repoRecipeLine = repoRecipeLine;
             _hubContext = hubContext;
@@ -733,6 +736,12 @@ namespace Application.Services
                     tableNumber: null, guestName: null, ct);
 
                 await _uow.SaveChangesAsync(ct);
+
+                // Push ESC/POS tickets to every configured kitchen/bar printer via the
+                // on-site print agent. Fire-and-forget-safe: never throws, so a downed
+                // printer or offline agent can't fail the sale.
+                await _printDispatch.DispatchOrderTicketsAsync(trx.Id, createdBy,
+                    tableNumber: null, guestName: null, ct);
 
                 await LogAuditAsync(
                         transactionId: trx.Id,

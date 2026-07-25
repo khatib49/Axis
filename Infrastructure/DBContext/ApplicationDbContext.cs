@@ -46,6 +46,7 @@ namespace Infrastructure.Persistence
         public DbSet<WeeklyWinner> WeeklyWinners { get; set; }
         public DbSet<MonthlyWinner> MonthlyWinners { get; set; }
         public DbSet<TransactionAuditLog> TransactionAuditLogs => Set<TransactionAuditLog>();
+        public DbSet<Printer> Printers => Set<Printer>();
         public DbSet<Channel> Channels => Set<Channel>();
         public DbSet<Ingredient> Ingredients => Set<Ingredient>();
         public DbSet<RecipeLine> RecipeLines => Set<RecipeLine>();
@@ -346,6 +347,22 @@ namespace Infrastructure.Persistence
                 entity.HasIndex(e => e.TransactionId);
                 entity.HasIndex(e => e.OrderedAt);
                 entity.HasIndex(e => e.Status);
+            });
+
+            // Printer configuration (multi-printer routing for kitchen/bar tickets)
+            b.Entity<Printer>(entity =>
+            {
+                entity.ToTable("Printers");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Station).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.ConnectionType).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.Address).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.CopyCount).HasDefaultValue(1);
+                entity.Property(e => e.IsEnabled).HasDefaultValue(true);
+                entity.Property(e => e.CreatedOn).HasDefaultValueSql("NOW()");
+                entity.HasIndex(e => e.Name).IsUnique();
+                entity.HasIndex(e => new { e.Station, e.IsEnabled });
             });
 
             // Relationships (keep only what you need; these are safe)
