@@ -60,8 +60,7 @@ namespace Application.Services
         IBaseRepository<TransactionAuditLog> repoAuditLog,
         IBaseRepository<AdminAuditLog> repoAdminAuditLog,
         IBaseRepository<RecipeLine> repoRecipeLine,
-        IStockService stockService)
-        IBaseRepository<TransactionAuditLog> repoAuditLog, IPrintDispatchService printDispatch)
+        IStockService stockService, IPrintDispatchService printDispatch)
         {
             _repoAuditLog = repoAuditLog;
             _printDispatch = printDispatch;
