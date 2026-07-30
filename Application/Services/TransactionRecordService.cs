@@ -731,8 +731,26 @@ namespace Application.Services
                         "CS/Order STOCK_FAILED ReqId={ReqId} TxId={TxId}", reqId, trx.Id);
                 }
 
+                // Resolve the attached client's display name so the kitchen
+                // and bar tickets show WHO the order is for ("Guest: Anthony
+                // Khoury"). Null when no client is attached — the ticket
+                // simply omits the Guest line in that case.
+                string? guestName = null;
+                if (trx.UserId.HasValue)
+                {
+                    var client = await _userManager.Users
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Id == trx.UserId.Value, ct);
+                    if (client != null)
+                    {
+                        guestName = !string.IsNullOrWhiteSpace(client.DisplayName) ? client.DisplayName
+                            : !string.IsNullOrWhiteSpace($"{client.FirstName} {client.LastName}".Trim()) ? $"{client.FirstName} {client.LastName}".Trim()
+                            : client.UserName;
+                    }
+                }
+
                 await CreateKitchenBarOrdersAsync(trx, trxItems, createdBy,
-                    tableNumber: null, guestName: null, ct);
+                    tableNumber: null, guestName: guestName, ct);
 
                 await _uow.SaveChangesAsync(ct);
 
@@ -740,7 +758,7 @@ namespace Application.Services
                 // on-site print agent. Fire-and-forget-safe: never throws, so a downed
                 // printer or offline agent can't fail the sale.
                 await _printDispatch.DispatchOrderTicketsAsync(trx.Id, createdBy,
-                    tableNumber: null, guestName: null, ct);
+                    tableNumber: null, guestName: guestName, ct);
 
                 await LogAuditAsync(
                         transactionId: trx.Id,
