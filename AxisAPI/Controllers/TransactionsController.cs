@@ -158,6 +158,26 @@ namespace AxisAPI.Controllers
             return NoContent();
         }
 
+        // ADMIN-ONLY: full replacement of a transaction's item lines, on
+        // any status (open or closed) and any type (game or FNB). Stock,
+        // totals and audit are handled inside the service.
+        public record ReplaceItemsRequest(List<ReplaceItemLine> Items);
+        public record ReplaceItemLine(int ItemId, int Quantity);
+
+        [HttpPut("{id:int}/items")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> ReplaceItems(int id, [FromBody] ReplaceItemsRequest body, CancellationToken ct)
+        {
+            if (body?.Items == null)
+                return BadRequest(new { message = "Items payload is required." });
+
+            var actor = _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "admin";
+            var lines = body.Items.Select(i => (i.ItemId, i.Quantity)).ToList();
+            var result = await _transactionService.ReplaceTransactionItemsAsync(id, lines, actor, ct);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
+        }
+
         // Narrow, cashier-safe endpoint: only touches UserId. Wider roles
         // allowed so the game cashier can attach a client to an open PS5 /
         // board-game session from their own screen without needing admin.

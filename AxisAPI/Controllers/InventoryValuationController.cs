@@ -7,7 +7,7 @@ namespace AxisAPI.Controllers
 {
     [ApiController]
     [Route("api/inventory")]
-    [Authorize(Roles = "admin,chef,admin_fnb")]
+    [Authorize(Roles = "admin,chef,admin_fnb,stock")]
     public class InventoryValuationController : ControllerBase
     {
         private readonly IInventoryValuationService _svc;

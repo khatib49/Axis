@@ -1021,6 +1021,158 @@ namespace Application.Services
             return true;
         }
 
+        public async Task<BaseResponse<TransactionDto>> ReplaceTransactionItemsAsync(
+            int transactionId,
+            IReadOnlyList<(int itemId, int quantity)> lines,
+            string actor,
+            CancellationToken ct = default)
+        {
+            // ADMIN-ONLY editor. Deliberately has NO status / type checks —
+            // the whole point is fixing mistakes on closed invoices. Auth
+            // is enforced at the controller ([Authorize(Roles="admin")]).
+            var tx = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)   // mapper needs Item.Name on the early-return path
+                .Include(t => t.Discount)
+                .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+
+            if (tx is null)
+                return new BaseResponse<TransactionDto>(false, "Not found", "Transaction not found.");
+
+            // Dedupe + validate incoming lines.
+            var wanted = lines
+                .Where(l => l.quantity > 0)
+                .GroupBy(l => l.itemId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.quantity));
+
+            var allIds = wanted.Keys
+                .Union(tx.TransactionItems.Select(ti => ti.ItemId))
+                .Distinct().ToList();
+            var dbItems = await _repoItem.Query(asNoTracking: false)
+                .Where(i => allIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, ct);
+
+            var missing = wanted.Keys.Where(id => !dbItems.ContainsKey(id)).ToList();
+            if (missing.Any())
+                return new BaseResponse<TransactionDto>(false, "Invalid items",
+                    $"Item IDs do not exist: {string.Join(", ", missing)}");
+
+            // Diff current → wanted, computing per-item deltas.
+            var current = tx.TransactionItems.ToDictionary(ti => ti.ItemId, ti => ti);
+            var consumeDeltas = new List<(int itemId, decimal qty)>();  // to consume (positive)
+            var restoreDeltas = new List<(int itemId, decimal qty)>();  // to restore (positive)
+            decimal priceDelta = 0m;
+            var changeLog = new List<string>();
+
+            // Additions / quantity changes
+            foreach (var (itemId, newQty) in wanted)
+            {
+                var item = dbItems[itemId];
+                if (current.TryGetValue(itemId, out var line))
+                {
+                    var delta = newQty - line.Quantity;
+                    if (delta == 0) continue;
+                    changeLog.Add($"{item.Name}: {line.Quantity} → {newQty}");
+                    line.Quantity = newQty;
+                    if (delta > 0)
+                    {
+                        item.Quantity -= delta;                 // legacy counter
+                        consumeDeltas.Add((itemId, delta));
+                    }
+                    else
+                    {
+                        item.Quantity += -delta;
+                        restoreDeltas.Add((itemId, -delta));
+                    }
+                    priceDelta += item.Price * delta;
+                }
+                else
+                {
+                    changeLog.Add($"{item.Name}: added ×{newQty}");
+                    var newLine = new TransactionItem
+                    {
+                        TransactionRecordId = tx.Id,
+                        ItemId = itemId,
+                        Quantity = newQty,
+                    };
+                    tx.TransactionItems.Add(newLine);
+                    await _repoTrxItem.AddAsync(newLine, ct);
+                    item.Quantity -= newQty;
+                    consumeDeltas.Add((itemId, newQty));
+                    priceDelta += item.Price * newQty;
+                }
+            }
+
+            // Removals (present now, absent from the wanted list)
+            foreach (var (itemId, line) in current)
+            {
+                if (wanted.ContainsKey(itemId)) continue;
+                var name = dbItems.TryGetValue(itemId, out var item) ? item.Name : $"Item#{itemId}";
+                changeLog.Add($"{name}: removed (was ×{line.Quantity})");
+                if (item != null) item.Quantity += line.Quantity;
+                restoreDeltas.Add((itemId, line.Quantity));
+                priceDelta -= (item?.Price ?? 0m) * line.Quantity;
+                _repoTrxItem.Remove(line);
+            }
+
+            if (changeLog.Count == 0)
+                return new BaseResponse<TransactionDto>(true, null, "No changes.", _mapper.ToDto(tx));
+
+            // Ingredient stock — symmetric consume/restore via recipes.
+            // Log-and-continue on failure so a stock hiccup doesn't block
+            // the financial correction (same policy as DeleteAsync).
+            try
+            {
+                if (consumeDeltas.Count > 0)
+                    await _stockService.ConsumeForOrderAsync(tx.Id, consumeDeltas, actor, ct);
+                if (restoreDeltas.Count > 0)
+                    await _stockService.RestoreForLinesAsync(tx.Id, restoreDeltas,
+                        reason: $"Admin item edit on tx #{tx.Id}", actor: actor, ct: ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Ingredient stock sync failed during admin item edit on Tx {TxId}; manual adjustment may be needed.",
+                    tx.Id);
+            }
+
+            // TotalPrice: adjust by the net item delta, honoring an active
+            // discount. Delta-based (not full recompute) so a game session's
+            // time-based portion of the total is preserved untouched.
+            var pct = tx.Discount != null && tx.Discount.IsActive ? tx.Discount.Percentage : 0;
+            var effectiveDelta = pct is > 0 and < 100
+                ? priceDelta * (1m - pct / 100m)
+                : priceDelta;
+            var oldTotal = tx.TotalPrice;
+            tx.TotalPrice = Math.Max(0m, Math.Round(tx.TotalPrice + effectiveDelta, 2));
+            tx.ModifiedOn = DateTime.UtcNow;
+
+            await LogAuditAsync(
+                transactionId: tx.Id,
+                changedBy: actor,
+                action: "AdminItemsEdit",
+                fieldChanged: "TransactionItems",
+                oldValue: $"Total={oldTotal:F2}",
+                newValue: $"Total={tx.TotalPrice:F2}",
+                notes: string.Join("; ", changeLog),
+                ct: ct);
+
+            await _uow.SaveChangesAsync(ct);
+
+            // Reload with names for the response.
+            var reloaded = await _repo.Query()
+                .Include(t => t.Room).Include(t => t.Set).Include(t => t.Game)
+                .Include(t => t.GameType).Include(t => t.GameSetting)
+                .Include(t => t.Discount).Include(t => t.User)
+                .Include(t => t.TransactionItems).ThenInclude(ti => ti.Item)
+                .AsSplitQuery().AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tx.Id, ct);
+
+            return new BaseResponse<TransactionDto>(true, null,
+                $"Items updated ({changeLog.Count} change(s)).",
+                _mapper.ToDto(reloaded ?? tx));
+        }
+
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var e = await _repo.Query(asNoTracking: false)
@@ -1414,7 +1566,25 @@ namespace Application.Services
             // ========================================
 
 
-            var dto = _mapper.ToDto(tracked);
+            // Reload with navigations so the receipt gets room/set/game
+            // names AND the attached client's name (CR#2: customer name on
+            // the printed receipt). `tracked` was loaded without includes,
+            // so mapping it directly would print userName as blank.
+            var closed = await _repo.Query()
+                .Include(t => t.Room)
+                .Include(t => t.Set)
+                .Include(t => t.Game)
+                .Include(t => t.GameType)
+                .Include(t => t.GameSetting)
+                .Include(t => t.Discount)
+                .Include(t => t.User)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.Item)
+                .AsSplitQuery()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
+
+            var dto = _mapper.ToDto(closed ?? tracked);
             try
             {
                 var journalResult = await _journalService.CreateJournalEntryFromTransactionAsync(

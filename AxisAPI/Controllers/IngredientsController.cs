@@ -7,7 +7,7 @@ namespace AxisAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "admin,chef,admin_fnb")]
+    [Authorize(Roles = "admin,chef,admin_fnb,stock")]
     public class IngredientsController : ControllerBase
     {
         private readonly IIngredientService _svc;

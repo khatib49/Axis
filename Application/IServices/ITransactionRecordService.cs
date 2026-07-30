@@ -26,6 +26,21 @@ namespace Application.IServices
         /// > 0 sets it, 0 clears it.
         /// </summary>
         Task<bool> AttachClientAsync(int transactionId, int? userId, CancellationToken ct = default);
+
+        /// <summary>
+        /// ADMIN-ONLY full replacement of a transaction's item lines,
+        /// regardless of status (open OR closed) and type (game OR FNB).
+        /// Diffs the incoming list against current TransactionItems and:
+        ///   - new/increased lines → consumes Item.Quantity + ingredient stock
+        ///   - removed/decreased lines → restores both
+        ///   - TotalPrice adjusted by the net delta (discount-aware)
+        /// Every change is written to the transaction audit log.
+        /// </summary>
+        Task<BaseResponse<TransactionDto>> ReplaceTransactionItemsAsync(
+            int transactionId,
+            IReadOnlyList<(int itemId, int quantity)> lines,
+            string actor,
+            CancellationToken ct = default);
         Task<BaseResponse<TransactionDto>> UpdateOpenInvoiceSet(int invoiceId, int? setId, string updatedBy, CancellationToken ct);
         Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest, string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null, int? channelId = null);
         Task<BaseResponse<TransactionDto>> CreateGameSession(int? userId, int gameId, int gameSettingId, int hours, int statusId, string createdBy, int roomSetId, int discountId,
