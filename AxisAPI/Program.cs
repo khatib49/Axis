@@ -78,6 +78,19 @@ builder.Host.UseSerilog((ctx, sp, cfg) =>
 builder.Services.AddInfrastructure(builder.Configuration); // DbContext + repos
 builder.Services.AddApplication();                         // <-- registers IAuthService & IGameService
 builder.Services.AddScoped<IImageStorageService, LocalImageStorageService>();
+builder.Services.AddScoped<IMediaStorageService, AxisAPI.Utils.LocalMediaStorageService>();
+
+// Event promo videos can be large; the framework defaults (~30 MB for
+// multipart, 30 MB for the whole request body) would reject them long
+// before our own 200 MB guard in LocalMediaStorageService runs.
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = 220L * 1024 * 1024; // 220 MB
+});
+builder.Services.Configure<Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions>(o =>
+{
+    o.Limits.MaxRequestBodySize = 220L * 1024 * 1024;
+});
 builder.Services.AddHttpClient();                          // for Anthropic + WhatsApp clients
 
 

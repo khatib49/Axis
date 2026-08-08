@@ -88,6 +88,12 @@ namespace Application
             services.AddScoped<IPrinterService, PrinterService>();
             services.AddScoped<IPrintDispatchService, PrintDispatchService>();
 
+            // Event registrations + payment gateways (Stripe cards, Whish Collect)
+            services.AddScoped<Application.Services.Payments.StripeGateway>();
+            services.AddScoped<Application.Services.Payments.WhishGateway>();
+            services.AddScoped<IEventRegistrationService, EventRegistrationService>();
+            services.AddScoped<IEventService, EventService>();
+
             return services;
         }
     }

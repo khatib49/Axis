@@ -15,6 +15,9 @@ namespace Application.Services
         private readonly IBaseRepository<JournalEntryLine> _journalLineRepo;
         private readonly IBaseRepository<Account> _accountRepo;
         private readonly IBaseRepository<StockMovement> _movementRepo;
+        // Event tickets never become TransactionRecords, so they need their
+        // own read here or the dashboard silently under-reports revenue.
+        private readonly IBaseRepository<EventRegistration> _eventRegRepo;
 
         // TCG category IDs — items whose Category.Name contains "TCG" or "Card"
         // We identify TCG items by checking Item.Category name at query time
@@ -27,7 +30,8 @@ namespace Application.Services
             IBaseRepository<JournalEntry> journalRepo,
             IBaseRepository<JournalEntryLine> journalLineRepo,
             IBaseRepository<Account> accountRepo,
-            IBaseRepository<StockMovement> movementRepo)
+            IBaseRepository<StockMovement> movementRepo,
+            IBaseRepository<EventRegistration> eventRegRepo)
         {
             _txRepo = txRepo;
             _expenseRepo = expenseRepo;
@@ -36,6 +40,7 @@ namespace Application.Services
             _journalLineRepo = journalLineRepo;
             _accountRepo = accountRepo;
             _movementRepo = movementRepo;
+            _eventRegRepo = eventRegRepo;
         }
 
         public async Task<AccountingDashboardDto> GetDashboardAsync(DateTime? from, DateTime? to, CancellationToken ct = default)
@@ -126,8 +131,47 @@ namespace Application.Services
                 }
             }
 
-            var totalRevenue = gamingRevenue + fnbRevenue + tcgRevenue;
-            var totalGross = gamingGross + fnbGross + tcgGross;
+            // ── 1b. Event ticket revenue ────────────────────────────────
+            // Paid event registrations are the fourth revenue stream. They
+            // live in their own table and are booked to 4300 Event Revenue,
+            // so they have to be added here explicitly.
+            //
+            // The period filter uses ConfirmedOn — the moment the money was
+            // actually recognised — matching the EntryDate the journal entry
+            // uses, so the dashboard and the trial balance agree. Rows that
+            // are somehow Paid without a ConfirmedOn stamp fall back to
+            // CreatedOn rather than vanishing from the report.
+            //
+            // CAREFUL: EventRegistrations."ConfirmedOn"/"CreatedOn" are
+            // TIMESTAMPTZ, and Npgsql refuses a DateTime with Kind=Unspecified
+            // against those. `from`/`to` arrive from the query string, so their
+            // Kind depends entirely on how the caller formatted the date —
+            // normalise both bounds to UTC or the whole dashboard can throw.
+            static DateTime AsUtc(DateTime d) =>
+                d.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(d, DateTimeKind.Utc)
+                : d.Kind == DateTimeKind.Local ? d.ToUniversalTime()
+                : d;
+
+            var evQ = _eventRegRepo.Query().Where(r => r.PaymentStatus == "Paid");
+
+            if (from.HasValue)
+            {
+                var evFrom = AsUtc(from.Value.Date);
+                evQ = evQ.Where(r => (r.ConfirmedOn ?? r.CreatedOn) >= evFrom);
+            }
+            if (toExclusive.HasValue)
+            {
+                var evTo = AsUtc(toExclusive.Value);
+                evQ = evQ.Where(r => (r.ConfirmedOn ?? r.CreatedOn) < evTo);
+            }
+
+            var eventRevenue = Math.Round(
+                await evQ.SumAsync(r => (decimal?)r.Amount, ct) ?? 0m, 2);
+
+            var totalRevenue = gamingRevenue + fnbRevenue + tcgRevenue + eventRevenue;
+            // Tickets are sold at a fixed price with no discount mechanism, so
+            // gross == net for the events line.
+            var totalGross = gamingGross + fnbGross + tcgGross + eventRevenue;
             var discountsGiven = Math.Round(totalGross - totalRevenue, 2);
 
             // ── 2. COGS (TCG only — BuyPrice × Qty) ────────────────────
@@ -181,8 +225,13 @@ namespace Application.Services
             ingredientCogs = Math.Round(ingredientCogs, 2);
 
             var totalCogs = Math.Round(tcgCogs + ingredientCogs, 2);
-            var foodCostPct = totalRevenue > 0
-                ? Math.Round(ingredientCogs / totalRevenue * 100m, 1)
+            // Deliberately excludes event revenue from the denominator: ticket
+            // sales consume no ingredients, so folding them in would flatter
+            // the food cost ratio and change the number the owner has been
+            // tracking. This stays "ingredient cost as a share of SALES".
+            var salesRevenue = totalRevenue - eventRevenue;
+            var foodCostPct = salesRevenue > 0
+                ? Math.Round(ingredientCogs / salesRevenue * 100m, 1)
                 : 0m;
 
             var cogs = new CogsSummaryDto(
@@ -393,7 +442,8 @@ namespace Application.Services
                     FnbGross: fnbGross,
                     TcgGross: tcgGross,
                     TotalGross: totalGross,
-                    DiscountsGiven: discountsGiven
+                    DiscountsGiven: discountsGiven,
+                    Events: eventRevenue
                 ),
                 OperatingExpenses: operatingExpenses,
                 CapitalExpenses: capitalExpenses,

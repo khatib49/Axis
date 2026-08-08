@@ -63,6 +63,10 @@ namespace Infrastructure.Persistence
         public DbSet<PendingAiAction>    PendingAiActions   => Set<PendingAiAction>();
         public DbSet<WhatsAppMessage>    WhatsAppMessages   => Set<WhatsAppMessage>();
 
+        // Admin-managed public event pages + their sign-ups
+        public DbSet<Event>              Events             => Set<Event>();
+        public DbSet<EventRegistration>  EventRegistrations => Set<EventRegistration>();
+
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
@@ -298,6 +302,54 @@ namespace Infrastructure.Persistence
                     .OnDelete(DeleteBehavior.SetNull);
                 e.HasIndex(x => new { x.Status, x.ProposedOn });
                 e.HasIndex(x => x.ConversationId);
+            });
+
+            b.Entity<Event>(e =>
+            {
+                e.ToTable("Events");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Key).IsRequired().HasMaxLength(80);
+                e.HasIndex(x => x.Key).IsUnique();
+                e.Property(x => x.Title).IsRequired().HasMaxLength(200);
+                e.Property(x => x.Subtitle).HasMaxLength(300);
+                e.Property(x => x.Location).HasMaxLength(300);
+                e.Property(x => x.VideoPath).HasMaxLength(400);
+                e.Property(x => x.VideoYoutubeId).HasMaxLength(60);
+                e.Property(x => x.HeroImagePath).HasMaxLength(400);
+                e.Property(x => x.Price).HasColumnType("numeric(18,2)");
+                e.Property(x => x.Currency).IsRequired().HasMaxLength(10);
+                e.Property(x => x.WhatsAppNumber).HasMaxLength(40);
+                e.Property(x => x.WhishPaymentLink).HasMaxLength(500);
+                e.Property(x => x.CreatedBy).HasMaxLength(200);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => new { x.IsPublished, x.IsActive });
+            });
+
+            b.Entity<EventRegistration>(e =>
+            {
+                e.ToTable("EventRegistrations");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.EventKey).IsRequired().HasMaxLength(60);
+                e.HasOne(x => x.Event)
+                 .WithMany()
+                 .HasForeignKey(x => x.EventId)
+                 .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.EventId);
+                e.Property(x => x.FirstName).IsRequired().HasMaxLength(100);
+                e.Property(x => x.LastName).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Phone).IsRequired().HasMaxLength(40);
+                e.Property(x => x.Email).HasMaxLength(200);
+                e.Property(x => x.PaymentMethod).IsRequired().HasMaxLength(20);
+                e.Property(x => x.PaymentStatus).IsRequired().HasMaxLength(20);
+                e.Property(x => x.Amount).HasColumnType("numeric(18,2)");
+                e.Property(x => x.Currency).IsRequired().HasMaxLength(10);
+                e.Property(x => x.ProviderRef).HasMaxLength(200);
+                e.Property(x => x.ConfirmedBy).HasMaxLength(200);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => new { x.EventKey, x.CreatedOn });
+                e.HasIndex(x => x.PaymentStatus);
+                e.HasIndex(x => x.Phone);
+                e.HasIndex(x => x.ProviderRef);
             });
 
             b.Entity<WhatsAppMessage>(e =>

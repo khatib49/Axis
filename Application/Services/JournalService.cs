@@ -16,6 +16,7 @@ namespace Application.Services
         private readonly IBaseRepository<TransactionRecord> _transactionRepo;
         private readonly IBaseRepository<Expense> _expenseRepo;
         private readonly IBaseRepository<Category> _categoryRepo;
+        private readonly IBaseRepository<EventRegistration> _eventRegistrationRepo;
         private readonly IUnitOfWork _uow;
         private readonly AccountingMapper _mapper;
         private readonly ILogger<JournalService> _logger;
@@ -27,6 +28,7 @@ namespace Application.Services
             IBaseRepository<TransactionRecord> transactionRepo,
             IBaseRepository<Expense> expenseRepo,
             IBaseRepository<Category> categoryRepo,
+            IBaseRepository<EventRegistration> eventRegistrationRepo,
             IUnitOfWork uow,
             AccountingMapper mapper,
             ILogger<JournalService> logger)
@@ -37,6 +39,7 @@ namespace Application.Services
             _transactionRepo = transactionRepo;
             _expenseRepo = expenseRepo;
             _categoryRepo = categoryRepo;
+            _eventRegistrationRepo = eventRegistrationRepo;
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
@@ -739,6 +742,253 @@ namespace Application.Services
             {
                 _logger.LogError(ex, "Error creating journal entry from transaction {TransactionId}", transactionId);
                 return new BaseResponse<JournalEntryDto>(false, "Error creating journal entry from transaction", "", null);
+            }
+        }
+
+
+        // ============================================
+        // EVENT REGISTRATIONS
+        // ============================================
+
+        /// <summary>
+        /// Account number every event's ticket revenue is credited to.
+        /// Created by db-migrations/2026-08-event-revenue-account.sql.
+        /// </summary>
+        public const string EventRevenueAccountNumber = "4300";
+
+        /// <summary>Reference type used to key event postings (idempotency).</summary>
+        public const string EventReferenceType = "EventRegistration";
+
+        /// <summary>
+        /// Books a paid event registration:
+        ///     DEBIT  1000 Cash on Hand
+        ///     CREDIT 4300 Event Revenue
+        ///
+        /// Called when a registration flips to Paid — either an admin
+        /// confirming in the panel or the Stripe/Whish webhook. Idempotent on
+        /// (ReferenceType, ReferenceId), so a duplicate webhook or a double
+        /// click can't double-book. There's no discount or COGS on a ticket,
+        /// so this stays a clean two-line entry.
+        ///
+        /// NOTE: all three payment methods debit 1000, matching how the rest
+        /// of Axis posts. If card/Whish money should sit in a clearing
+        /// account until payout, that mapping has to be introduced here —
+        /// nothing upstream distinguishes them today.
+        /// </summary>
+        public async Task<BaseResponse<JournalEntryDto>> CreateJournalEntryFromEventRegistrationAsync(
+            int registrationId,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                var reg = await _eventRegistrationRepo.Query()
+                    .FirstOrDefaultAsync(r => r.Id == registrationId, ct);
+
+                if (reg == null)
+                    return new BaseResponse<JournalEntryDto>(false, "Event registration not found", "", null);
+
+                if (reg.PaymentStatus != "Paid")
+                    return new BaseResponse<JournalEntryDto>(false, "Registration is not paid yet", "", null);
+
+                // Free tickets and comps have nothing to book.
+                if (reg.Amount <= 0)
+                    return new BaseResponse<JournalEntryDto>(false, "Registration has zero amount, skipping", "", null);
+
+                // Idempotency guard — only a LIVE POSTED entry blocks a re-post.
+                //
+                //   voided   → the reject-then-reconfirm path. The void already
+                //              wrote its own reversing entry, so posting fresh
+                //              is correct.
+                //   unposted → debris from a create-that-couldn't-post. It has
+                //              no effect on any balance (the trial balance
+                //              filters on IsPosted), so it must not be allowed
+                //              to block this registration forever.
+                var existing = await _journalRepo.Query()
+                    .FirstOrDefaultAsync(e => e.ReferenceType == EventReferenceType
+                                           && e.ReferenceId == registrationId
+                                           && !e.IsVoided
+                                           && e.IsPosted, ct);
+
+                if (existing != null)
+                    return new BaseResponse<JournalEntryDto>(
+                        false, "Journal entry already exists for this registration", "", null);
+
+                // Sweep up any such debris before writing a new one, so a
+                // retried confirm leaves exactly one entry behind.
+                await DeleteUnpostedEventEntriesAsync(registrationId, ct);
+
+                var cashAccount = await _accountRepo.Query()
+                    .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
+
+                if (cashAccount == null)
+                    return new BaseResponse<JournalEntryDto>(false, "Cash account (1000) not found", "", null);
+
+                var revenueAccount = await _accountRepo.Query()
+                    .FirstOrDefaultAsync(a => a.AccountNumber == EventRevenueAccountNumber && a.IsActive, ct);
+
+                if (revenueAccount == null)
+                    return new BaseResponse<JournalEntryDto>(
+                        false,
+                        $"Event Revenue account ({EventRevenueAccountNumber}) not found — " +
+                        "run db-migrations/2026-08-event-revenue-account.sql",
+                        "", null);
+
+                var amount = Math.Round(reg.Amount, 2);
+                var who = $"{reg.FirstName} {reg.LastName}".Trim();
+
+                // The chart of accounts is USD-only. Booking a non-USD amount
+                // at face value would quietly corrupt the books, so make it
+                // loud rather than silently wrong.
+                if (!string.Equals(reg.Currency, "USD", StringComparison.OrdinalIgnoreCase))
+                    _logger.LogWarning(
+                        "Event registration {RegId} is in {Currency}, but accounts are kept in USD. " +
+                        "Booking {Amount} at face value — convert the event price to USD or fix this entry.",
+                        registrationId, reg.Currency, amount);
+
+                var lines = new List<JournalEntryLineCreateDto>
+                {
+                    new(cashAccount.Id, amount, 0, $"Ticket paid ({reg.PaymentMethod})"),
+                    new(revenueAccount.Id, 0, amount, $"Event ticket - {reg.EventKey}"),
+                };
+
+                // Revenue is recognised the moment the money is confirmed, not
+                // when the person signed up — a Pending registration may never
+                // convert, and booking it early would overstate the period.
+                var entryDate = reg.ConfirmedOn ?? DateTime.UtcNow;
+
+                var entryDto = new JournalEntryCreateDto(
+                    entryDate,
+                    $"Event registration #{registrationId} - {reg.EventKey} - {who}",
+                    EventReferenceType,
+                    registrationId,
+                    lines);
+
+                var result = await CreateJournalEntryAsync(entryDto, null, ct);
+                if (!result.Success) return result;
+
+                var posted = await PostJournalEntryAsync(result.Data!.Id, null, ct);
+
+                if (!posted.Success)
+                {
+                    // Create-then-post isn't atomic, so clean up the entry we
+                    // just made rather than leaving it half-done.
+                    _logger.LogError(
+                        "Journal entry {EntryId} for event registration {RegId} was created but could not be posted ({Error}). Rolling it back.",
+                        result.Data.Id, registrationId, posted.Error);
+
+                    // A failed post can leave the ChangeTracker holding
+                    // IsPosted=true and partially-applied CurrentBalance
+                    // mutations. Drop them, or the delete below would both see
+                    // a "posted" entry (and refuse) and flush half an update.
+                    // Safe here: the caller already committed the registration
+                    // status before invoking us.
+                    _uow.ResetChangeTracker();
+
+                    var removed = await DeleteJournalEntryAsync(result.Data.Id, ct);
+                    if (!removed.Success)
+                        _logger.LogWarning(
+                            "Could not remove unposted journal entry {EntryId}: {Error}. " +
+                            "It is harmless (unposted entries are excluded from balances) and will be swept on the next attempt.",
+                            result.Data.Id, removed.Error);
+
+                    return new BaseResponse<JournalEntryDto>(
+                        false, posted.Error ?? "Could not post journal entry", "", null);
+                }
+
+                _logger.LogInformation(
+                    "Auto-posted journal entry {EntryNumber} for event registration {RegId} ({Amount} {Currency})",
+                    result.Data.EntryNumber, registrationId, amount, reg.Currency);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating journal entry from event registration {RegId}", registrationId);
+                return new BaseResponse<JournalEntryDto>(false, "Error creating journal entry from event registration", "", null);
+            }
+        }
+
+        /// <summary>
+        /// Removes leftover unposted, non-voided entries for a registration.
+        /// These carry no balance effect, so deleting them is lossless — they
+        /// only exist when a create succeeded and the post that followed
+        /// failed. Best-effort: never throws, never blocks the caller.
+        /// </summary>
+        private async Task DeleteUnpostedEventEntriesAsync(int registrationId, CancellationToken ct)
+        {
+            try
+            {
+                var stale = await _journalRepo.Query()
+                    .Where(e => e.ReferenceType == EventReferenceType
+                             && e.ReferenceId == registrationId
+                             && !e.IsPosted
+                             && !e.IsVoided)
+                    .Select(e => e.Id)
+                    .ToListAsync(ct);
+
+                foreach (var id in stale)
+                {
+                    var res = await DeleteJournalEntryAsync(id, ct);
+                    _logger.LogInformation(
+                        "Swept unposted journal entry {EntryId} for event registration {RegId} (removed: {Removed})",
+                        id, registrationId, res.Success);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Could not sweep unposted journal entries for event registration {RegId}", registrationId);
+            }
+        }
+
+        /// <summary>
+        /// Reverses the posting for a registration that was Paid and is now
+        /// being rejected or refunded. Delegates to VoidJournalEntryAsync,
+        /// which writes a mirrored reversing entry and rolls the account
+        /// balances back — the original stays on the books for audit.
+        /// A no-op (reported as success) when nothing was ever posted.
+        /// </summary>
+        public async Task<BaseResponse> VoidJournalEntryForEventRegistrationAsync(
+            int registrationId,
+            string reason,
+            int? voidedBy = null,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                var entries = await _journalRepo.Query()
+                    .Where(e => e.ReferenceType == EventReferenceType
+                             && e.ReferenceId == registrationId
+                             && !e.IsVoided
+                             && e.IsPosted)
+                    .Select(e => e.Id)
+                    .ToListAsync(ct);
+
+                if (entries.Count == 0)
+                    return new BaseResponse(true, null);
+
+                foreach (var id in entries)
+                {
+                    var res = await VoidJournalEntryAsync(id, reason, voidedBy, ct);
+                    if (!res.Success)
+                    {
+                        _logger.LogWarning(
+                            "Could not void journal entry {Id} for registration {RegId}: {Message}",
+                            id, registrationId, res.Message);
+                        return new BaseResponse(false, res.Error ?? res.Message);
+                    }
+                }
+
+                _logger.LogInformation(
+                    "Voided {Count} journal entry(ies) for event registration {RegId}: {Reason}",
+                    entries.Count, registrationId, reason);
+
+                return new BaseResponse(true, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error voiding journal entry for event registration {RegId}", registrationId);
+                return new BaseResponse(false, "Error voiding journal entry for event registration");
             }
         }
 

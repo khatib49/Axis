@@ -62,6 +62,24 @@ namespace Application.IServices
             int expenseId,
             CancellationToken ct = default);
 
+        /// <summary>
+        /// Books a paid event ticket: DEBIT 1000 Cash / CREDIT 4300 Event
+        /// Revenue. Idempotent per registration.
+        /// </summary>
+        Task<BaseResponse<JournalEntryDto>> CreateJournalEntryFromEventRegistrationAsync(
+            int registrationId,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Reverses that posting when a paid registration is rejected or
+        /// refunded. Success/no-op when nothing was posted.
+        /// </summary>
+        Task<BaseResponse> VoidJournalEntryForEventRegistrationAsync(
+            int registrationId,
+            string reason,
+            int? voidedBy = null,
+            CancellationToken ct = default);
+
         // ============================================
         // VALIDATION
         // ============================================

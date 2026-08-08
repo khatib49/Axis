@@ -123,7 +123,12 @@
         decimal? FnbGross = null,
         decimal? TcgGross = null,
         decimal? TotalGross = null,
-        decimal? DiscountsGiven = null
+        decimal? DiscountsGiven = null,
+        // Ticket money from Admin → Events. Unlike the three above it does not
+        // come from TransactionRecords — it's the sum of PAID EventRegistrations
+        // confirmed in the period, mirroring what gets credited to 4300. Tickets
+        // carry no discount, so it contributes equally to Total and TotalGross.
+        decimal Events = 0m
     );
 
     public record ExpenseSummaryDto(
