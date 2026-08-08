@@ -114,13 +114,51 @@ namespace Application.Services
 
         public async Task<PaginatedResponse<UserDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
-            var list = await _repo.ListAsync(null, asNoTracking: true, ct);
-            var totalCount = list.Count;
+            var q = _repo.Query();
 
-            var pagedList = list
-                .Skip((pagination.Page - 1) * pagination.PageSize)
-                .Take(pagination.PageSize)
-                .ToList();
+            // Search runs in the DATABASE and BEFORE paging. Filtering the
+            // already-paged slice (what this used to effectively do on the
+            // client) meant a user on page 3 was invisible from page 1 while
+            // the footer still claimed the full unfiltered count.
+            var term = pagination.search?.Trim();
+            if (!string.IsNullOrEmpty(term))
+            {
+                // Escape LIKE wildcards so a literal % or _ in the box searches
+                // for that character instead of matching everything.
+                var escaped = term
+                    .Replace("\\", "\\\\")
+                    .Replace("%", "\\%")
+                    .Replace("_", "\\_");
+                var like = $"%{escaped}%";
+                q = q.Where(u =>
+                       (u.Email != null && EF.Functions.ILike(u.Email, like))
+                    || (u.UserName != null && EF.Functions.ILike(u.UserName, like))
+                    || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, like))
+                    || (u.FirstName != null && EF.Functions.ILike(u.FirstName, like))
+                    || (u.LastName != null && EF.Functions.ILike(u.LastName, like))
+                    || (u.PhoneNumber != null && EF.Functions.ILike(u.PhoneNumber, like))
+                    // "first last" typed as one string still matches. No
+                    // .Trim() here on purpose — the pattern is already
+                    // %-wrapped, so padding can't affect the result, and
+                    // keeping the expression to COALESCE + || guarantees
+                    // Npgsql translates it instead of throwing at runtime.
+                    || EF.Functions.ILike(
+                        (u.FirstName ?? "") + " " + (u.LastName ?? ""), like));
+            }
+
+            var totalCount = await q.CountAsync(ct);
+
+            var page = Math.Max(1, pagination.Page);
+            var size = Math.Clamp(pagination.PageSize, 1, 200);
+
+            var pagedList = await q
+                // Deterministic order — without it Postgres may return the
+                // same row on two different pages.
+                .OrderBy(u => u.DisplayName ?? u.UserName ?? "")
+                .ThenBy(u => u.Id)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync(ct);
 
             var result = new List<UserDto>();
 
@@ -130,7 +168,7 @@ namespace Application.Services
                 result.Add(_mapper.ToDto(u, roles));
             }
 
-            return new PaginatedResponse<UserDto>(totalCount, result, pagination.Page, pagination.PageSize);
+            return new PaginatedResponse<UserDto>(totalCount, result, page, size);
         }
         public async Task<bool> UpdateAsync(int Id, UserUpdateDto request, CancellationToken ct = default)
         {

@@ -125,10 +125,20 @@ namespace Application.Services.Ai
 
         private async Task<string> GetLowStock(CancellationToken ct)
         {
-            var rows = await _db.Set<Ingredient>().AsNoTracking()
+            // Must stay in step with IngredientService.GetLowStockAsync and the
+            // IsBelowReorderLevel flag: at-or-below the reorder level, plus
+            // anything at or under zero even with no threshold configured.
+            var q = _db.Set<Ingredient>().AsNoTracking()
                 .Where(i => i.IsActive
-                    && i.ReorderLevel.HasValue
-                    && i.QuantityOnHand <= i.ReorderLevel.Value)
+                    && ((i.ReorderLevel.HasValue && i.QuantityOnHand <= i.ReorderLevel.Value)
+                        || i.QuantityOnHand <= 0));
+
+            // Counted separately from the capped row list, so the AI reports
+            // the real total instead of announcing "100" whenever the kitchen
+            // has more than a hundred items to restock.
+            var total = await q.CountAsync(ct);
+
+            var rows = await q
                 .OrderBy(i => i.QuantityOnHand)
                 .Select(i => new {
                     i.Id, i.Name, i.Unit, on_hand = i.QuantityOnHand,
@@ -138,7 +148,8 @@ namespace Application.Services.Ai
                 .Take(100)
                 .ToListAsync(ct);
 
-            return JsonSerializer.Serialize(new { count = rows.Count, rows }, _jsonOut);
+            return JsonSerializer.Serialize(
+                new { count = total, returned = rows.Count, rows }, _jsonOut);
         }
 
         private async Task<string> GetOccupancyNow(CancellationToken ct)

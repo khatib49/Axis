@@ -56,12 +56,19 @@ namespace Application.Services
             return e == null ? null : MapToDto(e);
         }
 
+        /// <summary>
+        /// Ingredients that need restocking. "At or below" (&lt;=) is the rule
+        /// everywhere — hitting the reorder level IS the signal to reorder,
+        /// and the AI's get_low_stock tool already described it that way.
+        /// Also catches anything that has gone negative even without a
+        /// threshold set, since that's always worth looking at.
+        /// </summary>
         public async Task<IReadOnlyList<IngredientDto>> GetLowStockAsync(CancellationToken ct = default)
         {
             var list = await _repo.Query()
                 .Where(i => i.IsActive
-                         && i.ReorderLevel.HasValue
-                         && i.QuantityOnHand < i.ReorderLevel.Value)
+                         && ((i.ReorderLevel.HasValue && i.QuantityOnHand <= i.ReorderLevel.Value)
+                             || i.QuantityOnHand <= 0))
                 .OrderBy(i => i.QuantityOnHand)
                 .ToListAsync(ct);
             return list.Select(MapToDto).ToList();
@@ -320,7 +327,10 @@ namespace Application.Services
             new(
                 e.Id, e.Name, e.Unit, e.QuantityOnHand, e.ReorderLevel, e.BuyPricePerUnit,
                 e.IsActive, e.Notes, e.CreatedOn, e.ModifiedOn,
-                IsBelowReorderLevel: e.ReorderLevel.HasValue && e.QuantityOnHand < e.ReorderLevel.Value,
+                // "At or below" — reaching the reorder level is the signal to
+                // reorder, so <= not <. Matches GetLowStockAsync and the AI's
+                // get_low_stock tool.
+                IsBelowReorderLevel: e.ReorderLevel.HasValue && e.QuantityOnHand <= e.ReorderLevel.Value,
                 IsNegative: e.QuantityOnHand < 0
             );
     }
