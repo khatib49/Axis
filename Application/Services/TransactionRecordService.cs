@@ -617,30 +617,19 @@ namespace Application.Services
             }
 
 
-            // Only enforce the Item.Quantity counter on items WITHOUT a
-            // recipe. Recipe-driven items report their real stock via
-            // Ingredient.QuantityOnHand — the consume-on-sale path will
-            // decrement ingredients and produce warnings if any go
-            // negative, but the sale itself is allowed even when the
-            // (unused) Item.Quantity counter is 0.
-            var recipeItemIds = new HashSet<int>(
-                await _repoRecipeLine.Query()
-                    .Where(r => ids.Contains(r.ItemId))
-                    .Select(r => r.ItemId)
-                    .Distinct()
-                    .ToListAsync(ct));
-
-            var outOfStock = new List<string>();
+            // Stock never blocks a sale (changed 2026-08 per Rami). A customer
+            // at the counter with money beats a possibly-stale shelf counter:
+            // Item.Quantity is allowed to go negative and shows up red in the
+            // stock screens, same philosophy as ingredients. We still log so
+            // the oversell is traceable.
             foreach (var it in dbItems)
             {
-                if (recipeItemIds.Contains(it.Id)) continue; // recipe covers it
                 var need = requested[it.Id];
                 if (it.Quantity < need)
-                    outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})");
+                    _logger.LogWarning(
+                        "Overselling item {ItemId} '{Name}': needs {Need}, has {Has}. Counter will go negative.",
+                        it.Id, it.Name, need, it.Quantity);
             }
-            if (outOfStock.Any())
-                return new BaseResponse<TransactionDto>(false, "Out of stock",
-                    $"The following items are out of stock or insufficient: {string.Join("; ", outOfStock)}");
 
             // Compute total
             decimal totalPrice = 0m;
@@ -2134,26 +2123,17 @@ namespace Application.Services
                     $"The following item IDs do not exist: {string.Join(", ", missing)}");
             }
 
-            // Stock check — skip recipe items (their real stock is on
-            // Ingredient.QuantityOnHand, not the Item.Quantity counter).
-            var recipeItemIds = new HashSet<int>(
-                await _repoRecipeLine.Query()
-                    .Where(r => ids.Contains(r.ItemId))
-                    .Select(r => r.ItemId)
-                    .Distinct()
-                    .ToListAsync(ct));
-
-            var outOfStock = new List<string>();
+            // Stock never blocks a sale (changed 2026-08 per Rami) — matches
+            // CreateCoffeeShopOrder. The counter may go negative; log it so
+            // the oversell is traceable.
             foreach (var it in dbItems)
             {
-                if (recipeItemIds.Contains(it.Id)) continue;
                 var need = requested[it.Id];
                 if (it.Quantity < need)
-                    outOfStock.Add($"{it.Name} (needs {need}, has {it.Quantity})");
+                    _logger.LogWarning(
+                        "Overselling item {ItemId} '{Name}' on open invoice: needs {Need}, has {Has}. Counter will go negative.",
+                        it.Id, it.Name, need, it.Quantity);
             }
-            if (outOfStock.Any())
-                return new BaseResponse<TransactionDto>(false, "Out of stock",
-                    $"The following items are out of stock: {string.Join("; ", outOfStock)}");
 
             // 3) Add new items to transaction
             var newTrxItems = new List<TransactionItem>();
