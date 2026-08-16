@@ -124,6 +124,12 @@
     int Quantity,
     decimal Price,
     string Type,
-    List<CoffeeShopOrderDto> CoffeeShopOrders // NEW
+    List<CoffeeShopOrderDto> CoffeeShopOrders, // NEW
+    /// <summary>
+    /// Bundled with an event setting — printed on the receipt so the customer
+    /// sees what they got, but worth nothing. Trailing with a default keeps
+    /// existing positional callers valid.
+    /// </summary>
+    bool IsIncluded = false
 )   ;
 }

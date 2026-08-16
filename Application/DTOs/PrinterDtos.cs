@@ -57,5 +57,11 @@ namespace Application.DTOs
         string? TableNumber,
         string? GuestName,
         string? Comment,
-        List<StationTicketLine> Lines);
+        List<StationTicketLine> Lines,
+        /// <summary>
+        /// Headcount on the order. The kitchen uses it to plate correctly
+        /// (e.g. how many sets of cutlery), so it prints on the ticket.
+        /// Trailing with a default keeps existing positional callers valid.
+        /// </summary>
+        int Persons = 0);
 }

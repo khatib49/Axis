@@ -28,6 +28,12 @@ namespace Application.IServices
         Task<bool> AttachClientAsync(int transactionId, int? userId, CancellationToken ct = default);
 
         /// <summary>
+        /// Sets or clears the discount on an open invoice and recomputes the
+        /// total in the same call. Pass null or 0 to remove.
+        /// </summary>
+        Task<BaseResponse<TransactionDto>> SetDiscountAsync(int transactionId, int? discountId, CancellationToken ct = default);
+
+        /// <summary>
         /// ADMIN-ONLY full replacement of a transaction's item lines,
         /// regardless of status (open OR closed) and type (game OR FNB).
         /// Diffs the incoming list against current TransactionItems and:

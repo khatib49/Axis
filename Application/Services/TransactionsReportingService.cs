@@ -74,6 +74,20 @@ namespace Application.Services
 
                     Hours = t.Hours,
                     TotalPrice = t.TotalPrice,
+
+                    // On the entity all along, just never projected.
+                    NumberOfPersons = t.numberOfPersons,
+                    UserId = t.UserId,
+                    UserName = t.User != null
+                        ? (t.User.DisplayName
+                            ?? (((t.User.FirstName ?? "") + " " + (t.User.LastName ?? "")).Trim() != ""
+                                ? ((t.User.FirstName ?? "") + " " + (t.User.LastName ?? "")).Trim()
+                                : t.User.UserName))
+                        : null,
+                    ChannelId = t.ChannelId,
+                    ChannelName = t.Channel != null ? t.Channel.Name : null,
+                    ModifiedOn = t.ModifiedOn,
+
                     Discount = t.DiscountId != null && t.Discount != null
                     ? new DiscountDto(
                         t.Discount.Id,
@@ -86,7 +100,7 @@ namespace Application.Services
                         t.Discount.UpdatedOn
                       )
                     : null,
-                    
+
 
                     Items = t.TransactionItems.Select(ti => new TransactionItemMiniDto
                     {
@@ -101,8 +115,11 @@ namespace Application.Services
 
                         ItemType = ti.Item != null ? ti.Item.Type : string.Empty,
                         Quantity = ti.Quantity,
-                        UnitPrice = ti.Item != null ? ti.Item.Price : 0m,
-                        LineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity,
+                        // Included lines are worth zero — they came bundled
+                        // with an event setting.
+                        UnitPrice = ti.IsIncluded ? 0m : (ti.Item != null ? ti.Item.Price : 0m),
+                        LineTotal = ti.IsIncluded ? 0m : (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity,
+                        IsIncluded = ti.IsIncluded,
                         ImagePath = ti.Item != null ? ti.Item.ImagePath : null
                     }).ToList()
                 }).Where(t => t.StatusId == 6 || t.StatusId == 7 || t.StatusId == 5)
@@ -190,6 +207,23 @@ namespace Application.Services
 
                     Hours = t.Hours,
                     TotalPrice = t.TotalPrice,
+
+                    // Previously dropped on the floor — the admin panel had no
+                    // way to see headcount, the attached client, or the channel.
+                    NumberOfPersons = t.numberOfPersons,
+                    UserId = t.UserId,
+                    UserName = t.User != null
+                        ? (t.User.DisplayName
+                            ?? (((t.User.FirstName ?? "") + " " + (t.User.LastName ?? "")).Trim() != ""
+                                ? ((t.User.FirstName ?? "") + " " + (t.User.LastName ?? "")).Trim()
+                                : t.User.UserName))
+                        : null,
+                    ChannelId = t.ChannelId,
+                    ChannelName = t.Channel != null ? t.Channel.Name : null,
+                    ExpectedEndOn = t.ExpectedEndOn,
+                    ModifiedOn = t.ModifiedOn,
+                    IsDayPass = t.GameSetting != null && t.GameSetting.IsDayPass,
+
                     Discount = t.DiscountId != null && t.Discount != null
                     ? new DiscountDto(
                         t.Discount.Id,

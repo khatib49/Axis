@@ -82,6 +82,7 @@ namespace Application.Services
                 var trx = await _repoTrx.GetByIdAsync(transactionId, asNoTracking: true, ct);
                 var orderedAt = trx?.CreatedOn ?? DateTime.UtcNow;
                 var comment = trx?.Comment;
+                var persons = trx?.numberOfPersons ?? 0;
 
                 // Group the order's lines by destination station.
                 var byStation = new Dictionary<string, List<StationTicketLine>>(StringComparer.OrdinalIgnoreCase);
@@ -118,7 +119,8 @@ namespace Application.Services
                     }
 
                     var ticket = new StationTicketDto(
-                        station, transactionId, orderedAt, createdBy ?? "", tableNumber, guestName, comment, lines);
+                        station, transactionId, orderedAt, createdBy ?? "", tableNumber, guestName, comment, lines,
+                        Persons: persons);
                     var payload = Convert.ToBase64String(_receipts.GenerateStationTicket(ticket));
 
                     foreach (var p in stationPrinters)

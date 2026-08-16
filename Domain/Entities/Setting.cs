@@ -20,6 +20,17 @@
         public bool IsOpenHour { get; set; } = false;
         public bool IsDayPass { get; set; } = false;
 
+        /// <summary>
+        /// Marks this setting as an EVENT (Pre Release, Draft, tournament…).
+        /// An event can bundle stock items via <see cref="Items"/>: starting a
+        /// session hands them out and deducts them from stock, while the
+        /// customer pays only this setting's Price.
+        /// </summary>
+        public bool IsEvent { get; set; } = false;
+
+        /// <summary>Items handed out with this event. Empty for normal settings.</summary>
+        public ICollection<SettingItem> Items { get; set; } = new List<SettingItem>();
+
         // Soft-hide flag. Backed by a manually added DB column (one-off ALTER):
         //   ALTER TABLE "Settings" ADD COLUMN "IsActive" boolean NOT NULL DEFAULT true;
         // Default true keeps existing rows visible. The Delete endpoint flips this

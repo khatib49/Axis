@@ -204,6 +204,36 @@ namespace Application.Services
                 .Where(x => x.BuyPrice.HasValue
                          && x.CategoryName.Contains(TcgCategoryKeyword, StringComparison.OrdinalIgnoreCase))
                 .Sum(x => x.BuyPrice!.Value * x.Quantity);
+
+            // Event-kit lines live on GAME transactions (GameId != null), so
+            // the query above never sees them — yet those boosters left the
+            // shelf just as surely as a retail sale. Without this pass, every
+            // kit handed out overstated gross profit by BuyPrice x Qty.
+            // Same nested-projection shape as above (see the 2.6x warning).
+            var kitCogsTxs = await txQ
+                .Where(t => t.GameId != null
+                         && t.TransactionItems.Any(ti => ti.IsIncluded))
+                .Select(t => new
+                {
+                    Items = t.TransactionItems
+                        .Where(ti => ti.IsIncluded)
+                        .Select(ti => new
+                        {
+                            BuyPrice = ti.Item != null ? ti.Item.BuyPrice : null,
+                            Quantity = ti.Quantity
+                        })
+                })
+                .ToListAsync(ct);
+
+            // No category filter here: whatever the event bundles is a cost of
+            // running it. Recipe-backed items carry their cost through the
+            // ingredient consumption block below instead, and their BuyPrice
+            // is null, so nothing is counted twice.
+            tcgCogs += kitCogsTxs
+                .SelectMany(t => t.Items)
+                .Where(x => x.BuyPrice.HasValue)
+                .Sum(x => x.BuyPrice!.Value * x.Quantity);
+
             tcgCogs = Math.Round(tcgCogs, 2);
 
             // ── 2b. Ingredient COGS ────────────────────────────────────

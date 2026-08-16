@@ -28,6 +28,7 @@ namespace Infrastructure.Persistence
         public DbSet<TransactionRecord> Transactions => Set<TransactionRecord>();
         public DbSet<Receipt> Receipts => Set<Receipt>();
         public DbSet<Setting> Settings => Set<Setting>();
+        public DbSet<SettingItem> SettingItems => Set<SettingItem>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Item> Items => Set<Item>();
         public DbSet<CoffeeShopOrder> CoffeeShopOrders => Set<CoffeeShopOrder>();
@@ -600,6 +601,32 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.Game).WithMany(x => x.Settings)
               .HasForeignKey(x => x.GameId)
               .OnDelete(DeleteBehavior.Cascade);
+
+            // Items bundled with an event setting.
+            b.Entity<SettingItem>(e =>
+            {
+                e.ToTable("SettingItems");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.QuantityPerPerson).HasColumnType("numeric(18,3)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+
+                e.HasOne(x => x.Setting)
+                    .WithMany(s => s.Items)
+                    .HasForeignKey(x => x.SettingId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Restrict: an item bundled into an event must not vanish
+                // from under it.
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.SettingId);
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => new { x.SettingId, x.ItemId }).IsUnique();
+            });
 
             b.Entity<Item>()
               .HasOne(x => x.Category).WithMany(x => x.Items)

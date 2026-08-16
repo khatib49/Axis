@@ -24,6 +24,8 @@ namespace Application.Services
     {
         private readonly IBaseRepository<TransactionRecord> _repo;
         private readonly IBaseRepository<Setting> _repoSetting;
+        // Items bundled with an event setting, handed out at session start.
+        private readonly IBaseRepository<SettingItem> _repoSettingItem;
         private readonly IBaseRepository<Room> _repoRoom;
         private readonly IBaseRepository<Game> _repoGame;
         private readonly IBaseRepository<Item> _repoItem;
@@ -52,6 +54,7 @@ namespace Application.Services
         private readonly IBaseRepository<RecipeLine> _repoRecipeLine;
         private readonly IStockService _stockService;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
+            IBaseRepository<SettingItem> repoSettingItem,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
             IBaseRepository<TransactionItem> repoTrxItem, IBaseRepository<Status> repoStatus, UserManager<AppUser> userManager,
             IBaseRepository<Discount> repoDiscount, IBaseRepository<Set> repoSet, ILoyaltyService loyaltyService,
@@ -71,6 +74,7 @@ namespace Application.Services
             _repo = repo; _uow = uow; _mapper = mapper;
             _userManager = userManager;
             _repoSetting = repoSetting;
+            _repoSettingItem = repoSettingItem;
             _repoKitchenBar = repoKitchenBar;
             _repoRoom = repoRoom;
             _repoGame = repoGame;
@@ -131,11 +135,27 @@ namespace Application.Services
                     itemId, transactionId);
             }
 
-            // Recalculate total
-            tx.TotalPrice -= removedQty * (dbItem?.Price ?? 0);
-            if (tx.TotalPrice < 0) tx.TotalPrice = 0;
-
+            // Drop the line FIRST, then recompute from what's left.
+            //
+            // This used to subtract the line's FULL price from an already
+            // discounted total, over-refunding on every discounted invoice.
+            // Going through the shared recompute keeps it consistent with the
+            // add-item and set-discount paths.
+            tx.TransactionItems.Remove(itemToRemove);
             _repoTrxItem.Remove(itemToRemove);
+
+            if (tx.GameId != null)
+            {
+                // Game sessions bill from elapsed time at close; their stored
+                // total isn't the sum of item lines, so only back out the line.
+                tx.TotalPrice -= removedQty * (dbItem?.Price ?? 0);
+                if (tx.TotalPrice < 0) tx.TotalPrice = 0;
+            }
+            else
+            {
+                await RecalculateOpenInvoiceTotalAsync(tx, ct);
+            }
+
             tx.ModifiedOn = DateTime.UtcNow;
 
             // Audit — TransactionAuditLog survives because the parent isn't
@@ -258,7 +278,8 @@ namespace Application.Services
                         co.Quantity,
                         co.Price,
                         co.Timestamp
-                    )).ToList()
+                    )).ToList(),
+                    ti.IsIncluded
                 )).ToList(),
                 e.SetId,
                 e.Set?.Name ?? string.Empty,
@@ -456,6 +477,11 @@ namespace Application.Services
                     ct: ct
                 );
                 await _uow.SaveChangesAsync(ct);
+
+                // Event settings hand out stock (prerelease kits, boosters).
+                // Runs after the first save because it needs e.Id, and it never
+                // touches TotalPrice — the event price already covers the kit.
+                await IssueEventKitAsync(e.Id, gameSettingId, numberOfPersons, createdBy, ct);
             }
             catch (Exception ex)
             {
@@ -1039,6 +1065,258 @@ namespace Application.Services
             return true;
         }
 
+        /// <summary>
+        /// Hands out the items bundled with an event game setting.
+        ///
+        /// For each configured line the session receives
+        /// <c>QuantityPerPerson x persons</c> units. The line is written with
+        /// IsIncluded = true, which keeps it off every price calculation — the
+        /// event's own price is what the customer pays — while still showing
+        /// on the receipt and, crucially, coming off stock.
+        ///
+        /// Both stock systems are decremented, matching what a normal sale
+        /// does: Item.Quantity (the POS counter) and, for recipe-backed items,
+        /// the ingredients underneath.
+        ///
+        /// Never throws. A stock hiccup must not stop a session from starting —
+        /// same log-and-continue contract as the F&amp;B order paths.
+        /// </summary>
+        private async Task IssueEventKitAsync(
+            int transactionId, int gameSettingId, int persons, string? actor, CancellationToken ct)
+        {
+            try
+            {
+                var kit = await _repoSettingItem.Query()
+                    .AsNoTracking()
+                    .Where(si => si.SettingId == gameSettingId && si.Setting.IsEvent)
+                    .Select(si => new { si.ItemId, si.QuantityPerPerson })
+                    .ToListAsync(ct);
+
+                if (kit.Count == 0) return;
+
+                var headcount = persons > 0 ? persons : 1;
+                var consumeLines = new List<(int itemId, decimal quantity)>();
+                var noteParts = new List<string>();
+
+                foreach (var line in kit)
+                {
+                    // Whole units only — you can't hand over 1.5 booster packs.
+                    var qty = (int)Math.Round(line.QuantityPerPerson * headcount, MidpointRounding.AwayFromZero);
+                    if (qty <= 0) continue;
+
+                    var item = await _repoItem.GetByIdAsync(line.ItemId, asNoTracking: false, ct);
+                    if (item is null)
+                    {
+                        _logger.LogWarning(
+                            "Event kit references missing item {ItemId} on setting {SettingId}; skipped.",
+                            line.ItemId, gameSettingId);
+                        continue;
+                    }
+
+                    // Merge rather than insert — (TransactionRecordId, ItemId)
+                    // is the composite key, so a second row would collide.
+                    var existing = await _repoTrxItem.Query(asNoTracking: false)
+                        .FirstOrDefaultAsync(ti => ti.TransactionRecordId == transactionId
+                                                && ti.ItemId == line.ItemId, ct);
+
+                    if (existing is not null)
+                    {
+                        existing.Quantity += qty;
+                        existing.IsIncluded = true;
+                    }
+                    else
+                    {
+                        await _repoTrxItem.AddAsync(new TransactionItem
+                        {
+                            TransactionRecordId = transactionId,
+                            ItemId = line.ItemId,
+                            Quantity = qty,
+                            IsIncluded = true,
+                        }, ct);
+                    }
+
+                    // POS counter. Allowed to go negative here on purpose:
+                    // blocking a paid event because the shelf count is stale
+                    // would be worse than a negative that shows up in reports.
+                    item.Quantity -= qty;
+
+                    consumeLines.Add((line.ItemId, qty));
+                    noteParts.Add($"{qty}x {item.Name}");
+                }
+
+                if (consumeLines.Count == 0) return;
+
+                await _uow.SaveChangesAsync(ct);
+
+                // Ingredient-level stock for anything with a recipe. No-ops
+                // silently for items without one.
+                try
+                {
+                    await _stockService.ConsumeForOrderAsync(transactionId, consumeLines, actor, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Ingredient consumption failed for event kit on transaction {TxId}. Kit lines were still issued.",
+                        transactionId);
+                }
+
+                await LogAuditAsync(
+                    transactionId: transactionId,
+                    changedBy: actor ?? "system",
+                    action: "EventKitIssued",
+                    fieldChanged: "TransactionItems",
+                    notes: $"Event setting {gameSettingId} issued {string.Join(", ", noteParts)} for {headcount} person(s). Included in the event price.",
+                    ct: ct);
+
+                await _uow.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                // A failed kit must never take the session down with it.
+                _logger.LogError(ex,
+                    "Failed to issue event kit for transaction {TxId} on setting {SettingId}.",
+                    transactionId, gameSettingId);
+            }
+        }
+
+        /// <summary>
+        /// Rebuilds an item-based invoice's total from its own lines and its
+        /// current discount. Single source of truth for that math — the
+        /// add-item, remove-item and set-discount paths all route through here
+        /// so they can't drift apart.
+        ///
+        /// Prices are read live from Item.Price (the same rule the receipt
+        /// uses). Lines flagged IsIncluded are handed over as part of an event
+        /// package and are deliberately worth nothing.
+        ///
+        /// The caller is responsible for SaveChangesAsync.
+        /// </summary>
+        private async Task<decimal> RecalculateOpenInvoiceTotalAsync(
+            TransactionRecord trx, CancellationToken ct)
+        {
+            var itemIds = trx.TransactionItems.Select(ti => ti.ItemId).Distinct().ToList();
+
+            // One query, not one per line — this used to be an N+1 loop.
+            var prices = await _repoItem.Query()
+                .AsNoTracking()
+                .Where(i => itemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.Price })
+                .ToDictionaryAsync(x => x.Id, x => x.Price, ct);
+
+            decimal subtotal = 0m;
+            foreach (var ti in trx.TransactionItems)
+            {
+                if (ti.IsIncluded) continue;
+                if (prices.TryGetValue(ti.ItemId, out var price))
+                    subtotal += price * ti.Quantity;
+            }
+
+            var total = subtotal;
+
+            if (trx.DiscountId.HasValue)
+            {
+                var discount = await _repoDiscount.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == trx.DiscountId.Value, ct);
+
+                if (discount is not null && discount.IsActive && discount.Percentage > 0)
+                    total -= total * discount.Percentage / 100m;
+            }
+
+            trx.TotalPrice = Math.Max(0m, Math.Round(total, 2));
+            return trx.TotalPrice;
+        }
+
+        /// <summary>
+        /// Applies, changes or clears the discount on an invoice and
+        /// immediately recomputes the total.
+        ///
+        /// Narrow and cashier-safe, like AttachClientAsync — the full
+        /// PUT /transactions/{id} is admin-only and, worse, sets the FK
+        /// without touching TotalPrice, and CloseOpenInvoice doesn't
+        /// recompute either. So the recompute has to happen right here.
+        ///
+        /// Game sessions are the exception: their price is derived from time
+        /// at close, so we only store the FK and let CloseGameSession do the
+        /// math.
+        /// </summary>
+        public async Task<BaseResponse<TransactionDto>> SetDiscountAsync(
+            int transactionId, int? discountId, CancellationToken ct = default)
+        {
+            var trx = await _repo.Query(asNoTracking: false)
+                .Include(t => t.TransactionItems)
+                .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+
+            if (trx is null)
+                return new BaseResponse<TransactionDto>(false, "Invalid invoice", "The specified invoice does not exist.");
+
+            // Paid/closed invoices are financial records — reopening them is an
+            // admin action through the full update endpoint, not a cashier one.
+            if (trx.StatusId == 6)
+                return new BaseResponse<TransactionDto>(
+                    false, "Invoice already closed",
+                    "This invoice has been paid. Discounts can only be changed while it is still open.");
+
+            var actor = _http?.HttpContext?.User?.Identity?.Name ?? "system";
+            var oldValue = trx.DiscountId?.ToString() ?? "(none)";
+            var oldTotal = trx.TotalPrice;
+
+            Discount? discount = null;
+            if (discountId.HasValue && discountId.Value > 0)
+            {
+                discount = await _repoDiscount.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == discountId.Value, ct);
+
+                if (discount is null)
+                    return new BaseResponse<TransactionDto>(false, "Invalid discount", "That discount does not exist.");
+                if (!discount.IsActive)
+                    return new BaseResponse<TransactionDto>(false, "Inactive discount", $"'{discount.Name}' is not active.");
+
+                trx.DiscountId = discount.Id;
+            }
+            else
+            {
+                trx.DiscountId = null;
+            }
+
+            // Game sessions bill from elapsed time at close, so recomputing
+            // from item lines here would wipe the session charge.
+            var isGameSession = trx.GameId != null;
+            if (!isGameSession)
+                await RecalculateOpenInvoiceTotalAsync(trx, ct);
+
+            trx.ModifiedOn = DateTime.UtcNow;
+
+            await LogAuditAsync(
+                transactionId: transactionId,
+                changedBy: actor,
+                action: "DiscountChanged",
+                fieldChanged: "DiscountId",
+                oldValue: oldValue,
+                newValue: trx.DiscountId?.ToString() ?? "(removed)",
+                notes: isGameSession
+                    ? $"Discount set to {discount?.Name ?? "(none)"}; game session price recalculates on close"
+                    : $"Discount set to {discount?.Name ?? "(none)"} ({discount?.Percentage ?? 0}%). Total {oldTotal:F2} -> {trx.TotalPrice:F2}",
+                ct: ct);
+
+            await _uow.SaveChangesAsync(ct);
+
+            var reloaded = await _repo.Query()
+                .Include(t => t.TransactionItems).ThenInclude(ti => ti.Item)
+                .Include(t => t.Discount)
+                .Include(t => t.Room)
+                .Include(t => t.Set)
+                .Include(t => t.Game)
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+
+            return new BaseResponse<TransactionDto>(
+                true, null, "Discount updated",
+                reloaded is null ? null : _mapper.ToDto(reloaded));
+        }
+
         public async Task<BaseResponse<TransactionDto>> ReplaceTransactionItemsAsync(
             int transactionId,
             IReadOnlyList<(int itemId, int quantity)> lines,
@@ -1102,7 +1380,10 @@ namespace Application.Services
                         item.Quantity += -delta;
                         restoreDeltas.Add((itemId, -delta));
                     }
-                    priceDelta += item.Price * delta;
+                    // An event-kit line still moves stock when an admin edits
+                    // the quantity, but it never moves money.
+                    if (!line.IsIncluded)
+                        priceDelta += item.Price * delta;
                 }
                 else
                 {
@@ -1129,7 +1410,8 @@ namespace Application.Services
                 changeLog.Add($"{name}: removed (was ×{line.Quantity})");
                 if (item != null) item.Quantity += line.Quantity;
                 restoreDeltas.Add((itemId, line.Quantity));
-                priceDelta -= (item?.Price ?? 0m) * line.Quantity;
+                if (!line.IsIncluded)
+                    priceDelta -= (item?.Price ?? 0m) * line.Quantity;
                 _repoTrxItem.Remove(line);
             }
 
@@ -1907,31 +2189,15 @@ namespace Application.Services
             }
 
             // 4) Recalculate total (including existing discount if any)
-            trx.TotalPrice += additionalTotal;
-
-            // Reapply discount if one exists
             if (trx.DiscountId.HasValue)
             {
-                var discount = await _repoDiscount.Query()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(d => d.Id == trx.DiscountId.Value, ct);
-
-                if (discount != null && discount.IsActive)
-                {
-                    // Recalculate from subtotal
-                    decimal subtotal = 0m;
-                    foreach (var ti in trx.TransactionItems)
-                    {
-                        var item = await _repoItem.Query()
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(i => i.Id == ti.ItemId, ct);
-                        if (item != null)
-                            subtotal += (item.Price * ti.Quantity);
-                    }
-
-                    trx.TotalPrice = subtotal - (subtotal * discount.Percentage / 100);
-                    if (trx.TotalPrice < 0) trx.TotalPrice = 0;
-                }
+                // A discount means the running total can't just be nudged by
+                // the delta — recompute the whole invoice from its lines.
+                await RecalculateOpenInvoiceTotalAsync(trx, ct);
+            }
+            else
+            {
+                trx.TotalPrice += additionalTotal;
             }
 
             trx.ModifiedOn = DateTime.UtcNow;

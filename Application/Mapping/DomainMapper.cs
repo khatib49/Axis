@@ -103,7 +103,8 @@ namespace Application.Mapping
                         co.Quantity,
                         co.Price,
                         co.Timestamp
-                    )).ToList()
+                    )).ToList(),
+                    ti.IsIncluded
                 )).ToList(),
                 e.SetId,
                 e.Set?.Name ?? string.Empty,
@@ -164,10 +165,28 @@ namespace Application.Mapping
             e.IsOffer,
             e.IsOpenHour,
             e.IsDayPass,
-            e.IsActive
+            e.IsActive,
+            e.IsEvent,
+            e.Items == null
+                ? new List<SettingItemDto>()
+                : e.Items
+                    .OrderBy(si => si.Id)
+                    .Select(si => new SettingItemDto(
+                        si.Id,
+                        si.ItemId,
+                        si.Item?.Name ?? string.Empty,
+                        si.Item?.Price ?? 0m,
+                        si.Item?.Category?.Name,
+                        si.QuantityPerPerson))
+                    .ToList()
         );
 
+        // Items are rebuilt by hand in SettingService (the DTO carries ids +
+        // quantities, not entities), so Mapperly must leave them alone.
+        [MapperIgnoreTarget(nameof(Setting.Items))]
         public partial Setting ToEntity(SettingCreateDto dto);
+
+        [MapperIgnoreTarget(nameof(Setting.Items))]
         public partial void MapTo(SettingUpdateDto dto, [MappingTarget] Setting e);
 
        

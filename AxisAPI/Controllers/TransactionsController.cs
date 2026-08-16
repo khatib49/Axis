@@ -183,6 +183,8 @@ namespace AxisAPI.Controllers
         // board-game session from their own screen without needing admin.
         public record AttachClientRequest(int? UserId);
 
+        public record SetDiscountRequest(int? DiscountId);
+
         [HttpPut("{id:int}/client")]
         [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
         public async Task<IActionResult> AttachClient(int id, [FromBody] AttachClientRequest body, CancellationToken ct)
@@ -197,6 +199,17 @@ namespace AxisAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        // Same narrow, cashier-safe shape as /client above: only the discount
+        // is touched, and the total is recomputed server-side so the till and
+        // the receipt can never disagree. Send DiscountId null or 0 to remove.
+        [HttpPut("{id:int}/discount")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> SetDiscount(int id, [FromBody] SetDiscountRequest body, CancellationToken ct)
+        {
+            var result = await _transactionService.SetDiscountAsync(id, body?.DiscountId, ct);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
         [Authorize]
         [HttpPost("CreateGame")]

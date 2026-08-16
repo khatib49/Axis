@@ -1028,6 +1028,9 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDayPass")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsEvent")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsOffer")
                         .HasColumnType("boolean");
 
@@ -1126,6 +1129,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("ItemId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsIncluded")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
@@ -1136,6 +1142,40 @@ namespace Infrastructure.Migrations
                     b.HasIndex("TransactionRecordId");
 
                     b.ToTable("TransactionItems");
+                });
+
+            modelBuilder.Entity("Domain.Entities.SettingItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("QuantityPerPerson")
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<int>("SettingId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("SettingId");
+
+                    b.HasIndex("SettingId", "ItemId")
+                        .IsUnique();
+
+                    b.ToTable("SettingItems", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.TransactionRecord", b =>

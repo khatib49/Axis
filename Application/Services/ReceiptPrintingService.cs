@@ -271,6 +271,15 @@ namespace Application.Services
                 receipt.AddRange(EscPos.LF);
             }
 
+            // Headcount — bold, because plating depends on it.
+            if (ticket.Persons > 0)
+            {
+                receipt.AddRange(EscPos.BOLD_ON);
+                receipt.AddRange(Encoding.ASCII.GetBytes($"Persons: {ticket.Persons}"));
+                receipt.AddRange(EscPos.BOLD_OFF);
+                receipt.AddRange(EscPos.LF);
+            }
+
             if (!string.IsNullOrWhiteSpace(ticket.CreatedByUsername))
             {
                 receipt.AddRange(Encoding.ASCII.GetBytes($"By: {Sanitize(ticket.CreatedByUsername)}"));

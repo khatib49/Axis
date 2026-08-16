@@ -56,6 +56,9 @@
         public decimal UnitPrice { get; set; }
         public decimal LineTotal { get; set; }
 
+        /// <summary>Bundled with an event setting — handed over, not charged.</summary>
+        public bool IsIncluded { get; set; }
+
         public string? ImagePath { get; set; }
     }
     /// <summary>
@@ -79,6 +82,15 @@
         public decimal Hours { get; set; }
         public decimal TotalPrice { get; set; }
         public string? Comment { get; set; }
+
+        // Surfaced so the admin panel and the printed receipt can show the
+        // whole record rather than a subset.
+        public int NumberOfPersons { get; set; } = 1;
+        public int? UserId { get; set; }
+        public string? UserName { get; set; }
+        public int? ChannelId { get; set; }
+        public string? ChannelName { get; set; }
+        public DateTime? ModifiedOn { get; set; }
 
         // Items inside this transaction
         public List<TransactionItemMiniDto> Items { get; set; } = new();
@@ -118,6 +130,24 @@
         public decimal TotalPrice { get; set; }
         public string? Comment { get; set; }
         public DiscountDto? Discount {get;set; }
+
+        // Everything below was on the entity but never reached the admin
+        // screen, so the panel could only show a partial picture of a
+        // session. Surfaced now so admins see the whole record.
+        public int NumberOfPersons { get; set; } = 1;
+
+        /// <summary>Client attached to the session, if any.</summary>
+        public int? UserId { get; set; }
+        public string? UserName { get; set; }
+
+        /// <summary>Sales channel (Toters, phone, walk-in…).</summary>
+        public int? ChannelId { get; set; }
+        public string? ChannelName { get; set; }
+
+        /// <summary>Auto-close time for open sessions.</summary>
+        public DateTime? ExpectedEndOn { get; set; }
+        public DateTime? ModifiedOn { get; set; }
+        public bool IsDayPass { get; set; }
 
         // Items inside this game transaction
         public List<TransactionItemMiniDto> Items { get; set; } = new();
