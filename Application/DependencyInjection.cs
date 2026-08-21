@@ -61,6 +61,7 @@ namespace Application
             // ADD THESE LINES:
             services.AddScoped<IAccountService, AccountService>(); // ⭐ NEW
             services.AddScoped<IJournalService, JournalService>();
+            services.AddScoped<IWalletService, WalletService>();
             
             services.AddScoped<IKitchenBarOrderService, KitchenBarOrderService>();
             services.AddScoped<IReceiptPrintingService, ReceiptPrintingService>();

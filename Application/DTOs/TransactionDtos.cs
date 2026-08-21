@@ -57,7 +57,10 @@
     // Optional sales channel (e.g. Toters). Sent by the cashier UI when the
     // order originated externally. Trailing nullable default keeps existing
     // callers (any older clients still passing positional args) compatible.
-    int? ChannelId = null
+    int? ChannelId = null,
+    // Portion of a pay-now order settled from the client's wallet. Requires
+    // an attached UserId; ignored on open invoices (they settle at close).
+    decimal WalletAmount = 0
 );
 
     public record TransactionCreateDto(

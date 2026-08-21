@@ -29,6 +29,9 @@ namespace Infrastructure.Persistence
         public DbSet<Receipt> Receipts => Set<Receipt>();
         public DbSet<Setting> Settings => Set<Setting>();
         public DbSet<SettingItem> SettingItems => Set<SettingItem>();
+        public DbSet<Wallet> Wallets => Set<Wallet>();
+        public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
+        public DbSet<WalletBonusTier> WalletBonusTiers => Set<WalletBonusTier>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Item> Items => Set<Item>();
         public DbSet<CoffeeShopOrder> CoffeeShopOrders => Set<CoffeeShopOrder>();
@@ -601,6 +604,57 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.Game).WithMany(x => x.Settings)
               .HasForeignKey(x => x.GameId)
               .OnDelete(DeleteBehavior.Cascade);
+
+            // ── Customer wallets ────────────────────────────────────────
+            b.Entity<Wallet>(e =>
+            {
+                e.ToTable("Wallets");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Balance).HasColumnType("numeric(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+
+                e.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.UserId).IsUnique();
+            });
+
+            b.Entity<WalletTransaction>(e =>
+            {
+                e.ToTable("WalletTransactions");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Type).HasMaxLength(20);
+                e.Property(x => x.Amount).HasColumnType("numeric(18,2)");
+                e.Property(x => x.BalanceAfter).HasColumnType("numeric(18,2)");
+                e.Property(x => x.Method).HasMaxLength(20);
+                e.Property(x => x.Notes).HasMaxLength(500);
+                e.Property(x => x.CreatedBy).HasMaxLength(200);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+
+                e.HasOne(x => x.Wallet)
+                    .WithMany(w => w.Transactions)
+                    .HasForeignKey(x => x.WalletId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.TransactionRecord)
+                    .WithMany()
+                    .HasForeignKey(x => x.TransactionRecordId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasIndex(x => new { x.WalletId, x.CreatedOn });
+                e.HasIndex(x => x.TransactionRecordId);
+            });
+
+            b.Entity<WalletBonusTier>(e =>
+            {
+                e.ToTable("WalletBonusTiers");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.MinAmount).HasColumnType("numeric(18,2)");
+                e.Property(x => x.BonusPercent).HasColumnType("numeric(5,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+            });
 
             // Items bundled with an event setting.
             b.Entity<SettingItem>(e =>

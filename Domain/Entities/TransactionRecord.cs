@@ -46,6 +46,14 @@ namespace Domain.Entities
         public int? DiscountId { get; set; }       // <-- added
         public Discount? Discount { get; set; }
         public int numberOfPersons { get; set; } = 1;
+
+        /// <summary>
+        /// How much of this bill was settled from the customer's wallet;
+        /// the remainder arrived as cash. Drives the journal split
+        /// (DR 2100 wallet portion / DR 1000 cash portion). 0 = all cash.
+        /// </summary>
+        [Column(TypeName = "numeric(18,2)")]
+        public decimal WalletPaidAmount { get; set; } = 0;
         public string? Comment { get; set; }
 
         public int? FK_FoodStatusId { get; set; }

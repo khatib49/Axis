@@ -26,6 +26,8 @@ namespace Application.Services
         private readonly IBaseRepository<Setting> _repoSetting;
         // Items bundled with an event setting, handed out at session start.
         private readonly IBaseRepository<SettingItem> _repoSettingItem;
+        // Customer wallet — checkout can settle part or all of a bill from it.
+        private readonly IWalletService _walletService;
         private readonly IBaseRepository<Room> _repoRoom;
         private readonly IBaseRepository<Game> _repoGame;
         private readonly IBaseRepository<Item> _repoItem;
@@ -63,7 +65,7 @@ namespace Application.Services
         IBaseRepository<TransactionAuditLog> repoAuditLog,
         IBaseRepository<AdminAuditLog> repoAdminAuditLog,
         IBaseRepository<RecipeLine> repoRecipeLine,
-        IStockService stockService, IPrintDispatchService printDispatch)
+        IStockService stockService, IPrintDispatchService printDispatch, IWalletService walletService)
         {
             _repoAuditLog = repoAuditLog;
             _printDispatch = printDispatch;
@@ -87,6 +89,7 @@ namespace Application.Services
             _journalService = journalService;
             _http = httpContextAccessor;
             _stockService = stockService;
+            _walletService = walletService;
         }
 
         public async Task<BaseResponse<bool>> RemoveItemFromOpenInvoiceAsync(int transactionId, int itemId, CancellationToken ct = default)
@@ -581,7 +584,8 @@ namespace Application.Services
         }
 
         public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest,
-            string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null, int? channelId = null)
+            string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null, int? channelId = null,
+            decimal walletAmount = 0)
         {
 
             var reqId = GetReqId();
@@ -689,6 +693,21 @@ namespace Application.Services
             };
 
 
+            // Wallet pre-check BEFORE anything is written: fail fast with a
+            // clear message while the order can still be cleanly refused.
+            if (!isOpenInvoice && walletAmount > 0)
+            {
+                if (userId is null or <= 0)
+                    return new BaseResponse<TransactionDto>(false, "Wallet payment failed",
+                        "No client attached — attach the client before paying from wallet.");
+
+                var needed = Math.Round(Math.Min(walletAmount, trx.TotalPrice), 2);
+                var summary = await _walletService.GetSummaryAsync(userId.Value, 1, ct);
+                if (!summary.Wallet.IsActive || summary.Wallet.Balance < needed)
+                    return new BaseResponse<TransactionDto>(false, "Wallet payment failed",
+                        $"Wallet has {summary.Wallet.Balance:0.00}, needs {needed:0.00}.");
+            }
+
             var trxItems = new List<TransactionItem>();
             foreach (var it in dbItems)
             {
@@ -721,6 +740,22 @@ namespace Application.Services
                 await _repoTrxItem.AddRangeAsync(trxItems, ct);
 
                 await _uow.SaveChangesAsync(ct);
+
+                // ─── Wallet payment ─────────────────────────────────────
+                // Only meaningful when paying NOW; an open invoice settles
+                // (and can use the wallet) at close instead. Balance was
+                // pre-checked before the order was created, so this only
+                // fails on a same-second race — in which case the order
+                // stands as all-cash rather than half-charged.
+                if (!isOpenInvoice && walletAmount > 0)
+                {
+                    var walletError = await ApplyWalletPaymentAsync(trx, walletAmount, createdBy ?? "system", ct);
+                    if (walletError != null)
+                        _logger.LogError(
+                            "Wallet charge failed AFTER order {TrxId} was created ({Error}); order stands as cash-only.",
+                            trx.Id, walletError);
+                    await _uow.SaveChangesAsync(ct);
+                }
 
                 // ─── Stock consumption ──────────────────────────────────
                 // After we have trx.Id, deduct ingredient stock based on the
@@ -1167,6 +1202,51 @@ namespace Application.Services
                     "Failed to issue event kit for transaction {TxId} on setting {SettingId}.",
                     transactionId, gameSettingId);
             }
+        }
+
+        /// <summary>
+        /// Settles part (or all) of a bill from the client's wallet at
+        /// checkout. Validates, deducts via WalletService (which writes the
+        /// ledger row but does NOT save), and stamps WalletPaidAmount so the
+        /// sale's journal entry splits DR 2100 / DR 1000 correctly.
+        ///
+        /// The caller's SaveChanges commits the deduction together with the
+        /// close — so a failed close can't leave money taken for nothing.
+        ///
+        /// Returns null on success, otherwise a user-facing error message
+        /// (checkout must STOP: taking cash instead silently would double
+        /// charge nobody, but proceeding after a failed wallet charge would
+        /// give away the wallet portion for free).
+        /// </summary>
+        private async Task<string?> ApplyWalletPaymentAsync(
+            TransactionRecord trx, decimal walletAmount, string actor, CancellationToken ct)
+        {
+            if (walletAmount <= 0) return null;
+
+            if (trx.UserId is null or <= 0)
+                return "No client is attached to this invoice — attach the client before paying from wallet.";
+
+            // Never charge the wallet more than the bill.
+            var amount = Math.Round(Math.Min(walletAmount, trx.TotalPrice), 2);
+            if (amount <= 0) return null;
+
+            var spend = await _walletService.SpendAsync(trx.UserId.Value, amount, trx.Id, actor, ct);
+            if (!spend.Success)
+                return spend.Error ?? "Wallet payment failed.";
+
+            trx.WalletPaidAmount = amount;
+
+            await LogAuditAsync(
+                transactionId: trx.Id,
+                changedBy: actor,
+                action: "WalletPayment",
+                fieldChanged: "WalletPaidAmount",
+                oldValue: "0",
+                newValue: amount.ToString("F2"),
+                notes: $"Paid {amount:F2} from wallet, {Math.Max(0, trx.TotalPrice - amount):F2} in cash",
+                ct: ct);
+
+            return null;
         }
 
         /// <summary>
@@ -1622,7 +1702,7 @@ namespace Application.Services
             return user.Id;
         }
 
-        public async Task<BaseResponse<TransactionDto>> CloseGameSession(int invoiceId, string updatedBy, CancellationToken ct = default)
+        public async Task<BaseResponse<TransactionDto>> CloseGameSession(int invoiceId, string updatedBy, CancellationToken ct = default, decimal walletAmount = 0)
         {
             var reqId = GetReqId();
             var sig = HashObject(new { invoiceId });
@@ -1771,6 +1851,14 @@ namespace Application.Services
 
             tracked.Hours = billedHours;
             tracked.TotalPrice = totalPrice;
+
+            // Wallet portion — runs AFTER the final price is known so the
+            // charge can never exceed the bill, and BEFORE the save + journal
+            // entry so the DR 2100 / DR 1000 split books correctly.
+            var walletError = await ApplyWalletPaymentAsync(tracked, walletAmount, updatedBy ?? "system", ct);
+            if (walletError != null)
+                return new BaseResponse<TransactionDto>(false, "Wallet payment failed", walletError);
+
             tracked.StatusId = 6;
             tracked.ModifiedOn = nowUtc;
             tracked.CreatedBy = updatedBy ?? tracked.CreatedBy;
@@ -2252,7 +2340,7 @@ namespace Application.Services
                 "Items added to invoice successfully.", dto);
         }
 
-        public async Task<BaseResponse<TransactionDto>> CloseOpenInvoice(int invoiceId, string updatedBy, CancellationToken ct)
+        public async Task<BaseResponse<TransactionDto>> CloseOpenInvoice(int invoiceId, string updatedBy, CancellationToken ct, decimal walletAmount = 0)
         {
             var reqId = GetReqId();
 
@@ -2282,6 +2370,12 @@ namespace Application.Services
                 return new BaseResponse<TransactionDto>(false, "Empty invoice",
                     "Cannot close an invoice with no items.");
 
+            // Wallet portion FIRST — if the wallet can't cover what was
+            // asked, the invoice must stay open, not close unpaid.
+            var walletError = await ApplyWalletPaymentAsync(trx, walletAmount, updatedBy ?? "system", ct);
+            if (walletError != null)
+                return new BaseResponse<TransactionDto>(false, "Wallet payment failed", walletError);
+
             // Close the invoice
             trx.StatusId = 6;  // Closed/Paid
             trx.ModifiedOn = DateTime.UtcNow;
@@ -2294,7 +2388,8 @@ namespace Application.Services
                 fieldChanged: "StatusId",
                 oldValue: "7",
                 newValue: "6",
-                notes: $"FNB invoice closed. Total={trx.TotalPrice:F2}",
+                notes: $"FNB invoice closed. Total={trx.TotalPrice:F2}" +
+                       (trx.WalletPaidAmount > 0 ? $" (wallet {trx.WalletPaidAmount:F2})" : ""),
                 ct: ct
             );
 
@@ -2315,6 +2410,21 @@ namespace Application.Services
 
                 return new BaseResponse<TransactionDto>(false, "db error",
                     "Failed to close invoice. Please try again.");
+            }
+
+            // Book the sale. This path never posted a journal entry before
+            // (the books audit was catching them as orphans) — and the wallet
+            // split needs one, so close the gap here. Log-and-continue, same
+            // contract as every other sale posting.
+            try
+            {
+                var je = await _journalService.CreateJournalEntryFromTransactionAsync(trx.Id, ct);
+                if (!je.Success)
+                    _logger.LogWarning("No journal entry for closed invoice {InvoiceId}: {Error}", invoiceId, je.Error);
+            }
+            catch (Exception jex)
+            {
+                _logger.LogError(jex, "Journal entry failed for closed invoice {InvoiceId}", invoiceId);
             }
 
             string userName = "";

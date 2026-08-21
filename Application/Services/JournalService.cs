@@ -551,19 +551,46 @@ namespace Application.Services
 
                 var lines = new List<JournalEntryLineCreateDto>();
 
-                // DEBIT: Cash on Hand (1000) — what the customer actually paid
+                // DEBIT side — what the customer actually paid, split by how
+                // it arrived. The wallet portion isn't new money: the cash
+                // came in at TOP-UP time (already booked DR 1000 / CR 2100),
+                // so spending it RELEASES the liability instead of touching
+                // cash again. Double-counting the cash was the failure mode
+                // this split exists to prevent.
                 var cashAccount = await _accountRepo.Query()
                     .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
 
                 if (cashAccount == null)
                     return new BaseResponse<JournalEntryDto>(false, "Cash account (1000) not found", "", null);
 
-                lines.Add(new JournalEntryLineCreateDto(
-                    cashAccount.Id,
-                    net,
-                    0,
-                    "Cash received"
-                ));
+                var walletPaid = Math.Min(Math.Max(0m, transaction.WalletPaidAmount), net);
+                if (walletPaid > 0)
+                {
+                    var walletAccount = await _accountRepo.Query()
+                        .FirstOrDefaultAsync(a => a.AccountNumber == "2100" && a.IsActive, ct);
+
+                    if (walletAccount == null)
+                    {
+                        // Account missing → book all-cash rather than fail the
+                        // sale posting; the discrepancy shows in the audit.
+                        _logger.LogWarning(
+                            "Customer Wallets account (2100) not found. Tx {TxId} wallet portion {Amount} booked as cash — run db-migrations/2026-08-customer-wallets.sql",
+                            transactionId, walletPaid);
+                        walletPaid = 0;
+                    }
+                    else
+                    {
+                        lines.Add(new JournalEntryLineCreateDto(
+                            walletAccount.Id, walletPaid, 0, "Paid from customer wallet"));
+                    }
+                }
+
+                var cashPart = net - walletPaid;
+                if (cashPart > 0)
+                {
+                    lines.Add(new JournalEntryLineCreateDto(
+                        cashAccount.Id, cashPart, 0, "Cash received"));
+                }
 
                 // DEBIT: 4900 Sales Discounts (contra-revenue) for the discount
                 // amount, only if there is a discount. If 4900 isn't configured,

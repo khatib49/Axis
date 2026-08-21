@@ -265,7 +265,7 @@ namespace AxisAPI.Controllers
         public async Task<IActionResult> CreateCoffeeShopOrder([FromBody] CreateCoffeeShopOrderRequest request, CancellationToken ct )
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var created = await _transactionService.CreateCoffeeShopOrder(request.UserId, request.DiscountId, request.ItemsRequest, createdBy, ct, request.Comment, request.IsOpenInvoice, request.setId, request.ChannelId);
+            var created = await _transactionService.CreateCoffeeShopOrder(request.UserId, request.DiscountId, request.ItemsRequest, createdBy, ct, request.Comment, request.IsOpenInvoice, request.setId, request.ChannelId, request.WalletAmount);
             return created.Success ? Ok(created) : BadRequest(created);
         }
 
@@ -289,11 +289,18 @@ namespace AxisAPI.Controllers
             var result = await _transactionService.GetOpenPs5Sessions(ct);
             return result.Success ? Ok(result) : BadRequest(result);
         }
+        // walletAmount rides the query string — the frontend historically
+        // posts a null body here, and a [FromBody] record would 400 on that.
+        //
+        // This endpoint had NO authorization at all; now that it can spend a
+        // client's wallet, anonymous access would let anyone drain balances.
+        [Authorize(Roles = "admin,cashier,gamecashier")]
         [HttpPost("sessions/{invoiceId:int}/close")]
-        public async Task<ActionResult<BaseResponse<TransactionDto>>> CloseSession(int invoiceId,CancellationToken ct)
+        public async Task<ActionResult<BaseResponse<TransactionDto>>> CloseSession(int invoiceId,CancellationToken ct,
+            [FromQuery] decimal walletAmount = 0)
         {
             var createdBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var result = await _transactionService.CloseGameSession(invoiceId, createdBy, ct);
+            var result = await _transactionService.CloseGameSession(invoiceId, createdBy, ct, walletAmount);
             if (!result.Success)
                 return BadRequest(result);
 
@@ -339,10 +346,11 @@ namespace AxisAPI.Controllers
         [Authorize(Roles = "admin,cashier,gamecashier")]
         [HttpPost]
         [LogOnError]
-        public async Task<IActionResult> CloseOpenInvoice(int invoiceId, CancellationToken ct)
+        public async Task<IActionResult> CloseOpenInvoice(int invoiceId, CancellationToken ct,
+            [FromQuery] decimal walletAmount = 0)
         {
             var updatedBy = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-            var result = await _transactionService.CloseOpenInvoice(invoiceId, updatedBy, ct);
+            var result = await _transactionService.CloseOpenInvoice(invoiceId, updatedBy, ct, walletAmount);
             return result.Success ? Ok(result) : BadRequest(result);
         }
 
