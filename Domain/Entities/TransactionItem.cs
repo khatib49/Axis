@@ -20,5 +20,8 @@ namespace Domain.Entities
         /// covers it. Every price recompute must skip these lines.
         /// </summary>
         public bool IsIncluded { get; set; } = false;
+
+        /// <summary>Paid extras chosen for this line (name/price snapshotted).</summary>
+        public ICollection<TransactionItemAddOn> AddOns { get; set; } = new List<TransactionItemAddOn>();
     }
 }

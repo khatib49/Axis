@@ -28,6 +28,9 @@ namespace Application.Services
         private readonly IBaseRepository<SettingItem> _repoSettingItem;
         // Customer wallet — checkout can settle part or all of a bill from it.
         private readonly IWalletService _walletService;
+        // Item add-ons (paid extras) and their snapshots on order lines.
+        private readonly IBaseRepository<ItemAddOn> _repoItemAddOn;
+        private readonly IBaseRepository<TransactionItemAddOn> _repoTrxItemAddOn;
         private readonly IBaseRepository<Room> _repoRoom;
         private readonly IBaseRepository<Game> _repoGame;
         private readonly IBaseRepository<Item> _repoItem;
@@ -65,7 +68,8 @@ namespace Application.Services
         IBaseRepository<TransactionAuditLog> repoAuditLog,
         IBaseRepository<AdminAuditLog> repoAdminAuditLog,
         IBaseRepository<RecipeLine> repoRecipeLine,
-        IStockService stockService, IPrintDispatchService printDispatch, IWalletService walletService)
+        IStockService stockService, IPrintDispatchService printDispatch, IWalletService walletService,
+        IBaseRepository<ItemAddOn> repoItemAddOn, IBaseRepository<TransactionItemAddOn> repoTrxItemAddOn)
         {
             _repoAuditLog = repoAuditLog;
             _printDispatch = printDispatch;
@@ -90,6 +94,8 @@ namespace Application.Services
             _http = httpContextAccessor;
             _stockService = stockService;
             _walletService = walletService;
+            _repoItemAddOn = repoItemAddOn;
+            _repoTrxItemAddOn = repoTrxItemAddOn;
         }
 
         public async Task<BaseResponse<bool>> RemoveItemFromOpenInvoiceAsync(int transactionId, int itemId, CancellationToken ct = default)
@@ -97,6 +103,8 @@ namespace Application.Services
             var tx = await _repo.Query(asNoTracking: false)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.AddOns)
                 .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
 
             if (tx is null)
@@ -282,7 +290,13 @@ namespace Application.Services
                         co.Price,
                         co.Timestamp
                     )).ToList(),
-                    ti.IsIncluded
+                    ti.IsIncluded,
+                    ti.AddOns
+                        .OrderBy(a => a.Id)
+                        .Select(a => new OrderLineAddOnDto(
+                            a.AddOnId, a.Name, a.Quantity, a.UnitPrice,
+                            a.UnitPrice * a.Quantity))
+                        .ToList()
                 )).ToList(),
                 e.SetId,
                 e.Set?.Name ?? string.Empty,
@@ -635,8 +649,49 @@ namespace Application.Services
                         it.Id, it.Name, need, it.Quantity);
             }
 
+            // ── Add-ons ─────────────────────────────────────────────────
+            // Merge the request's add-on picks per item (the same item may
+            // appear on several request lines), validate them against what
+            // the item actually offers, and snapshot name + price NOW — the
+            // stored line must say what was charged even if the admin
+            // reprices the add-on tomorrow.
+            var requestedAddOns = new Dictionary<int, Dictionary<int, int>>(); // itemId -> addOnId -> qty
+            foreach (var line in itemsRequest)
+            {
+                if (line.AddOns == null) continue;
+                if (!requestedAddOns.TryGetValue(line.ItemId, out var perItem))
+                    requestedAddOns[line.ItemId] = perItem = new Dictionary<int, int>();
+                foreach (var a in line.AddOns)
+                {
+                    if (a.Quantity <= 0) continue;
+                    perItem[a.AddOnId] = perItem.TryGetValue(a.AddOnId, out var cur) ? cur + a.Quantity : a.Quantity;
+                }
+            }
+
+            var addOnCatalog = new Dictionary<int, ItemAddOn>();
+            if (requestedAddOns.Count > 0)
+            {
+                var addOnIds = requestedAddOns.Values.SelectMany(d => d.Keys).Distinct().ToList();
+                addOnCatalog = await _repoItemAddOn.Query()
+                    .AsNoTracking()
+                    .Where(a => addOnIds.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, ct);
+
+                foreach (var (itemId, perItem) in requestedAddOns)
+                    foreach (var addOnId in perItem.Keys)
+                    {
+                        if (!addOnCatalog.TryGetValue(addOnId, out var def) || def.ItemId != itemId || !def.IsActive)
+                            return new BaseResponse<TransactionDto>(false, "Invalid add-on",
+                                $"Add-on #{addOnId} is not available for item #{itemId}.");
+                    }
+            }
+
+            decimal addOnsTotal = requestedAddOns
+                .SelectMany(kv => kv.Value)
+                .Sum(kv => addOnCatalog[kv.Key].Price * kv.Value);
+
             // Compute total
-            decimal totalPrice = 0m;
+            decimal totalPrice = addOnsTotal;
             foreach (var it in dbItems)
             {
                 var qty = requested[it.Id];
@@ -740,6 +795,30 @@ namespace Application.Services
                 await _repoTrxItem.AddRangeAsync(trxItems, ct);
 
                 await _uow.SaveChangesAsync(ct);
+
+                // ─── Add-on lines ───────────────────────────────────────
+                // Written after the first save so trx.Id exists. Snapshots
+                // were validated and priced above; they already count in
+                // totalPrice.
+                if (requestedAddOns.Count > 0)
+                {
+                    foreach (var (itemId, perItem) in requestedAddOns)
+                        foreach (var (addOnId, qty) in perItem)
+                        {
+                            var def = addOnCatalog[addOnId];
+                            await _repoTrxItemAddOn.AddAsync(new TransactionItemAddOn
+                            {
+                                TransactionRecordId = trx.Id,
+                                ItemId = itemId,
+                                AddOnId = addOnId,
+                                Name = def.Name,
+                                UnitPrice = def.Price,
+                                Quantity = qty,
+                                CreatedOn = DateTime.UtcNow,
+                            }, ct);
+                        }
+                    await _uow.SaveChangesAsync(ct);
+                }
 
                 // ─── Wallet payment ─────────────────────────────────────
                 // Only meaningful when paying NOW; an open invoice settles
@@ -894,6 +973,8 @@ namespace Application.Services
       .Include(t => t.User)  // IMPORTANT: Include user details
       .Include(t => t.TransactionItems)
           .ThenInclude(ti => ti.Item)
+      .Include(t => t.TransactionItems)
+          .ThenInclude(ti => ti.AddOns)
       .FirstOrDefaultAsync(t => t.Id == trx.Id, ct);
 
             if (reloaded == null)
@@ -1281,6 +1362,25 @@ namespace Application.Services
                     subtotal += price * ti.Quantity;
             }
 
+            // Add-ons on lines that are STILL on the invoice. The in-memory
+            // filter matters: the remove-item path calls this after taking a
+            // line out of the collection but before SaveChanges, so its
+            // add-on rows are still in the DB and must not count.
+            var liveLineItemIds = trx.TransactionItems
+                .Where(ti => !ti.IsIncluded)
+                .Select(ti => ti.ItemId)
+                .ToHashSet();
+
+            var addOnRows = await _repoTrxItemAddOn.Query()
+                .AsNoTracking()
+                .Where(a => a.TransactionRecordId == trx.Id)
+                .Select(a => new { a.ItemId, a.UnitPrice, a.Quantity })
+                .ToListAsync(ct);
+
+            subtotal += addOnRows
+                .Where(a => liveLineItemIds.Contains(a.ItemId))
+                .Sum(a => a.UnitPrice * a.Quantity);
+
             var total = subtotal;
 
             if (trx.DiscountId.HasValue)
@@ -1374,6 +1474,7 @@ namespace Application.Services
 
             var reloaded = await _repo.Query()
                 .Include(t => t.TransactionItems).ThenInclude(ti => ti.Item)
+                .Include(t => t.TransactionItems).ThenInclude(ti => ti.AddOns)
                 .Include(t => t.Discount)
                 .Include(t => t.Room)
                 .Include(t => t.Set)
@@ -1471,6 +1572,15 @@ namespace Application.Services
                 }
             }
 
+            // Add-on value per line — a removed line must take its add-ons'
+            // money with it (the rows themselves go via DB cascade).
+            var addOnSumsByItem = await _repoTrxItemAddOn.Query()
+                .AsNoTracking()
+                .Where(a => a.TransactionRecordId == tx.Id)
+                .GroupBy(a => a.ItemId)
+                .Select(g => new { ItemId = g.Key, Sum = g.Sum(x => x.UnitPrice * x.Quantity) })
+                .ToDictionaryAsync(x => x.ItemId, x => x.Sum, ct);
+
             // Removals (present now, absent from the wanted list)
             foreach (var (itemId, line) in current)
             {
@@ -1480,7 +1590,11 @@ namespace Application.Services
                 if (item != null) item.Quantity += line.Quantity;
                 restoreDeltas.Add((itemId, line.Quantity));
                 if (!line.IsIncluded)
+                {
                     priceDelta -= (item?.Price ?? 0m) * line.Quantity;
+                    if (addOnSumsByItem.TryGetValue(itemId, out var addOnSum))
+                        priceDelta -= addOnSum;
+                }
                 _repoTrxItem.Remove(line);
             }
 
@@ -1534,6 +1648,7 @@ namespace Application.Services
                 .Include(t => t.GameType).Include(t => t.GameSetting)
                 .Include(t => t.Discount).Include(t => t.User)
                 .Include(t => t.TransactionItems).ThenInclude(ti => ti.Item)
+                .Include(t => t.TransactionItems).ThenInclude(ti => ti.AddOns)
                 .AsSplitQuery().AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == tx.Id, ct);
 
@@ -1957,6 +2072,8 @@ namespace Application.Services
                 .Include(t => t.User)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.AddOns)
                 .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
@@ -2141,6 +2258,8 @@ namespace Application.Services
                 .Include(t => t.User)  // IMPORTANT: Include User for username
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.AddOns)
                 .OrderByDescending(t => t.CreatedOn);
 
             var entities = await query.ToListAsync(ct);
@@ -2256,6 +2375,74 @@ namespace Application.Services
                 additionalTotal += (it.Price * qty);
             }
 
+            // 3b) Add-ons for the newly added lines — validated against the
+            // item's catalog, snapshotted, merged into any existing add-on
+            // row on the same line. Saved BEFORE the recompute below so the
+            // discount branch (which reads add-on rows from the DB) sees them.
+            // Names of the just-added add-ons per item, for the delta kitchen
+            // ticket ("+1x Oat Milk").
+            var addedAddOnNotes = new Dictionary<int, List<string>>();
+
+            var newAddOns = new Dictionary<(int itemId, int addOnId), int>();
+            foreach (var line in itemsRequest)
+            {
+                if (line.AddOns == null) continue;
+                foreach (var a in line.AddOns)
+                {
+                    if (a.Quantity <= 0) continue;
+                    var key = (line.ItemId, a.AddOnId);
+                    newAddOns[key] = newAddOns.TryGetValue(key, out var cur) ? cur + a.Quantity : a.Quantity;
+                }
+            }
+
+            if (newAddOns.Count > 0)
+            {
+                var addOnIds = newAddOns.Keys.Select(k => k.addOnId).Distinct().ToList();
+                var catalog = await _repoItemAddOn.Query().AsNoTracking()
+                    .Where(a => addOnIds.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, ct);
+
+                var existingRows = await _repoTrxItemAddOn.Query(asNoTracking: false)
+                    .Where(a => a.TransactionRecordId == trx.Id)
+                    .ToListAsync(ct);
+
+                foreach (var ((itemId, addOnId), qty) in newAddOns)
+                {
+                    if (!catalog.TryGetValue(addOnId, out var def) || def.ItemId != itemId || !def.IsActive)
+                        return new BaseResponse<TransactionDto>(false, "Invalid add-on",
+                            $"Add-on #{addOnId} is not available for item #{itemId}.");
+
+                    if (!addedAddOnNotes.TryGetValue(itemId, out var notes))
+                        addedAddOnNotes[itemId] = notes = new List<string>();
+                    notes.Add($"+{qty}x {def.Name}");
+
+                    var row = existingRows.FirstOrDefault(r => r.ItemId == itemId && r.AddOnId == addOnId);
+                    if (row != null)
+                    {
+                        row.Quantity += qty;   // price stays at its original snapshot
+                        additionalTotal += row.UnitPrice * qty;
+                    }
+                    else
+                    {
+                        await _repoTrxItemAddOn.AddAsync(new TransactionItemAddOn
+                        {
+                            TransactionRecordId = trx.Id,
+                            ItemId = itemId,
+                            AddOnId = addOnId,
+                            Name = def.Name,
+                            UnitPrice = def.Price,
+                            Quantity = qty,
+                            CreatedOn = DateTime.UtcNow,
+                        }, ct);
+                        additionalTotal += def.Price * qty;
+                    }
+                }
+
+                // Flush lines + add-on rows so the discount-branch recompute
+                // (a fresh DB read) can see them.
+                await _uow.SaveChangesAsync(ct);
+            }
+
             // 4) Recalculate total (including existing discount if any)
             if (trx.DiscountId.HasValue)
             {
@@ -2327,7 +2514,9 @@ namespace Application.Services
                 .Include(t => t.User)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
-                        .ThenInclude(i => i.CoffeeShopOrders)  // Include if needed
+                        .ThenInclude(i => i.CoffeeShopOrders)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.AddOns)
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
 
             if (reloaded == null)
@@ -2336,6 +2525,27 @@ namespace Application.Services
 
 
             var dto = _mapper.ToDto(reloaded);
+
+            // Kitchen/bar delta ticket: ONLY what was just added, flagged
+            // "ADDED ITEMS", with the guest's name — never the whole invoice
+            // again. Never throws (printing must not fail the add).
+            var deltaGuest = reloaded.User == null ? null
+                : !string.IsNullOrWhiteSpace(reloaded.User.DisplayName) ? reloaded.User.DisplayName
+                : $"{reloaded.User.FirstName} {reloaded.User.LastName}".Trim() is { Length: > 0 } full ? full
+                : reloaded.User.UserName;
+
+            await _printDispatch.DispatchAddedItemsTicketsAsync(
+                invoiceId,
+                requested.Select(kv => (
+                    kv.Key,
+                    kv.Value,
+                    addedAddOnNotes.TryGetValue(kv.Key, out var notes) ? string.Join(", ", notes) : (string?)null
+                )).ToList(),
+                updatedBy ?? "system",
+                tableNumber: reloaded.Set?.Name,
+                guestName: deltaGuest,
+                ct: ct);
+
             return new BaseResponse<TransactionDto>(true, null,
                 "Items added to invoice successfully.", dto);
         }
@@ -2348,6 +2558,8 @@ namespace Application.Services
             var trx = await _repo.Query(asNoTracking: false)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.AddOns)
                 .Include(t => t.Discount)
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
 
@@ -2532,6 +2744,8 @@ namespace Application.Services
                 .Include(t => t.Discount)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.Item)
+                .Include(t => t.TransactionItems)
+                    .ThenInclude(ti => ti.AddOns)
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
 
             if (reloaded == null)

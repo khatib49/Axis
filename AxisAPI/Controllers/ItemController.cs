@@ -39,6 +39,22 @@ namespace AxisAPI.Controllers
             return Ok(items);
         }
 
+        /// <summary>All add-ons of an item, inactive included — feeds the admin editor.</summary>
+        [HttpGet("{id:int}/addons")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> GetAddOns(int id, CancellationToken ct)
+            => Ok(await _itemService.GetAddOnsAsync(id, ct));
+
+        /// <summary>Replace-all sync of an item's add-ons from the admin editor.</summary>
+        [HttpPut("{id:int}/addons")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> SetAddOns(int id, [FromBody] List<ItemAddOnUpsertDto> body, CancellationToken ct)
+        {
+            try { return Ok(await _itemService.SetAddOnsAsync(id, body, ct)); }
+            catch (KeyNotFoundException) { return NotFound(); }
+            catch (ArgumentException ex) { return BadRequest(new { error = ex.Message }); }
+        }
+
         [HttpPut("{id:int}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, [FromForm] ItemUpdateDto dto, CancellationToken ct)

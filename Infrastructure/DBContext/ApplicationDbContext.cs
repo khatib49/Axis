@@ -29,6 +29,8 @@ namespace Infrastructure.Persistence
         public DbSet<Receipt> Receipts => Set<Receipt>();
         public DbSet<Setting> Settings => Set<Setting>();
         public DbSet<SettingItem> SettingItems => Set<SettingItem>();
+        public DbSet<ItemAddOn> ItemAddOns => Set<ItemAddOn>();
+        public DbSet<TransactionItemAddOn> TransactionItemAddOns => Set<TransactionItemAddOn>();
         public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
         public DbSet<WalletBonusTier> WalletBonusTiers => Set<WalletBonusTier>();
@@ -604,6 +606,48 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.Game).WithMany(x => x.Settings)
               .HasForeignKey(x => x.GameId)
               .OnDelete(DeleteBehavior.Cascade);
+
+            // ── Item add-ons ────────────────────────────────────────────
+            b.Entity<ItemAddOn>(e =>
+            {
+                e.ToTable("ItemAddOns");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+                e.Property(x => x.Price).HasColumnType("numeric(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+
+                e.HasOne(x => x.Item)
+                    .WithMany(i => i.AddOns)
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => x.ItemId);
+            });
+
+            b.Entity<TransactionItemAddOn>(e =>
+            {
+                e.ToTable("TransactionItemAddOns");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+                e.Property(x => x.UnitPrice).HasColumnType("numeric(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+
+                // Rides the order LINE — deleting the line takes its add-ons.
+                e.HasOne(x => x.Line)
+                    .WithMany(l => l.AddOns)
+                    .HasForeignKey(x => new { x.TransactionRecordId, x.ItemId })
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Restrict: historical lines keep pointing at the add-on row;
+                // admins deactivate rather than delete.
+                e.HasOne(x => x.AddOn)
+                    .WithMany()
+                    .HasForeignKey(x => x.AddOnId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => new { x.TransactionRecordId, x.ItemId });
+                e.HasIndex(x => x.AddOnId);
+            });
 
             // ── Customer wallets ────────────────────────────────────────
             b.Entity<Wallet>(e =>

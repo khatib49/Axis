@@ -244,6 +244,7 @@ namespace Application.Services
             e.IsPublished = dto.IsPublished;
             e.IsActive = dto.IsActive;
             e.Capacity = dto.Capacity is > 0 ? dto.Capacity : null;
+            e.Type = string.IsNullOrWhiteSpace(dto.Type) ? "Other" : dto.Type.Trim();
         }
 
         private EventDto ToDto(Event e, int total, int paid) => new(
@@ -255,7 +256,8 @@ namespace Application.Services
             e.WhishPaymentLink,
             e.WhatsAppNumber, e.WhatsAppTemplate,
             e.IsPublished, e.IsActive, e.Capacity, e.CreatedOn,
-            total, paid);
+            total, paid,
+            Type: e.Type);
 
         private static List<EventFeatureDto> ParseFeatures(string? json)
         {

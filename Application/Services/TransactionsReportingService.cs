@@ -120,6 +120,12 @@ namespace Application.Services
                         UnitPrice = ti.IsIncluded ? 0m : (ti.Item != null ? ti.Item.Price : 0m),
                         LineTotal = ti.IsIncluded ? 0m : (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity,
                         IsIncluded = ti.IsIncluded,
+                        AddOns = ti.AddOns
+                            .OrderBy(a => a.Id)
+                            .Select(a => new OrderLineAddOnDto(
+                                a.AddOnId, a.Name, a.Quantity, a.UnitPrice,
+                                a.UnitPrice * a.Quantity))
+                            .ToList(),
                         ImagePath = ti.Item != null ? ti.Item.ImagePath : null
                     }).ToList()
                 }).Where(t => t.StatusId == 6 || t.StatusId == 7 || t.StatusId == 5)

@@ -80,7 +80,16 @@
         string? Comment
         );
 
-    public record OrderItemRequest(int ItemId, int Quantity);
+    /// <summary>One chosen add-on for an order line.</summary>
+    public record OrderAddOnRequest(int AddOnId, int Quantity);
+
+    public record OrderItemRequest(int ItemId, int Quantity,
+        // Extras picked in the customize sheet. Trailing default keeps every
+        // existing caller valid.
+        List<OrderAddOnRequest>? AddOns = null);
+
+    /// <summary>Add-on as it appears on a stored order line (snapshotted).</summary>
+    public record OrderLineAddOnDto(int AddOnId, string Name, int Quantity, decimal UnitPrice, decimal LineTotal);
 
     // Main-dashboard transactions filter: by created-date range and optional
     // ChannelId. Used by the new "Transactions" card on the home dashboard
@@ -133,6 +142,8 @@
     /// sees what they got, but worth nothing. Trailing with a default keeps
     /// existing positional callers valid.
     /// </summary>
-    bool IsIncluded = false
+    bool IsIncluded = false,
+    /// <summary>Paid extras chosen for this line (snapshotted at sale time).</summary>
+    List<OrderLineAddOnDto>? AddOns = null
 )   ;
 }

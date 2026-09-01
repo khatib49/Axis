@@ -239,6 +239,15 @@ namespace Application.Services
             receipt.AddRange(EscPos.BOLD_ON);
             receipt.AddRange(Encoding.ASCII.GetBytes($"*** {ticket.Station.ToUpper()} ***"));
             receipt.AddRange(EscPos.LF);
+
+            // Delta ticket for an already-open invoice: shout it, or the
+            // kitchen cooks the original items a second time.
+            if (ticket.IsAddition)
+            {
+                receipt.AddRange(Encoding.ASCII.GetBytes("++ ADDED ITEMS ++"));
+                receipt.AddRange(EscPos.LF);
+            }
+
             receipt.AddRange(EscPos.BOLD_OFF);
             receipt.AddRange(EscPos.TEXT_NORMAL);
             receipt.AddRange(EscPos.LF);

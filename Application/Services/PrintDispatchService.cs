@@ -1,4 +1,4 @@
-using Application.DTOs;
+﻿using Application.DTOs;
 using Application.Services.SignalR;
 using Domain.Entities;
 using Infrastructure.IRepositories;
@@ -20,12 +20,23 @@ namespace Application.Services
 
         /// <summary>Sends a small test ticket to a single printer. Returns false if the printer id is unknown.</summary>
         Task<bool> DispatchTestAsync(int printerId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Prints ONLY the lines just added to an already-open invoice (with
+        /// the guest name and an "ADDED ITEMS" banner), so the kitchen never
+        /// re-cooks the original order. Never throws.
+        /// </summary>
+        Task DispatchAddedItemsTicketsAsync(int transactionId,
+            IReadOnlyList<(int itemId, int quantity, string? addOnNote)> addedLines,
+            string createdBy, string? tableNumber = null, string? guestName = null,
+            CancellationToken ct = default);
     }
 
     public class PrintDispatchService : IPrintDispatchService
     {
         private readonly IBaseRepository<Printer> _repoPrinter;
         private readonly IBaseRepository<TransactionItem> _repoTrxItem;
+        private readonly IBaseRepository<TransactionItemAddOn> _repoTrxItemAddOn;
         private readonly IBaseRepository<TransactionRecord> _repoTrx;
         private readonly IReceiptPrintingService _receipts;
         private readonly IHubContext<PrinterHub> _hub;
@@ -34,6 +45,7 @@ namespace Application.Services
         public PrintDispatchService(
             IBaseRepository<Printer> repoPrinter,
             IBaseRepository<TransactionItem> repoTrxItem,
+            IBaseRepository<TransactionItemAddOn> repoTrxItemAddOn,
             IBaseRepository<TransactionRecord> repoTrx,
             IReceiptPrintingService receipts,
             IHubContext<PrinterHub> hub,
@@ -41,6 +53,7 @@ namespace Application.Services
         {
             _repoPrinter = repoPrinter;
             _repoTrxItem = repoTrxItem;
+            _repoTrxItemAddOn = repoTrxItemAddOn;
             _repoTrx = repoTrx;
             _receipts = receipts;
             _hub = hub;
@@ -84,6 +97,17 @@ namespace Application.Services
                 var comment = trx?.Comment;
                 var persons = trx?.numberOfPersons ?? 0;
 
+                // Add-ons per line — the kitchen must see "+1x Oat Milk" or
+                // the drink comes out wrong.
+                var addOnsByItem = await _repoTrxItemAddOn.Query()
+                    .AsNoTracking()
+                    .Where(a => a.TransactionRecordId == transactionId)
+                    .GroupBy(a => a.ItemId)
+                    .ToDictionaryAsync(
+                        g => g.Key,
+                        g => string.Join(", ", g.OrderBy(x => x.Id).Select(x => $"+{x.Quantity}x {x.Name}")),
+                        ct);
+
                 // Group the order's lines by destination station.
                 var byStation = new Dictionary<string, List<StationTicketLine>>(StringComparer.OrdinalIgnoreCase);
                 foreach (var ti in items)
@@ -94,7 +118,8 @@ namespace Application.Services
                     if (!byStation.TryGetValue(station, out var lines))
                         byStation[station] = lines = new List<StationTicketLine>();
 
-                    lines.Add(new StationTicketLine(ti.Quantity, ti.Item!.Name, null));
+                    addOnsByItem.TryGetValue(ti.ItemId, out var addOnNote);
+                    lines.Add(new StationTicketLine(ti.Quantity, ti.Item!.Name, addOnNote));
                 }
 
                 if (byStation.Count == 0)
@@ -142,6 +167,83 @@ namespace Application.Services
             {
                 // Printing must never break order creation.
                 _logger.LogWarning(ex, "Print dispatch failed for Trx {Trx}; order still completed.", transactionId);
+            }
+        }
+
+        public async Task DispatchAddedItemsTicketsAsync(int transactionId,
+            IReadOnlyList<(int itemId, int quantity, string? addOnNote)> addedLines,
+            string createdBy, string? tableNumber = null, string? guestName = null,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                if (addedLines == null || addedLines.Count == 0) return;
+
+                var printers = await _repoPrinter.Query()
+                    .Where(p => p.IsEnabled)
+                    .ToListAsync(ct);
+                if (printers.Count == 0) return;
+
+                // Resolve the added items' names + stations. Quantities come
+                // from the CALLER (the delta), never from the invoice — the
+                // whole point is not re-printing what the kitchen already has.
+                var itemIds = addedLines.Select(l => l.itemId).Distinct().ToList();
+                var itemsById = await _repoTrxItem.Query()
+                    .AsNoTracking()
+                    .Where(ti => ti.TransactionRecordId == transactionId && itemIds.Contains(ti.ItemId))
+                    .Include(ti => ti.Item)
+                        .ThenInclude(i => i.Category)
+                    .Select(ti => new { ti.ItemId, ti.Item!.Name, ItemType = ti.Item.Category != null ? ti.Item.Category.ItemType : null })
+                    .ToDictionaryAsync(x => x.ItemId, ct);
+
+                var trx = await _repoTrx.GetByIdAsync(transactionId, asNoTracking: true, ct);
+                var persons = trx?.numberOfPersons ?? 0;
+
+                var byStation = new Dictionary<string, List<StationTicketLine>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (itemId, quantity, addOnNote) in addedLines)
+                {
+                    if (quantity <= 0 || !itemsById.TryGetValue(itemId, out var info)) continue;
+                    var station = StationFor(info.ItemType);
+                    if (station is null) continue;
+
+                    if (!byStation.TryGetValue(station, out var lines))
+                        byStation[station] = lines = new List<StationTicketLine>();
+
+                    lines.Add(new StationTicketLine(quantity, info.Name, addOnNote));
+                }
+
+                if (byStation.Count == 0) return;
+
+                var dispatched = 0;
+                foreach (var (station, lines) in byStation)
+                {
+                    var stationPrinters = printers
+                        .Where(p => string.Equals(p.Station, station, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    if (stationPrinters.Count == 0) continue;
+
+                    var ticket = new StationTicketDto(
+                        station, transactionId, DateTime.UtcNow, createdBy ?? "", tableNumber, guestName,
+                        Comment: null, Lines: lines, Persons: persons, IsAddition: true);
+                    var payload = Convert.ToBase64String(_receipts.GenerateStationTicket(ticket));
+
+                    foreach (var p in stationPrinters)
+                    {
+                        var job = new PrintJobDto(
+                            p.Id, p.Name, p.Station, p.ConnectionType, p.Address,
+                            transactionId, p.CopyCount < 1 ? 1 : p.CopyCount, payload);
+                        await _hub.Clients.Group(PrinterHub.PrintersGroup).SendAsync("PrintJob", job, ct);
+                        dispatched++;
+                    }
+                }
+
+                _logger.LogInformation(
+                    "Dispatched {Count} ADDED-ITEMS ticket(s) for Trx {Trx} across {Stations} station(s).",
+                    dispatched, transactionId, byStation.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Added-items print dispatch failed for Trx {Trx}; items were still added.", transactionId);
             }
         }
 

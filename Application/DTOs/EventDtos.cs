@@ -30,7 +30,9 @@ namespace Application.DTOs
         DateTime CreatedOn,
         // Live counters so the admin list can show progress at a glance.
         int RegistrationCount,
-        int PaidCount
+        int PaidCount,
+        // Calendar chip color. Trailing default keeps positional callers valid.
+        string Type = "Other"
     );
 
     public record EventUpsertDto(
@@ -52,7 +54,8 @@ namespace Application.DTOs
         string? WhatsAppTemplate,
         bool IsPublished,
         bool IsActive,
-        int? Capacity
+        int? Capacity,
+        string? Type = null
     );
 
     /// <summary>

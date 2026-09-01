@@ -63,5 +63,11 @@ namespace Application.DTOs
         /// (e.g. how many sets of cutlery), so it prints on the ticket.
         /// Trailing with a default keeps existing positional callers valid.
         /// </summary>
-        int Persons = 0);
+        int Persons = 0,
+        /// <summary>
+        /// True when this ticket carries ONLY items just added to an
+        /// already-open invoice — the kitchen must not cook the whole
+        /// order again, so the ticket shouts "ADDED ITEMS".
+        /// </summary>
+        bool IsAddition = false);
 }

@@ -4,7 +4,15 @@
     public record CategoryCreateDto(string Name , string Type , string? ItemType);
     public record CategoryUpdateDto(string? Name , string Type , string? ItemType);
 
-    public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath, decimal? BuyPrice);
+    /// <summary>A paid extra an item offers (customize sheet at the cashier).</summary>
+    public record ItemAddOnDto(int Id, string Name, decimal Price, bool IsActive, int SortOrder);
+
+    /// <summary>What the admin add-ons editor posts back (replace-all list).</summary>
+    public record ItemAddOnUpsertDto(int? Id, string Name, decimal Price, bool IsActive = true, int SortOrder = 0);
+
+    public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath, decimal? BuyPrice,
+        // Trailing default keeps positional callers valid.
+        List<ItemAddOnDto>? AddOns = null);
     //public record ItemCreateDto(string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId);
     //public record ItemUpdateDto(string? Name, int? Quantity, decimal? Price, string? Type, int? CategoryId, int? StatusId);
 
@@ -58,6 +66,9 @@
 
         /// <summary>Bundled with an event setting — handed over, not charged.</summary>
         public bool IsIncluded { get; set; }
+
+        /// <summary>Paid extras chosen for this line (snapshotted at sale time).</summary>
+        public List<OrderLineAddOnDto> AddOns { get; set; } = new();
 
         public string? ImagePath { get; set; }
     }

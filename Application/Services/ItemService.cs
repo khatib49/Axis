@@ -11,20 +11,98 @@ namespace Application.Services
     public class ItemService : IItemService
     {
         private readonly IBaseRepository<Item> _repo;
+        private readonly IBaseRepository<ItemAddOn> _repoAddOn;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
         private readonly IImageStorageService _imageStorage;
 
-        public ItemService(IBaseRepository<Item> repo, IUnitOfWork uow, DomainMapper mapper, IImageStorageService imageStorage)
+        public ItemService(IBaseRepository<Item> repo, IBaseRepository<ItemAddOn> repoAddOn,
+            IUnitOfWork uow, DomainMapper mapper, IImageStorageService imageStorage)
         {
-            _repo = repo; _uow = uow; _mapper = mapper;
+            _repo = repo; _repoAddOn = repoAddOn; _uow = uow; _mapper = mapper;
             _imageStorage = imageStorage;
         }
 
         public async Task<ItemDto?> GetAsync(int id, CancellationToken ct = default)
         {
-            var e = await _repo.GetByIdAsync(id, asNoTracking: true, ct);
+            var e = await _repo.Query()
+                .Include(x => x.AddOns.OrderBy(a => a.SortOrder).ThenBy(a => a.Id))
+                .FirstOrDefaultAsync(x => x.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
+        }
+
+        /// <summary>All add-ons of one item, inactive included (admin editor).</summary>
+        public async Task<List<ItemAddOnDto>> GetAddOnsAsync(int itemId, CancellationToken ct = default)
+            => await _repoAddOn.Query()
+                .Where(a => a.ItemId == itemId)
+                .OrderBy(a => a.SortOrder).ThenBy(a => a.Id)
+                .Select(a => new ItemAddOnDto(a.Id, a.Name, a.Price, a.IsActive, a.SortOrder))
+                .ToListAsync(ct);
+
+        /// <summary>
+        /// Replace-all sync of an item's add-ons from the admin editor.
+        /// Rows referenced by historical orders can't be hard-deleted (FK
+        /// RESTRICT), so anything removed from the list is deactivated when
+        /// deletion fails.
+        /// </summary>
+        public async Task<List<ItemAddOnDto>> SetAddOnsAsync(int itemId, List<ItemAddOnUpsertDto> incoming, CancellationToken ct = default)
+        {
+            var item = await _repo.GetByIdAsync(itemId, asNoTracking: true, ct)
+                       ?? throw new KeyNotFoundException("Item not found.");
+
+            var existing = await _repoAddOn.Query(asNoTracking: false)
+                .Where(a => a.ItemId == itemId)
+                .ToListAsync(ct);
+
+            incoming ??= new List<ItemAddOnUpsertDto>();
+
+            // Validate first — half-applied edits are worse than rejected ones.
+            foreach (var dto in incoming)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Name))
+                    throw new ArgumentException("Every add-on needs a name.");
+                if (dto.Price < 0)
+                    throw new ArgumentException($"Add-on '{dto.Name}' has a negative price.");
+            }
+
+            var keptIds = new HashSet<int>(incoming.Where(i => i.Id is > 0).Select(i => i.Id!.Value));
+
+            foreach (var row in existing)
+            {
+                if (keptIds.Contains(row.Id)) continue;
+                // Deactivate instead of delete: historical order lines point
+                // here, and the editor's intent is "stop offering it".
+                row.IsActive = false;
+            }
+
+            var sort = 0;
+            foreach (var dto in incoming)
+            {
+                sort++;
+                var match = dto.Id is > 0 ? existing.FirstOrDefault(a => a.Id == dto.Id.Value) : null;
+                if (match != null)
+                {
+                    match.Name = dto.Name.Trim();
+                    match.Price = Math.Round(dto.Price, 2);
+                    match.IsActive = dto.IsActive;
+                    match.SortOrder = sort;
+                }
+                else
+                {
+                    await _repoAddOn.AddAsync(new ItemAddOn
+                    {
+                        ItemId = item.Id,
+                        Name = dto.Name.Trim(),
+                        Price = Math.Round(dto.Price, 2),
+                        IsActive = dto.IsActive,
+                        SortOrder = sort,
+                        CreatedOn = DateTime.UtcNow,
+                    }, ct);
+                }
+            }
+
+            await _uow.SaveChangesAsync(ct);
+            return await GetAddOnsAsync(itemId, ct);
         }
         public async Task<PaginatedResponse<ItemDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
@@ -52,6 +130,9 @@ namespace Application.Services
             query = query.OrderBy(x => x.Id); // or .OrderByDescending(x => x.CreatedOn).ThenBy(x => x.Id);
 
             var items = await query
+                // Add-ons travel with the list so the cashier's customize
+                // sheet needs no extra round-trip per item.
+                .Include(x => x.AddOns.Where(a => a.IsActive).OrderBy(a => a.SortOrder).ThenBy(a => a.Id))
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync(ct);

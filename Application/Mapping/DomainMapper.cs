@@ -104,7 +104,13 @@ namespace Application.Mapping
                         co.Price,
                         co.Timestamp
                     )).ToList(),
-                    ti.IsIncluded
+                    ti.IsIncluded,
+                    ti.AddOns
+                        .OrderBy(a => a.Id)
+                        .Select(a => new OrderLineAddOnDto(
+                            a.AddOnId, a.Name, a.Quantity, a.UnitPrice,
+                            a.UnitPrice * a.Quantity))
+                        .ToList()
                 )).ToList(),
                 e.SetId,
                 e.Set?.Name ?? string.Empty,
@@ -199,6 +205,8 @@ namespace Application.Mapping
 
         // ---------- Item ----------
         public partial ItemDto ToDto(Item e);
+        // Element mapping for Item.AddOns → ItemDto.AddOns.
+        public partial ItemAddOnDto ToDto(ItemAddOn e);
         public partial Item ToEntity(ItemCreateDto dto);
         public partial void MapTo(ItemUpdateDto dto, [MappingTarget] Item e);
 

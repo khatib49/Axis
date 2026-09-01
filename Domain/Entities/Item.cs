@@ -31,5 +31,8 @@ namespace Domain.Entities
         // the chef). Items with no recipe sell normally and don't deduct
         // anything, per the rollout decision.
         public ICollection<RecipeLine> RecipeLines { get; set; } = new List<RecipeLine>();
+
+        /// <summary>Paid extras this item offers (customize sheet at the cashier).</summary>
+        public ICollection<ItemAddOn> AddOns { get; set; } = new List<ItemAddOn>();
     }
 }

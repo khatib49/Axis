@@ -10,5 +10,9 @@ namespace Application.IServices
         Task<ItemDto> CreateAsync(ItemCreateDto dto, CancellationToken ct = default);
         Task<bool> UpdateAsync(int id, ItemUpdateDto dto, CancellationToken ct = default);
         Task<bool> DeleteAsync(int id, CancellationToken ct = default);
+
+        // ── Add-ons (paid extras) ────────────────────────────────────────
+        Task<List<ItemAddOnDto>> GetAddOnsAsync(int itemId, CancellationToken ct = default);
+        Task<List<ItemAddOnDto>> SetAddOnsAsync(int itemId, List<ItemAddOnUpsertDto> incoming, CancellationToken ct = default);
     }
 }

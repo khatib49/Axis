@@ -18,6 +18,13 @@ namespace Domain.Entities
 
         // ── Content ──────────────────────────────────────────────────
         [Required][MaxLength(200)] public string Title { get; set; } = default!;
+
+        /// <summary>
+        /// Category chip on the admin calendar: PS5 Session, Board Games,
+        /// Billiards, TCG Event, Social, Tournament, Other. Free text so a
+        /// new kind of night never needs a migration.
+        /// </summary>
+        [Required][MaxLength(40)] public string Type { get; set; } = "Other";
         [MaxLength(300)] public string? Subtitle { get; set; }
         public string? Description { get; set; }
         public DateTime? EventDate { get; set; }
