@@ -6,6 +6,13 @@ namespace Application.IServices
     {
         // ── Admin CRUD ───────────────────────────────────────────────────
         Task<IReadOnlyList<EventDto>> ListAsync(CancellationToken ct = default);
+
+        /// <summary>Active dated events for the till screens (drafts included).</summary>
+        Task<IReadOnlyList<EventDto>> GetUpcomingAsync(int days = 21, CancellationToken ct = default);
+
+        /// <summary>Cashier quick-create: minimal fields, auto key, unpublished.</summary>
+        Task<EventDto> QuickCreateAsync(string title, string? type, DateTime? eventDate, string? location,
+            decimal price, int? capacity, string? actor, CancellationToken ct = default);
         Task<EventDto?> GetAsync(int id, CancellationToken ct = default);
         Task<EventDto> CreateAsync(EventUpsertDto dto, string? actor, CancellationToken ct = default);
         Task<EventDto> UpdateAsync(int id, EventUpsertDto dto, CancellationToken ct = default);

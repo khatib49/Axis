@@ -173,6 +173,70 @@ namespace Application.Services
             return true;
         }
 
+        /// <summary>
+        /// Events for the till screens: active, dated today or later (small
+        /// grace window so an event that started an hour ago still shows).
+        /// Includes drafts — cashiers need to see internally booked events
+        /// even before they're published to the website.
+        /// </summary>
+        public async Task<IReadOnlyList<EventDto>> GetUpcomingAsync(int days = 21, CancellationToken ct = default)
+        {
+            var from = DateTime.UtcNow.AddHours(-12);
+            var to = DateTime.UtcNow.AddDays(Math.Clamp(days, 1, 60));
+            var all = await ListAsync(ct);
+            return all
+                .Where(e => e.IsActive && e.EventDate.HasValue
+                         && e.EventDate.Value >= from && e.EventDate.Value <= to)
+                .OrderBy(e => e.EventDate)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Cashier-created event: minimal fields, auto-generated URL key,
+        /// UNPUBLISHED — it appears on the internal boards immediately but
+        /// never on the public website until an admin reviews and publishes.
+        /// </summary>
+        public async Task<EventDto> QuickCreateAsync(
+            string title, string? type, DateTime? eventDate, string? location,
+            decimal price, int? capacity, string? actor, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("Title is required.");
+
+            // Unique key: slug + date; on collision, add a counter.
+            var baseKey = Slugify(title);
+            if (string.IsNullOrWhiteSpace(baseKey)) baseKey = "event";
+            if (eventDate.HasValue) baseKey += "-" + eventDate.Value.ToString("MMdd");
+
+            var key = baseKey;
+            for (var i = 2; await _repo.Query().AnyAsync(x => x.Key == key, ct); i++)
+                key = $"{baseKey}-{i}";
+
+            var dto = new EventUpsertDto(
+                Key: key,
+                Title: title.Trim(),
+                Subtitle: null,
+                Description: null,
+                EventDate: eventDate,
+                Location: location,
+                Features: null,
+                VideoYoutubeId: null,
+                Price: price,
+                Currency: "USD",
+                EnableVisa: false,
+                EnableWhish: false,
+                EnableCash: true,          // in-store registration by default
+                WhishPaymentLink: null,
+                WhatsAppNumber: null,
+                WhatsAppTemplate: null,
+                IsPublished: false,        // admin publishes to the website
+                IsActive: true,
+                Capacity: capacity,
+                Type: string.IsNullOrWhiteSpace(type) ? "Other" : type);
+
+            return await CreateAsync(dto, actor, ct);
+        }
+
         // ── Public ───────────────────────────────────────────────────────
         public async Task<EventPublicDto?> GetPublicAsync(string key, CancellationToken ct = default)
         {

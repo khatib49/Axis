@@ -177,6 +177,58 @@ namespace AxisAPI.Controllers
         }
     }
 
+    /// <summary>
+    /// Till-facing event endpoints. Separate class on purpose: the public
+    /// EventsController is [AllowAnonymous] at CLASS level, which overrides
+    /// any method-level [Authorize] — so authorized actions must not live
+    /// there.
+    /// </summary>
+    [ApiController]
+    [Route("api/events")]
+    public class EventsTillController : ControllerBase
+    {
+        private readonly IEventService _events;
+        private readonly IHttpContextAccessor _http;
+
+        public EventsTillController(IEventService events, IHttpContextAccessor http)
+        {
+            _events = events;
+            _http = http;
+        }
+
+        /// <summary>Active dated events for the cashier boards (drafts included).</summary>
+        [HttpGet("upcoming")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> Upcoming([FromQuery] int days = 21, CancellationToken ct = default)
+            => Ok(await _events.GetUpcomingAsync(days, ct));
+
+        public record QuickEventRequest(
+            string Title, string? Type, DateTime? EventDate, string? Location,
+            decimal Price = 0, int? Capacity = null);
+
+        /// <summary>
+        /// Cashier quick-create. The event lands UNPUBLISHED — visible on the
+        /// internal boards at once, on the website only after admin review.
+        /// </summary>
+        [HttpPost("quick")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> QuickCreate([FromBody] QuickEventRequest body, CancellationToken ct)
+        {
+            try
+            {
+                var actor = _http.HttpContext?.User?.Identity?.Name ?? "cashier";
+                var created = await _events.QuickCreateAsync(
+                    body.Title, body.Type, body.EventDate, body.Location,
+                    body.Price, body.Capacity, actor, ct);
+                return Ok(created);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+    }
+
     /// <summary>Admin panel — list, stats and payment confirmation.</summary>
     [ApiController]
     [Route("api/admin/event-registrations")]
