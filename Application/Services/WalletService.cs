@@ -115,6 +115,94 @@ namespace Application.Services
             return new PaginatedResponse<WalletTransactionDto>(total, rows, page, pageSize);
         }
 
+        public async Task<WalletMovementsPageDto> GetMovementsAsync(
+            DateTime? from = null, DateTime? to = null, string? type = null, string? method = null,
+            int page = 1, int pageSize = 50, CancellationToken ct = default)
+        {
+            var q = _repoTxn.Query().AsNoTracking();
+
+            // Bounds arrive as ISO datetimes from the UI; re-stamp to UTC so
+            // Npgsql accepts them against the timestamptz column.
+            if (from.HasValue)
+            {
+                var f = AsUtc(from.Value);
+                q = q.Where(t => t.CreatedOn >= f);
+            }
+            if (to.HasValue)
+            {
+                var t2 = AsUtc(to.Value);
+                q = q.Where(t => t.CreatedOn < t2);
+            }
+            if (!string.IsNullOrWhiteSpace(type))
+                q = q.Where(t => t.Type == type);
+            if (!string.IsNullOrWhiteSpace(method))
+                q = q.Where(t => t.Method == method);
+
+            // Period totals over the FULL filtered set (not the page) — this
+            // is the number the cashier reconciles the drawer against.
+            var sums = await q
+                .GroupBy(t => new { t.Type, t.Method })
+                .Select(g => new { g.Key.Type, g.Key.Method, Sum = g.Sum(x => x.Amount), Count = g.Count() })
+                .ToListAsync(ct);
+
+            decimal SumOf(string ty, string? me = null) => sums
+                .Where(s => s.Type == ty && (me == null || s.Method == me))
+                .Sum(s => s.Sum);
+
+            var cashIn = SumOf("TopUp", "Cash");
+            var whishIn = SumOf("TopUp", "Whish");
+            var cardIn = SumOf("TopUp", "Card");
+            var totalTopUps = SumOf("TopUp");
+            var refunded = SumOf("Refund");
+
+            var summary = new WalletMovementsSummaryDto(
+                CashIn: cashIn,
+                WhishIn: whishIn,
+                CardIn: cardIn,
+                TotalTopUps: totalTopUps,
+                BonusGiven: SumOf("Bonus"),
+                Spent: SumOf("Spend"),
+                RefundedCashOut: refunded,
+                NetCashImpact: cashIn - refunded,
+                TopUpCount: sums.Where(s => s.Type == "TopUp").Sum(s => s.Count));
+
+            var totalCount = await q.CountAsync(ct);
+
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            var rows = await q
+                .OrderByDescending(t => t.CreatedOn).ThenByDescending(t => t.Id)
+                .Skip((page - 1) * pageSize).Take(pageSize)
+                .Select(t => new WalletMovementDto(
+                    t.Id,
+                    t.CreatedOn,
+                    t.Type,
+                    t.Amount,
+                    t.Method,
+                    t.Wallet.UserId,
+                    t.Wallet.User != null
+                        ? (t.Wallet.User.DisplayName
+                            ?? (((t.Wallet.User.FirstName ?? "") + " " + (t.Wallet.User.LastName ?? "")).Trim() != ""
+                                ? ((t.Wallet.User.FirstName ?? "") + " " + (t.Wallet.User.LastName ?? "")).Trim()
+                                : t.Wallet.User.UserName))
+                        : null,
+                    t.CreatedBy,
+                    t.Notes,
+                    t.TransactionRecordId,
+                    t.BalanceAfter))
+                .ToListAsync(ct);
+
+            return new WalletMovementsPageDto(summary, totalCount, rows, page, pageSize);
+        }
+
+        private static DateTime AsUtc(DateTime d) => d.Kind switch
+        {
+            DateTimeKind.Utc => d,
+            DateTimeKind.Local => d.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(d, DateTimeKind.Utc),
+        };
+
         // ── Top-up ───────────────────────────────────────────────────────
 
         public async Task<BaseResponse<WalletTopUpResultDto>> TopUpAsync(

@@ -29,6 +29,19 @@ namespace AxisAPI.Controllers
         public async Task<IActionResult> GetSummary(int userId, [FromQuery] int recent = 10, CancellationToken ct = default)
             => Ok(await _svc.GetSummaryAsync(userId, recent, ct));
 
+        /// <summary>
+        /// Cross-wallet money feed with period totals — the cashier's cash-box
+        /// view and the admin's daily filter. Read-only, till-wide.
+        /// </summary>
+        [HttpGet("movements")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> GetMovements(
+            [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+            [FromQuery] string? type, [FromQuery] string? method,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+            CancellationToken ct = default)
+            => Ok(await _svc.GetMovementsAsync(from, to, type, method, page, pageSize, ct));
+
         /// <summary>Balances for a set of users in one call (clients table).</summary>
         [HttpPost("balances")]
         [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]

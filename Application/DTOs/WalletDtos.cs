@@ -53,4 +53,46 @@ namespace Application.DTOs
         WalletDto Wallet,
         List<WalletTransactionDto> Recent
     );
+
+    /// <summary>One row in the cross-wallet money feed (who, what, how, when).</summary>
+    public record WalletMovementDto(
+        int Id,
+        DateTime CreatedOn,
+        string Type,            // TopUp | Bonus | Spend | Refund | Adjustment | Deduction
+        decimal Amount,
+        string? Method,         // Cash | Whish | Card (top-ups/refunds)
+        int UserId,
+        string? UserName,
+        string CreatedBy,
+        string? Notes,
+        int? TransactionRecordId,
+        decimal BalanceAfter
+    );
+
+    /// <summary>
+    /// Cash-box math over the filtered period. CashIn is what physically
+    /// entered the drawer via top-ups; NetCashImpact = cash in − refunds out.
+    /// Bonus and Spend never touch the drawer (bonus is gifted credit; spends
+    /// were paid at top-up time).
+    /// </summary>
+    public record WalletMovementsSummaryDto(
+        decimal CashIn,
+        decimal WhishIn,
+        decimal CardIn,
+        decimal TotalTopUps,
+        decimal BonusGiven,
+        decimal Spent,
+        decimal RefundedCashOut,
+        decimal NetCashImpact,
+        int TopUpCount
+    );
+
+    /// <summary>Feed page + period totals in one response.</summary>
+    public record WalletMovementsPageDto(
+        WalletMovementsSummaryDto Summary,
+        int TotalCount,
+        List<WalletMovementDto> Rows,
+        int Page,
+        int PageSize
+    );
 }

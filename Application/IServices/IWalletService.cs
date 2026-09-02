@@ -14,6 +14,14 @@ namespace Application.IServices
             int userId, int page = 1, int pageSize = 50, CancellationToken ct = default);
 
         /// <summary>
+        /// Cross-wallet money feed with period totals — the cashier's "what's
+        /// in my box" view and the admin's daily filter.
+        /// </summary>
+        Task<WalletMovementsPageDto> GetMovementsAsync(
+            DateTime? from = null, DateTime? to = null, string? type = null, string? method = null,
+            int page = 1, int pageSize = 50, CancellationToken ct = default);
+
+        /// <summary>
         /// Loads money in, applies the best active bonus tier, posts the
         /// journal entry (DR 1000 [+ DR 4905 bonus] / CR 2100).
         /// </summary>
