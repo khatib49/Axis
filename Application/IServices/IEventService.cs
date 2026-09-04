@@ -24,5 +24,11 @@ namespace Application.IServices
         // ── Public ───────────────────────────────────────────────────────
         /// <summary>Null when the event doesn't exist or isn't published.</summary>
         Task<EventPublicDto?> GetPublicAsync(string key, CancellationToken ct = default);
+
+        /// <summary>
+        /// Published + active events for the public website listing, soonest
+        /// first (undated events last). Past events are dropped.
+        /// </summary>
+        Task<IReadOnlyList<EventPublicSummaryDto>> GetPublishedAsync(CancellationToken ct = default);
     }
 }

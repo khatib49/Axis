@@ -274,6 +274,47 @@ namespace Application.Services
                 IsSoldOut: soldOut);
         }
 
+        public async Task<IReadOnlyList<EventPublicSummaryDto>> GetPublishedAsync(CancellationToken ct = default)
+        {
+            // Same grace window as the till boards: an event that started a
+            // few hours ago is still "on" for a visitor browsing the site.
+            var from = DateTime.UtcNow.AddHours(-12);
+
+            var events = await _repo.Query()
+                .Where(x => x.IsPublished && x.IsActive
+                         && (x.EventDate == null || x.EventDate >= from))
+                .OrderBy(x => x.EventDate == null)
+                .ThenBy(x => x.EventDate)
+                .ThenBy(x => x.Title)
+                .ToListAsync(ct);
+
+            if (events.Count == 0) return Array.Empty<EventPublicSummaryDto>();
+
+            var ids = events.Select(e => e.Id).ToList();
+            var paidById = await _regRepo.Query()
+                .Where(r => r.EventId != null && ids.Contains(r.EventId.Value) && r.PaymentStatus == "Paid")
+                .GroupBy(r => r.EventId!.Value)
+                .Select(g => new { EventId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.EventId, g => g.Count, ct);
+
+            return events.Select(e =>
+            {
+                paidById.TryGetValue(e.Id, out var paid);
+                return new EventPublicSummaryDto(
+                    Key: e.Key,
+                    Title: e.Title,
+                    Subtitle: e.Subtitle,
+                    EventDate: e.EventDate,
+                    Location: e.Location,
+                    Type: string.IsNullOrWhiteSpace(e.Type) ? "Other" : e.Type,
+                    Price: e.Price,
+                    Currency: e.Currency,
+                    HeroImageUrl: string.IsNullOrWhiteSpace(e.HeroImagePath) ? null : "/" + e.HeroImagePath.TrimStart('/'),
+                    Capacity: e.Capacity,
+                    IsSoldOut: e.Capacity.HasValue && paid >= e.Capacity.Value);
+            }).ToList();
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────
         private async Task<(int total, int paid)> CountsAsync(int eventId, CancellationToken ct)
         {

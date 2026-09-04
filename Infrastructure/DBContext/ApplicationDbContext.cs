@@ -64,6 +64,7 @@ namespace Infrastructure.Persistence
 
         // AI chatbot + integrations
         public DbSet<IntegrationSetting> IntegrationSettings => Set<IntegrationSetting>();
+        public DbSet<SiteContent>        SiteContents       => Set<SiteContent>();
         public DbSet<AiConversation>     AiConversations    => Set<AiConversation>();
         public DbSet<AiMessage>          AiMessages         => Set<AiMessage>();
         public DbSet<PendingAiAction>    PendingAiActions   => Set<PendingAiAction>();
@@ -261,6 +262,17 @@ namespace Infrastructure.Persistence
                 e.Property(x => x.Key).IsRequired().HasMaxLength(80);
                 e.HasIndex(x => x.Key).IsUnique();
                 e.Property(x => x.Description).HasMaxLength(500);
+                e.Property(x => x.UpdatedBy).HasMaxLength(200);
+                e.Property(x => x.UpdatedOn).HasDefaultValueSql("NOW()");
+            });
+
+            b.Entity<SiteContent>(e =>
+            {
+                e.ToTable("SiteContents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Key).IsRequired().HasMaxLength(60);
+                e.HasIndex(x => x.Key).IsUnique();
+                e.Property(x => x.Json).IsRequired();
                 e.Property(x => x.UpdatedBy).HasMaxLength(200);
                 e.Property(x => x.UpdatedOn).HasDefaultValueSql("NOW()");
             });

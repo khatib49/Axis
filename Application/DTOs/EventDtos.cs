@@ -82,5 +82,23 @@ namespace Application.DTOs
         bool IsSoldOut
     );
 
+    /// <summary>
+    /// Card-sized view of a published event for the public website listing
+    /// (/events). No payment or registration internals are exposed.
+    /// </summary>
+    public record EventPublicSummaryDto(
+        string Key,
+        string Title,
+        string? Subtitle,
+        DateTime? EventDate,
+        string? Location,
+        string Type,
+        decimal Price,
+        string Currency,
+        string? HeroImageUrl,
+        int? Capacity,
+        bool IsSoldOut
+    );
+
     public record MediaUploadResultDto(string Path, string Url);
 }

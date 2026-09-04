@@ -15,6 +15,7 @@ namespace Application
             services.AddScoped<ITransactionAuditLogService, TransactionAuditLogService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IGameService, GameService>();
+            services.AddScoped<ISiteContentService, SiteContentService>();
             services.AddScoped<ICardService, CardService>();
             services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<ICoffeeShopOrderService, CoffeeShopOrderService>();

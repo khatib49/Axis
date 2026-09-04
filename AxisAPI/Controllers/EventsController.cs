@@ -39,6 +39,14 @@ namespace AxisAPI.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Published events for the public website's Events page. Card data
+        /// only — the full event is fetched per key when a visitor opens it.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> Published(CancellationToken ct)
+            => Ok(await _events.GetPublishedAsync(ct));
+
         /// <summary>Price, currency, WhatsApp number and which gateways are live.</summary>
         [HttpGet("{eventKey}/config")]
         public async Task<IActionResult> Config(string eventKey, CancellationToken ct)
