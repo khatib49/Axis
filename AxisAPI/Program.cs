@@ -193,6 +193,8 @@ builder.Services
 
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
+// Custom roles: a role granted a page (Admin → Roles & Permissions) may call that page's API.
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AxisAPI.Utils.DynamicPageAuthorizationHandler>();
 
 
 builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
