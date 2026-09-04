@@ -63,8 +63,12 @@ namespace AxisAPI.Controllers
         [HttpGet("kitchen/pending")]
         //[Authorize(Roles = "Chef,Admin")]
         [ProducesResponseType(typeof(List<KitchenBarOrderDto>), 200)]
-        public async Task<IActionResult> GetKitchenPending(CancellationToken ct)
+        public async Task<IActionResult> GetKitchenPending(
+            [FromQuery] int? page, [FromQuery] int pageSize = 12, CancellationToken ct = default)
         {
+            // With ?page=… the display gets one page + total; without, the full list (older callers).
+            if (page.HasValue)
+                return Ok(await _service.GetPendingOrdersByStationPagedAsync("Kitchen", page.Value, pageSize, ct));
             var orders = await _service.GetPendingOrdersByStationAsync("Kitchen", ct);
             return Ok(orders);
         }
@@ -76,8 +80,12 @@ namespace AxisAPI.Controllers
         [HttpGet("bar/pending")]
         //[Authorize(Roles = "Bartender,Admin")]
         [ProducesResponseType(typeof(List<KitchenBarOrderDto>), 200)]
-        public async Task<IActionResult> GetBarPending(CancellationToken ct)
+        public async Task<IActionResult> GetBarPending(
+            [FromQuery] int? page, [FromQuery] int pageSize = 12, CancellationToken ct = default)
         {
+            // With ?page=… the display gets one page + total; without, the full list (older callers).
+            if (page.HasValue)
+                return Ok(await _service.GetPendingOrdersByStationPagedAsync("Bar", page.Value, pageSize, ct));
             var orders = await _service.GetPendingOrdersByStationAsync("Bar", ct);
             return Ok(orders);
         }

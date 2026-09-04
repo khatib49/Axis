@@ -204,6 +204,7 @@ builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
                     .WithOrigins("http://localhost:5173", "https://lively-pond-098449403.2.azurestaticapps.net", "https://www.axislb.com")
                     .AllowAnyMethod()
                     .AllowAnyHeader()
+                    .WithExposedHeaders("ETag")
                     .AllowCredentials();
                 }));
 

@@ -21,5 +21,12 @@ namespace Application.IServices
         Task<List<KitchenBarOrderDto>> GetPendingOrdersByStationAsync(
             string station,
             CancellationToken ct = default);
+
+        /// <summary>Oldest pending orders first, one page at a time (station displays).</summary>
+        Task<KitchenBarOrderPageDto> GetPendingOrdersByStationPagedAsync(
+            string station,
+            int page,
+            int pageSize,
+            CancellationToken ct = default);
     }
 }

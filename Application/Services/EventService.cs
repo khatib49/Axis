@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Application.DTOs;
 using Application.IServices;
 using Application.Services.Payments;
@@ -97,6 +97,7 @@ namespace Application.Services
 
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
+            InvalidatePublishedCache();
             _logger.LogInformation("Event '{Key}' created by {Actor}", key, actor ?? "system");
             return ToDto(e, 0, 0);
         }
@@ -117,6 +118,7 @@ namespace Application.Services
             ApplyUpsert(e, dto);
             e.ModifiedOn = DateTime.UtcNow;
             await _uow.SaveChangesAsync(ct);
+            InvalidatePublishedCache();
 
             var (total, paid) = await CountsAsync(e.Id, ct);
             return ToDto(e, total, paid);
@@ -145,6 +147,7 @@ namespace Application.Services
 
             _repo.Remove(e);
             await _uow.SaveChangesAsync(ct);
+            InvalidatePublishedCache();
             return true;
         }
 
@@ -170,6 +173,7 @@ namespace Application.Services
 
             e.ModifiedOn = DateTime.UtcNow;
             await _uow.SaveChangesAsync(ct);
+            InvalidatePublishedCache();
             return true;
         }
 
@@ -274,7 +278,23 @@ namespace Application.Services
                 IsSoldOut: soldOut);
         }
 
+        // The website's event list rarely changes; keep it in memory briefly and
+        // drop it whenever an admin edits an event.
+        private static (DateTime At, IReadOnlyList<EventPublicSummaryDto> Items)? _publishedCache;
+        private static readonly TimeSpan PublishedCacheTtl = TimeSpan.FromSeconds(60);
+        private static void InvalidatePublishedCache() => _publishedCache = null;
+
         public async Task<IReadOnlyList<EventPublicSummaryDto>> GetPublishedAsync(CancellationToken ct = default)
+        {
+            var cached = _publishedCache;
+            if (cached is not null && DateTime.UtcNow - cached.Value.At < PublishedCacheTtl)
+                return cached.Value.Items;
+            var items = await LoadPublishedAsync(ct);
+            _publishedCache = (DateTime.UtcNow, items);
+            return items;
+        }
+
+        private async Task<IReadOnlyList<EventPublicSummaryDto>> LoadPublishedAsync(CancellationToken ct)
         {
             // Same grace window as the till boards: an event that started a
             // few hours ago is still "on" for a visitor browsing the site.

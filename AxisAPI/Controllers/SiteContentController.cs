@@ -21,12 +21,25 @@ namespace AxisAPI.Controllers
 
         public SiteContentController(ISiteContentService svc) => _svc = svc;
 
-        /// <summary>Stored document, or an empty object when nothing was saved yet.</summary>
+        /// <summary>
+        /// Stored document, or an empty object when nothing was saved yet.
+        /// Served from memory with an ETag: browsers that already hold the
+        /// current version get a 304 and no body.
+        /// </summary>
         [HttpGet]
         public async Task<IActionResult> Get(CancellationToken ct)
         {
-            var json = await _svc.GetJsonAsync(WebsiteKey, ct);
-            return Content(string.IsNullOrWhiteSpace(json) ? "{}" : json, "application/json");
+            var (json, etag) = await _svc.GetWithEtagAsync(WebsiteKey, ct);
+
+            Response.Headers.ETag = etag;
+            Response.Headers.CacheControl = "no-cache";
+
+            var ifNoneMatch = Request.Headers.IfNoneMatch.ToString();
+            if (!string.IsNullOrEmpty(ifNoneMatch) &&
+                ifNoneMatch.Split(',').Select(v => v.Trim()).Any(v => v == etag || v == "W/" + etag))
+                return StatusCode(StatusCodes.Status304NotModified);
+
+            return Content(json, "application/json");
         }
     }
 

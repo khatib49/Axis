@@ -42,4 +42,7 @@
     public record KitchenBarOrderMarkPrintedDto(
         List<int> OrderIds
     );
+
+    /// <summary>One page of pending orders for a station display.</summary>
+    public record KitchenBarOrderPageDto(int TotalCount, List<KitchenBarOrderDto> Data, int PageNumber, int PageSize);
 }

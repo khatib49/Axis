@@ -127,6 +127,26 @@ namespace Application.Services
             return orders.Select(MapToDto).ToList();
         }
 
+        public async Task<KitchenBarOrderPageDto> GetPendingOrdersByStationPagedAsync(
+            string station, int page, int pageSize, CancellationToken ct = default)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            var query = _repo.Query()
+                .Where(o => o.Station == station && o.Status == "Pending");
+
+            var total = await query.CountAsync(ct);
+            var orders = await query
+                .Include(o => o.PreparedByUser)
+                .OrderBy(o => o.OrderedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return new KitchenBarOrderPageDto(total, orders.Select(MapToDto).ToList(), page, pageSize);
+        }
+
         private static KitchenBarOrderDto MapToDto(KitchenBarOrder order)
         {
             return new KitchenBarOrderDto(
