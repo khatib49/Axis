@@ -197,18 +197,12 @@ namespace Application.Services
             // --- Update password (if provided) ---
             if (!string.IsNullOrWhiteSpace(request.Password))
             {
-                // Remove old password if it exists (Identity requires one at a time)
-                var hasPassword = await _userManager.HasPasswordAsync(user);
-                IdentityResult passResult;
-                if (hasPassword)
-                {
-                    await _userManager.RemovePasswordAsync(user);
-                    passResult = await _userManager.AddPasswordAsync(user, request.Password);
-                }
-                else
-                {
-                    passResult = await _userManager.AddPasswordAsync(user, request.Password);
-                }
+                // Set the new password in one step. The old code removed the
+                // current password first and only then tried to add the new
+                // one — if the new one failed validation the user was left
+                // with NO password and could never sign in again.
+                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var passResult = await _userManager.ResetPasswordAsync(user, resetToken, request.Password);
 
                 if (!passResult.Succeeded)
                     return false;
