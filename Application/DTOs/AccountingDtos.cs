@@ -29,25 +29,25 @@
         // 2xxx Liability, 3xxx Equity, 4xxx Revenue, 5xxx Expense). Same data,
         // different lens — useful when the AccountType column is dirty.
         List<AccountRangeLineDto>? ByAccountNumberRange = null,
-        // Cash on Hand (Rami, 2026-09): Baseline + Revenue − TOTAL expenses.
-        // Computed once here so the main dashboard and the accounting
-        // dashboard can never disagree.
+        // Cash on Hand (Rami, 2026-09): Baseline + ALL-TIME revenue − ALL-TIME
+        // expenses. Not affected by the date filter. Computed once here so
+        // the main dashboard and the accounting dashboard can never disagree.
         CashOnHandDto? CashOnHand = null
     );
 
     /// <summary>
-    /// Baseline (till reading the owner typed in) + revenue in the period −
-    /// every cash-out in the period: operating + capital expenses, owner
-    /// draws / other non-revenue manual entries, and stock purchases.
+    /// Baseline (till reading the owner typed in) + total revenue since day
+    /// one (paid sales + paid event tickets) − total expenses since day one
+    /// (every row in the Expenses page, raw amount).
     /// </summary>
     public record CashOnHandDto(
         decimal Baseline,
-        decimal Revenue,
-        decimal OperatingExpenses,
-        decimal CapitalExpenses,
-        decimal OtherCashOut,      // Equity / Liability / Asset-typed manual entries (owner draws, loan payments…)
-        decimal StockPurchases,    // Purchases.TotalCost in period
-        decimal TotalExpenses,     // sum of the four above
+        decimal Revenue,           // all-time
+        decimal OperatingExpenses, // unused (kept for shape compatibility)
+        decimal CapitalExpenses,   // unused
+        decimal OtherCashOut,      // unused
+        decimal StockPurchases,    // unused
+        decimal TotalExpenses,     // all-time, = Expenses page "Total Expenses (All)"
         decimal Amount             // Baseline + Revenue − TotalExpenses
     );
 

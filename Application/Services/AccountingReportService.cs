@@ -459,24 +459,21 @@ namespace Application.Services
                 .ToList();
 
             // ── 3d. Cash on Hand ────────────────────────────────────────
-            // Baseline + revenue − TOTAL expenses. "Total" means every dollar
-            // that left the till in the period, not just operating lines:
-            //   • operating + capital manual entries (prorated like above)
-            //   • other non-revenue manual entries (owner draws, loan
-            //     repayments…) — money out is money out for the till
-            //   • stock purchases (Purchases table) — never in the expense
-            //     table, but paid for all the same
-            // Manual entries mapped to a REVENUE account are income, not cost.
-            var otherCashOut = manualEntries
-                .Where(x => !(!x.IsCapital && IsExpenseLike(x.AccountTypeName)))   // not already in operating
-                .Where(x => !(x.IsCapital && IsCapitalLike(x.AccountTypeName)))    // not already in capital
-                .Where(x => !string.Equals(x.AccountTypeName, "Revenue", StringComparison.OrdinalIgnoreCase))
-                .Sum(x => x.Amount);
+            // Rami (2026-09-11): Baseline + TOTAL revenue (all time) − TOTAL
+            // expenses (all time — the "Total Expenses (All)" figure on the
+            // Expenses page, i.e. every entry's raw amount, no proration).
+            // Deliberately ignores the dashboard's date filter: it is the
+            // till's running balance, not a period figure.
+            var lifetimeSales = await _txRepo.Query()
+                .Where(t => t.StatusId == 6)
+                .SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
+            var lifetimeTickets = await _eventRegRepo.Query()
+                .Where(r => r.PaymentStatus == "Paid")
+                .SumAsync(r => (decimal?)r.Amount, ct) ?? 0m;
+            var lifetimeRevenue = Math.Round(lifetimeSales + lifetimeTickets, 2);
 
-            var purchQ = _purchaseRepo.Query();
-            if (from.HasValue) { var pf = AsUtc(from.Value.Date); purchQ = purchQ.Where(p => p.PurchaseDate >= pf); }
-            if (toExclusive.HasValue) { var pt = AsUtc(toExclusive.Value); purchQ = purchQ.Where(p => p.PurchaseDate < pt); }
-            var stockPurchases = Math.Round(await purchQ.SumAsync(p => (decimal?)p.TotalCost, ct) ?? 0m, 2);
+            var lifetimeExpenses = Math.Round(
+                await _expenseRepo.Query().SumAsync(e => (decimal?)e.Amount, ct) ?? 0m, 2);
 
             var baselineRaw = await _settingsRepo.Query()
                 .Where(x => x.Key == "Accounting.CashOnHandBaseline")
@@ -485,18 +482,15 @@ namespace Application.Services
             var baseline = decimal.TryParse(baselineRaw, System.Globalization.NumberStyles.Any,
                 System.Globalization.CultureInfo.InvariantCulture, out var b) ? b : 0m;
 
-            var totalExpensesForCash = Math.Round(
-                operatingExpenses.Total + capitalExpenses.Total + otherCashOut + stockPurchases, 2);
-
             var cashOnHand = new CashOnHandDto(
                 Baseline: baseline,
-                Revenue: totalRevenue,
-                OperatingExpenses: operatingExpenses.Total,
-                CapitalExpenses: capitalExpenses.Total,
-                OtherCashOut: Math.Round(otherCashOut, 2),
-                StockPurchases: stockPurchases,
-                TotalExpenses: totalExpensesForCash,
-                Amount: Math.Round(baseline + totalRevenue - totalExpensesForCash, 2));
+                Revenue: lifetimeRevenue,
+                OperatingExpenses: 0m,
+                CapitalExpenses: 0m,
+                OtherCashOut: 0m,
+                StockPurchases: 0m,
+                TotalExpenses: lifetimeExpenses,
+                Amount: Math.Round(baseline + lifetimeRevenue - lifetimeExpenses, 2));
 
             // ── 4. Net Income ────────────────────────────────────────────
             // Note: operatingExpenses.Total now excludes Equity/Revenue
