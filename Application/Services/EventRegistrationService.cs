@@ -24,6 +24,9 @@ namespace Application.Services
         private readonly IJournalService _journal;
         private readonly IUnitOfWork _uow;
         private readonly ILogger<EventRegistrationService> _logger;
+        // Card payments ride the Online Payments module (MontyPay) when it is
+        // configured; Stripe stays as the fallback for "Visa".
+        private readonly IOnlinePaymentService _onlinePayments;
 
         public EventRegistrationService(
             IBaseRepository<EventRegistration> repo,
@@ -33,7 +36,8 @@ namespace Application.Services
             WhishGateway whish,
             IJournalService journal,
             IUnitOfWork uow,
-            ILogger<EventRegistrationService> logger)
+            ILogger<EventRegistrationService> logger,
+            IOnlinePaymentService onlinePayments)
         {
             _repo = repo;
             _eventRepo = eventRepo;
@@ -43,6 +47,7 @@ namespace Application.Services
             _journal = journal;
             _uow = uow;
             _logger = logger;
+            _onlinePayments = onlinePayments;
         }
 
         // ── Public config ────────────────────────────────────────────────
@@ -52,7 +57,8 @@ namespace Application.Services
 
             // A method shows up only when the admin enabled it AND the
             // gateway has credentials configured.
-            var stripeOk = await _stripe.IsConfiguredAsync(ct);
+            // "Visa" (cards) is available through MontyPay OR Stripe.
+            var stripeOk = await _stripe.IsConfiguredAsync(ct) || await _onlinePayments.IsProviderReadyAsync(ct);
             var whishOk = await _whish.IsConfiguredAsync(ct);
 
             return new EventPublicConfigDto(
@@ -169,7 +175,47 @@ namespace Application.Services
                     PayLinkUrl: ev.WhishPaymentLink);
             }
 
-            // Card / Whish → start the hosted checkout.
+            // Cards → MontyPay through the Online Payments module when it is
+            // configured. The registration gets a pay link; the callback marks
+            // it Paid (ProviderRef "OP:{code}") and posts the ledger entry.
+            if (method == "Visa" && await _onlinePayments.IsProviderReadyAsync(ct))
+            {
+                try
+                {
+                    var (payment, payUrl) = await _onlinePayments.CreateForReferenceAsync(
+                        purpose: "EventTicket", referenceType: "EventRegistration", referenceId: entity.Id,
+                        amount: amount, currency: currency,
+                        description: $"{ev.Title} - Entry Ticket #{entity.Id}",
+                        customerName: fullName, customerPhone: entity.Phone, customerEmail: entity.Email,
+                        userId: null, actor: "website", ct: ct);
+
+                    entity.ProviderRef = $"OP:{payment.Code}";
+                    entity.ModifiedOn = DateTime.UtcNow;
+                    await _uow.SaveChangesAsync(ct);
+
+                    return new EventRegisterResultDto(
+                        entity.Id, method, entity.PaymentStatus, amount, currency,
+                        RedirectUrl: payUrl,
+                        WhatsAppUrl: whatsAppUrl,
+                        Message: "Redirecting you to secure card payment…");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "MontyPay link creation failed for registration {Id} — falling back", entity.Id);
+                    if (!await _stripe.IsConfiguredAsync(ct))
+                    {
+                        entity.AdminNotes = $"Online payment start failed: {ex.Message}";
+                        entity.ModifiedOn = DateTime.UtcNow;
+                        await _uow.SaveChangesAsync(ct);
+                        return new EventRegisterResultDto(
+                            entity.Id, method, entity.PaymentStatus, amount, currency,
+                            RedirectUrl: null, WhatsAppUrl: whatsAppUrl,
+                            Message: "You're registered, but online payment is unavailable right now. Confirm on WhatsApp and we'll arrange payment.");
+                    }
+                }
+            }
+
+            // Card (Stripe) / Whish → start the hosted checkout.
             var publicBase = (await _settings.GetRawAsync("Event.PublicBaseUrl", ct))?.TrimEnd('/')
                              ?? "https://www.axislb.com";
             var successUrl = $"{publicBase}/events/{eventKey}/paid?reg={entity.Id}";

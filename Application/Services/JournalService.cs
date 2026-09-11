@@ -844,7 +844,15 @@ namespace Application.Services
                 // retried confirm leaves exactly one entry behind.
                 await DeleteUnpostedEventEntriesAsync(registrationId, ct);
 
-                var cashAccount = await _accountRepo.Query()
+                // Card / gateway tickets are not in the drawer — book them to
+                // 1050 Online Payments Clearing when it exists (falls back to
+                // cash so a missing account never blocks the posting).
+                var online = reg.PaymentMethod is "Visa" or "Card" or "MontyPay" or "Online";
+                Account? cashAccount = null;
+                if (online)
+                    cashAccount = await _accountRepo.Query()
+                        .FirstOrDefaultAsync(a => a.AccountNumber == "1050" && a.IsActive, ct);
+                cashAccount ??= await _accountRepo.Query()
                     .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
 
                 if (cashAccount == null)

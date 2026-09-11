@@ -97,6 +97,12 @@ namespace Application
             services.AddScoped<IEventRegistrationService, EventRegistrationService>();
             services.AddScoped<IEventService, EventService>();
 
+            // Online payments ledger + hosted-checkout providers (MontyPay).
+            // Register every provider as IOnlinePaymentProvider — the service
+            // picks by key, so a new gateway is one extra line here.
+            services.AddScoped<Application.Services.Payments.IOnlinePaymentProvider, Application.Services.Payments.MontyPayProvider>();
+            services.AddScoped<IOnlinePaymentService, OnlinePaymentService>();
+
             return services;
         }
     }

@@ -251,6 +251,23 @@ namespace Application.Services
             return new PaginatedResponse<GameTransactionDetailsDto>(total, data, page, size, totalInvoices);
         }
 
+        /// <summary>
+        /// Paid event tickets in [from, toExclusive) by confirmation time. Only
+        /// counted when no category filter is applied — tickets have no item /
+        /// game category, so a filtered view is sales-only by definition.
+        /// </summary>
+        private IQueryable<Domain.Entities.EventRegistration> PaidEventsQuery(DateTime? from, DateTime? toExclusive)
+        {
+            static DateTime AsUtc(DateTime d) =>
+                d.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(d, DateTimeKind.Utc)
+                : d.Kind == DateTimeKind.Local ? d.ToUniversalTime()
+                : d;
+            var q = _repoEventReg.Query().Where(r => r.PaymentStatus == "Paid");
+            if (from.HasValue) { var f = AsUtc(from.Value); q = q.Where(r => (r.ConfirmedOn ?? r.CreatedOn) >= f); }
+            if (toExclusive.HasValue) { var t = AsUtc(toExclusive.Value); q = q.Where(r => (r.ConfirmedOn ?? r.CreatedOn) < t); }
+            return q;
+        }
+
         public async Task<PeriodTotalsDto> GetTotalsAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
         {
             var q = _repo.Query();
@@ -283,11 +300,24 @@ namespace Application.Services
             }
 
             var count = await q.CountAsync(ct);
-            var totalAmount = await q.SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
+            var salesAmount = await q.SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
+
+            // Paid event tickets are sales too (Rami, 2026-09) — added when
+            // the view is not narrowed to specific categories.
+            decimal eventsAmount = 0m; int eventsCount = 0;
+            if (cats.Count == 0)
+            {
+                var ev = PaidEventsQuery(from, toExclusive);
+                eventsAmount = await ev.SumAsync(r => (decimal?)r.Amount, ct) ?? 0m;
+                eventsCount = await ev.CountAsync(ct);
+            }
 
             return new PeriodTotalsDto(
-                TotalAmount: totalAmount,
-                OrdersCount: count
+                TotalAmount: salesAmount + eventsAmount,
+                OrdersCount: count + eventsCount,
+                EventsAmount: eventsAmount,
+                EventsCount: eventsCount,
+                SalesAmount: salesAmount
             );
         }
 
@@ -371,20 +401,34 @@ namespace Application.Services
                 .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
+            // paid event tickets per day (confirmation date) — only when not
+            // narrowed to categories, tickets carry none.
+            var eventDict = new Dictionary<DateTime, decimal>();
+            if (catList.Count == 0)
+            {
+                var evRows = await PaidEventsQuery(from, toExclusive)
+                    .Select(r => new { When = r.ConfirmedOn ?? r.CreatedOn, r.Amount })
+                    .ToListAsync(ct);
+                foreach (var g in evRows.GroupBy(r => r.When.Date))
+                    eventDict[g.Key] = g.Sum(r => r.Amount);
+            }
+
             // merge
             var gameDict = gamesDaily.ToDictionary(x => x.Date, x => x.Total);
             var itemDict = itemsDaily.ToDictionary(x => x.Date, x => x.Total);
-            var allDates = gameDict.Keys.Union(itemDict.Keys).OrderBy(d => d).ToList();
+            var allDates = gameDict.Keys.Union(itemDict.Keys).Union(eventDict.Keys).OrderBy(d => d).ToList();
 
             var result = allDates.Select(d =>
             {
                 var items = itemDict.TryGetValue(d, out var it) ? it : 0m;
                 var games = gameDict.TryGetValue(d, out var gt) ? gt : 0m;
+                var events = eventDict.TryGetValue(d, out var et) ? et : 0m;
                 return new DailySalesDto(
                     Date: d,
                     ItemsTotal: items,
                     GamesTotal: games,
-                    GrandTotal: items + games
+                    GrandTotal: items + games + events,
+                    EventsTotal: events
                 );
             }).ToList();
 
@@ -395,7 +439,7 @@ namespace Application.Services
                 var endEx = toExclusive.Value.Date; // exclusive
                 var days = Enumerable.Range(0, (endEx - start).Days).Select(i => start.AddDays(i));
                 var dict = result.ToDictionary(x => x.Date);
-                result = days.Select(d => dict.TryGetValue(d, out var v) ? v : new DailySalesDto(d, 0m, 0m, 0m)).ToList();
+                result = days.Select(d => dict.TryGetValue(d, out var v) ? v : new DailySalesDto(d, 0m, 0m, 0m, 0m)).ToList();
             }
 
             return result;

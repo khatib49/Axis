@@ -34,6 +34,8 @@ namespace Infrastructure.Persistence
         public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
         public DbSet<WalletBonusTier> WalletBonusTiers => Set<WalletBonusTier>();
+        public DbSet<OnlinePayment> OnlinePayments => Set<OnlinePayment>();
+        public DbSet<OnlinePaymentEvent> OnlinePaymentEvents => Set<OnlinePaymentEvent>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Item> Items => Set<Item>();
         public DbSet<CoffeeShopOrder> CoffeeShopOrders => Set<CoffeeShopOrder>();
@@ -711,6 +713,36 @@ namespace Infrastructure.Persistence
 
                 e.HasIndex(x => new { x.WalletId, x.CreatedOn });
                 e.HasIndex(x => x.TransactionRecordId);
+            });
+
+            // Online payments (MontyPay & co.) — see db-migrations/2026-09-online-payments.sql
+            b.Entity<OnlinePayment>(e =>
+            {
+                e.ToTable("OnlinePayments");
+                e.HasKey(x => x.Id);
+                // Two settled callbacks (or callback + admin reconcile) at the
+                // same instant must not credit a wallet twice: the loser's
+                // SaveChanges throws and the handler logs it.
+                e.UseXminAsConcurrencyToken();
+                e.Property(x => x.Amount).HasColumnType("numeric(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.Code).IsUnique();
+                e.HasIndex(x => x.ProviderOrderNumber);
+                e.HasIndex(x => x.ProviderPaymentId);
+                e.HasIndex(x => new { x.Status, x.CreatedOn });
+                e.HasIndex(x => new { x.ReferenceType, x.ReferenceId });
+            });
+
+            b.Entity<OnlinePaymentEvent>(e =>
+            {
+                e.ToTable("OnlinePaymentEvents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.Payment)
+                    .WithMany(p => p.Events)
+                    .HasForeignKey(x => x.OnlinePaymentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => new { x.OnlinePaymentId, x.CreatedOn });
             });
 
             b.Entity<WalletBonusTier>(e =>

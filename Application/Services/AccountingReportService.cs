@@ -18,6 +18,8 @@ namespace Application.Services
         // Event tickets never become TransactionRecords, so they need their
         // own read here or the dashboard silently under-reports revenue.
         private readonly IBaseRepository<EventRegistration> _eventRegRepo;
+        private readonly IBaseRepository<Purchase> _purchaseRepo;
+        private readonly IBaseRepository<IntegrationSetting> _settingsRepo;
 
         // TCG category IDs — items whose Category.Name contains "TCG" or "Card"
         // We identify TCG items by checking Item.Category name at query time
@@ -31,8 +33,12 @@ namespace Application.Services
             IBaseRepository<JournalEntryLine> journalLineRepo,
             IBaseRepository<Account> accountRepo,
             IBaseRepository<StockMovement> movementRepo,
-            IBaseRepository<EventRegistration> eventRegRepo)
+            IBaseRepository<EventRegistration> eventRegRepo,
+            IBaseRepository<Purchase> purchaseRepo,
+            IBaseRepository<IntegrationSetting> settingsRepo)
         {
+            _purchaseRepo = purchaseRepo;
+            _settingsRepo = settingsRepo;
             _txRepo = txRepo;
             _expenseRepo = expenseRepo;
             _catRepo = catRepo;
@@ -452,6 +458,46 @@ namespace Application.Services
                 .OrderBy(r => r.Prefix)
                 .ToList();
 
+            // ── 3d. Cash on Hand ────────────────────────────────────────
+            // Baseline + revenue − TOTAL expenses. "Total" means every dollar
+            // that left the till in the period, not just operating lines:
+            //   • operating + capital manual entries (prorated like above)
+            //   • other non-revenue manual entries (owner draws, loan
+            //     repayments…) — money out is money out for the till
+            //   • stock purchases (Purchases table) — never in the expense
+            //     table, but paid for all the same
+            // Manual entries mapped to a REVENUE account are income, not cost.
+            var otherCashOut = manualEntries
+                .Where(x => !(!x.IsCapital && IsExpenseLike(x.AccountTypeName)))   // not already in operating
+                .Where(x => !(x.IsCapital && IsCapitalLike(x.AccountTypeName)))    // not already in capital
+                .Where(x => !string.Equals(x.AccountTypeName, "Revenue", StringComparison.OrdinalIgnoreCase))
+                .Sum(x => x.Amount);
+
+            var purchQ = _purchaseRepo.Query();
+            if (from.HasValue) { var pf = AsUtc(from.Value.Date); purchQ = purchQ.Where(p => p.PurchaseDate >= pf); }
+            if (toExclusive.HasValue) { var pt = AsUtc(toExclusive.Value); purchQ = purchQ.Where(p => p.PurchaseDate < pt); }
+            var stockPurchases = Math.Round(await purchQ.SumAsync(p => (decimal?)p.TotalCost, ct) ?? 0m, 2);
+
+            var baselineRaw = await _settingsRepo.Query()
+                .Where(x => x.Key == "Accounting.CashOnHandBaseline")
+                .Select(x => x.Value)
+                .FirstOrDefaultAsync(ct);
+            var baseline = decimal.TryParse(baselineRaw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var b) ? b : 0m;
+
+            var totalExpensesForCash = Math.Round(
+                operatingExpenses.Total + capitalExpenses.Total + otherCashOut + stockPurchases, 2);
+
+            var cashOnHand = new CashOnHandDto(
+                Baseline: baseline,
+                Revenue: totalRevenue,
+                OperatingExpenses: operatingExpenses.Total,
+                CapitalExpenses: capitalExpenses.Total,
+                OtherCashOut: Math.Round(otherCashOut, 2),
+                StockPurchases: stockPurchases,
+                TotalExpenses: totalExpensesForCash,
+                Amount: Math.Round(baseline + totalRevenue - totalExpensesForCash, 2));
+
             // ── 4. Net Income ────────────────────────────────────────────
             // Note: operatingExpenses.Total now excludes Equity/Revenue
             // misclassifications, so Net Income is no longer dragged down by
@@ -482,7 +528,8 @@ namespace Application.Services
                 NetIncome: netIncome,
                 NetMarginPercent: netMargin,
                 ByAccountType: byAccountType,
-                ByAccountNumberRange: byRange
+                ByAccountNumberRange: byRange,
+                CashOnHand: cashOnHand
             );
         }
 

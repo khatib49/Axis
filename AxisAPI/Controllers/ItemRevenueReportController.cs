@@ -7,7 +7,8 @@ namespace AxisAPI.Controllers
 {
     [ApiController]
     [Route("api/item-revenue-report")]
-    //[Authorize(Roles = "admin")]
+    // admin + any custom role granted the "Item Revenue" page (DynamicPageAuthorizationHandler).
+    [Authorize(Roles = "admin")]
     public class ItemRevenueReportController : ControllerBase
     {
         private readonly IItemRevenueReportService _svc;

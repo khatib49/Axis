@@ -28,7 +28,27 @@
         // Subtotals grouped by the leading account-number prefix (1xxx Asset,
         // 2xxx Liability, 3xxx Equity, 4xxx Revenue, 5xxx Expense). Same data,
         // different lens — useful when the AccountType column is dirty.
-        List<AccountRangeLineDto>? ByAccountNumberRange = null
+        List<AccountRangeLineDto>? ByAccountNumberRange = null,
+        // Cash on Hand (Rami, 2026-09): Baseline + Revenue − TOTAL expenses.
+        // Computed once here so the main dashboard and the accounting
+        // dashboard can never disagree.
+        CashOnHandDto? CashOnHand = null
+    );
+
+    /// <summary>
+    /// Baseline (till reading the owner typed in) + revenue in the period −
+    /// every cash-out in the period: operating + capital expenses, owner
+    /// draws / other non-revenue manual entries, and stock purchases.
+    /// </summary>
+    public record CashOnHandDto(
+        decimal Baseline,
+        decimal Revenue,
+        decimal OperatingExpenses,
+        decimal CapitalExpenses,
+        decimal OtherCashOut,      // Equity / Liability / Asset-typed manual entries (owner draws, loan payments…)
+        decimal StockPurchases,    // Purchases.TotalCost in period
+        decimal TotalExpenses,     // sum of the four above
+        decimal Amount             // Baseline + Revenue − TotalExpenses
     );
 
     public record AccountTypeBreakdownDto(

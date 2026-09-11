@@ -58,6 +58,7 @@ namespace Application.Services
         // on Ingredients, not on Item.Quantity.
         private readonly IBaseRepository<RecipeLine> _repoRecipeLine;
         private readonly IStockService _stockService;
+        private readonly IBaseRepository<EventRegistration> _repoEventReg;
         public TransactionRecordService(IBaseRepository<TransactionRecord> repo, IBaseRepository<Setting> repoSetting,
             IBaseRepository<SettingItem> repoSettingItem,
             IBaseRepository<Room> repoRoom, IBaseRepository<Game> repoGame, IBaseRepository<Item> repoItem,
@@ -69,8 +70,10 @@ namespace Application.Services
         IBaseRepository<AdminAuditLog> repoAdminAuditLog,
         IBaseRepository<RecipeLine> repoRecipeLine,
         IStockService stockService, IPrintDispatchService printDispatch, IWalletService walletService,
-        IBaseRepository<ItemAddOn> repoItemAddOn, IBaseRepository<TransactionItemAddOn> repoTrxItemAddOn)
+        IBaseRepository<ItemAddOn> repoItemAddOn, IBaseRepository<TransactionItemAddOn> repoTrxItemAddOn,
+        IBaseRepository<EventRegistration> repoEventReg)
         {
+            _repoEventReg = repoEventReg;
             _repoAuditLog = repoAuditLog;
             _printDispatch = printDispatch;
             _repoAdminAuditLog = repoAdminAuditLog;

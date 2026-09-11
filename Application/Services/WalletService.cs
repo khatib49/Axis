@@ -24,6 +24,13 @@ namespace Application.Services
     public class WalletService : IWalletService
     {
         public const string CashAccount = "1000";
+        /// <summary>Card / gateway money lands in the bank later, not in the drawer.</summary>
+        public const string OnlineClearingAccount = "1050";
+        public static bool IsOnlineMethod(string? method) =>
+            method is not null && (method.Equals("Online", StringComparison.OrdinalIgnoreCase)
+                || method.Equals("Card", StringComparison.OrdinalIgnoreCase)
+                || method.Equals("MontyPay", StringComparison.OrdinalIgnoreCase)
+                || method.Equals("Visa", StringComparison.OrdinalIgnoreCase));
         public const string WalletLiabilityAccount = "2100";
         public const string BonusAccount = "4905";
 
@@ -269,16 +276,23 @@ namespace Application.Services
 
             // Books: money in, liability up. Never blocks the top-up — the
             // cash is already in the drawer; a ledger gap is repairable, a
-            // rejected customer is not.
+            // rejected customer is not. Online (gateway) money is not in the
+            // drawer, so it debits 1050 Online Payments Clearing when that
+            // account exists, else falls back to cash.
+            var receiptAccount = CashAccount;
+            if (IsOnlineMethod(method) && await _repoAccount.Query()
+                    .AnyAsync(a => a.AccountNumber == OnlineClearingAccount && a.IsActive, ct))
+                receiptAccount = OnlineClearingAccount;
+
             await PostJournalAsync(
                 referenceType: "WalletTopUp",
                 referenceId: topUpRow.Id,
                 description: $"Wallet top-up #{topUpRow.Id} — user {userId} ({method})",
                 lines: bonus > 0
-                    ? new[] { (CashAccount, amount, 0m, $"Top-up received ({method})"),
+                    ? new[] { (receiptAccount, amount, 0m, $"Top-up received ({method})"),
                               (BonusAccount, bonus, 0m, $"Tier bonus +{bonusPct:0.##}%"),
                               (WalletLiabilityAccount, 0m, amount + bonus, "Wallet credit") }
-                    : new[] { (CashAccount, amount, 0m, $"Top-up received ({method})"),
+                    : new[] { (receiptAccount, amount, 0m, $"Top-up received ({method})"),
                               (WalletLiabilityAccount, 0m, amount, "Wallet credit") },
                 ct);
 

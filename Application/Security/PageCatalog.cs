@@ -111,6 +111,8 @@ namespace Application.Security
                 new[] { "LoyaltyController" }, None),
             new PageDefinition("wallets", "Wallets", "AXIS PLUS Rewards", "/admin/wallets",
                 new[] { "WalletsController" }, None),
+            new PageDefinition("online-payments", "Online Payments", "Accounting", "/admin/online-payments",
+                new[] { "PaymentsController" }, None),
 
             // ── Accounting ──────────────────────────────────────────────
             new PageDefinition("accounting", "Accounting Dashboard", "Accounting", "/accounting",

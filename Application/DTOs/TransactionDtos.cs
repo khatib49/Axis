@@ -4,10 +4,13 @@
     DateTime Date,       
     decimal ItemsTotal,
     decimal GamesTotal,
-    decimal GrandTotal
+    decimal GrandTotal,
+    // Paid event tickets confirmed that day (trailing default keeps old callers compiling).
+    decimal EventsTotal = 0m
 );
     public record BaseResponse<T>(bool Success, string? Error, string Message, T? Data = default);
-    public record PeriodTotalsDto(decimal TotalAmount, int OrdersCount);
+    // TotalAmount = sales + paid event tickets; EventsAmount/EventsCount break the ticket part out.
+    public record PeriodTotalsDto(decimal TotalAmount, int OrdersCount, decimal EventsAmount = 0m, int EventsCount = 0, decimal SalesAmount = 0m);
     public record TransactionDto(
         int Id,
         int? RoomId,
