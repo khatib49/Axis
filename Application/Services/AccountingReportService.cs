@@ -25,6 +25,16 @@ namespace Application.Services
         // We identify TCG items by checking Item.Category name at query time
         private const string TcgCategoryKeyword = "TCG";
 
+        /// <summary>
+        /// TCG / retail shelf goods = Category.ItemType "Retail" OR a name that
+        /// still contains "tcg". Same rule as ItemRevenueReportService. Before
+        /// 2026-09-27 only the NAME was checked, so renaming "TCG Pokemon" →
+        /// "Pokemon" silently moved those sales into F&amp;B.
+        /// </summary>
+        private static bool IsTcg(string? categoryName, string? itemType) =>
+            string.Equals(itemType?.Trim(), "Retail", StringComparison.OrdinalIgnoreCase)
+            || (categoryName ?? "").Contains(TcgCategoryKeyword, StringComparison.OrdinalIgnoreCase);
+
         public AccountingReportService(
             IBaseRepository<TransactionRecord> txRepo,
             IBaseRepository<Expense> expenseRepo,
@@ -100,6 +110,9 @@ namespace Application.Services
                         CategoryName = ti.Item != null && ti.Item.Category != null
                             ? ti.Item.Category.Name
                             : "",
+                        ItemType = ti.Item != null && ti.Item.Category != null
+                            ? ti.Item.Category.ItemType
+                            : null,
                         FullLineTotal = (ti.Item != null ? ti.Item.Price : 0m) * ti.Quantity
                     })
                 })
@@ -124,7 +137,7 @@ namespace Application.Services
                     var allocatedNet = tx.TotalPrice * proportion;
                     var allocatedGross = txGross * proportion;
 
-                    if (item.CategoryName.Contains(TcgCategoryKeyword, StringComparison.OrdinalIgnoreCase))
+                    if (IsTcg(item.CategoryName, item.ItemType))
                     {
                         tcgRevenue += allocatedNet;
                         tcgGross += allocatedGross;
@@ -199,6 +212,9 @@ namespace Application.Services
                         CategoryName = ti.Item != null && ti.Item.Category != null
                             ? ti.Item.Category.Name
                             : "",
+                        ItemType = ti.Item != null && ti.Item.Category != null
+                            ? ti.Item.Category.ItemType
+                            : null,
                         BuyPrice = ti.Item != null ? ti.Item.BuyPrice : null,
                         Quantity = ti.Quantity
                     })
@@ -207,8 +223,7 @@ namespace Application.Services
 
             var tcgCogs = tcgCogsTxs
                 .SelectMany(t => t.Items)
-                .Where(x => x.BuyPrice.HasValue
-                         && x.CategoryName.Contains(TcgCategoryKeyword, StringComparison.OrdinalIgnoreCase))
+                .Where(x => x.BuyPrice.HasValue && IsTcg(x.CategoryName, x.ItemType))
                 .Sum(x => x.BuyPrice!.Value * x.Quantity);
 
             // Event-kit lines live on GAME transactions (GameId != null), so
@@ -525,6 +540,68 @@ namespace Application.Services
                 ByAccountNumberRange: byRange,
                 CashOnHand: cashOnHand
             );
+        }
+
+        /// <summary>
+        /// Where the ingredient COGS number comes from: per ingredient, the
+        /// consumed quantity, the cost booked, the current buy price, and a
+        /// flag when the two disagree (unit mismatch, stale price, double
+        /// rebuild…). Also the top single movements so a runaway row is
+        /// visible immediately.
+        /// </summary>
+        public async Task<IngredientCogsBreakdownDto> GetIngredientCogsBreakdownAsync(DateTime? from, DateTime? to, CancellationToken ct = default)
+        {
+            var toExclusive = to?.Date.AddDays(1);
+            var q = _movementRepo.Query().Where(m => m.Type == "Consumption");
+            if (from.HasValue) q = q.Where(m => m.CreatedOn >= from.Value.Date);
+            if (toExclusive.HasValue) q = q.Where(m => m.CreatedOn < toExclusive.Value);
+
+            var rows = await q
+                .Select(m => new
+                {
+                    m.IngredientId,
+                    IngredientName = m.Ingredient.Name,
+                    IngredientUnit = m.Ingredient.Unit,
+                    CurrentPrice = m.Ingredient.BuyPricePerUnit,
+                    m.Quantity, m.UnitCost, m.TotalCost, m.ReferenceType, m.ReferenceId, m.CreatedOn, m.Id,
+                })
+                .ToListAsync(ct);
+
+            var byIng = rows
+                .GroupBy(r => new { r.IngredientId, r.IngredientName, r.IngredientUnit, r.CurrentPrice })
+                .Select(g =>
+                {
+                    var qty = g.Sum(x => Math.Abs(x.Quantity));
+                    var cost = g.Sum(x => x.TotalCost ?? 0m);
+                    var avgUnit = qty > 0 ? cost / qty : 0m;
+                    var cur = g.Key.CurrentPrice ?? 0m;
+                    var expected = Math.Round(qty * cur, 2);
+                    string? flag = null;
+                    if (g.Key.CurrentPrice is null) flag = "No buy price on ingredient";
+                    else if (cur > 0 && (avgUnit > cur * 1.5m || avgUnit < cur / 1.5m)) flag = $"Booked unit cost {avgUnit:0.####} vs current price {cur:0.####}/{g.Key.IngredientUnit} — unit or price mismatch";
+                    return new IngredientCogsLineDto(
+                        g.Key.IngredientId, g.Key.IngredientName, g.Key.IngredientUnit,
+                        Math.Round(qty, 3), Math.Round(cost, 2), Math.Round(avgUnit, 4), g.Key.CurrentPrice, expected,
+                        g.Count(), flag);
+                })
+                .OrderByDescending(l => l.TotalCost)
+                .ToList();
+
+            var top = rows
+                .OrderByDescending(r => r.TotalCost ?? 0m)
+                .Take(25)
+                .Select(r => new IngredientCogsMovementDto(
+                    r.Id, r.CreatedOn, r.IngredientName, r.IngredientUnit, Math.Round(Math.Abs(r.Quantity), 3),
+                    r.UnitCost, r.TotalCost ?? 0m, r.ReferenceType, r.ReferenceId))
+                .ToList();
+
+            return new IngredientCogsBreakdownDto(
+                From: from, To: to,
+                Total: Math.Round(rows.Sum(r => r.TotalCost ?? 0m), 2),
+                MovementCount: rows.Count,
+                ExpectedAtCurrentPrices: byIng.Sum(l => l.ExpectedAtCurrentPrice),
+                Lines: byIng,
+                TopMovements: top);
         }
 
         public async Task<List<ExpenseCategoryLineDto>> GetExpensesBreakdownAsync(DateTime? from, DateTime? to, bool capitalOnly, CancellationToken ct = default)

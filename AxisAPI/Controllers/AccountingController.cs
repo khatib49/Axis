@@ -62,6 +62,11 @@ namespace AxisAPI.Controllers
         /// Expense lines grouped by category.
         /// Pass capitalOnly=true for capital investments, false for operating.
         /// </summary>
+        /// <summary>Per-ingredient breakdown of the Ingredient COGS figure, with mismatch flags.</summary>
+        [HttpGet("ingredient-cogs-breakdown")]
+        public async Task<ActionResult<IngredientCogsBreakdownDto>> GetIngredientCogsBreakdown([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+            => Ok(await _svc.GetIngredientCogsBreakdownAsync(from, to, ct));
+
         [HttpGet("expenses-breakdown")]
         public async Task<ActionResult<List<ExpenseCategoryLineDto>>> GetExpensesBreakdown([FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] bool capitalOnly = false,
             CancellationToken ct = default)

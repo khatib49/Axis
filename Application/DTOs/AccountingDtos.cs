@@ -453,4 +453,20 @@
         int TotalPages
     );
 
+
+    // ── Ingredient COGS diagnostic ───────────────────────────────────────
+    public record IngredientCogsLineDto(
+        int IngredientId, string IngredientName, string Unit,
+        decimal QuantityConsumed, decimal TotalCost, decimal AvgUnitCost,
+        decimal? CurrentBuyPrice, decimal ExpectedAtCurrentPrice,
+        int MovementCount, string? Flag);
+
+    public record IngredientCogsMovementDto(
+        int Id, DateTime CreatedOn, string IngredientName, string Unit,
+        decimal Quantity, decimal? UnitCost, decimal TotalCost, string? ReferenceType, int? ReferenceId);
+
+    public record IngredientCogsBreakdownDto(
+        DateTime? From, DateTime? To, decimal Total, int MovementCount,
+        decimal ExpectedAtCurrentPrices,
+        List<IngredientCogsLineDto> Lines, List<IngredientCogsMovementDto> TopMovements);
 }
