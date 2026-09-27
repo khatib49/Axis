@@ -401,6 +401,31 @@ namespace Application.Services
                 .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
+            // TCG share per day: each invoice's paid TotalPrice split by list-price
+            // weight, Retail lines only (same rule as the accounting dashboard).
+            var tcgRows = await q.Where(t => t.GameId == null && t.StatusId == 6
+                                         && t.TransactionItems.Any(ti => ti.Item.Category.ItemType == "Retail"
+                                                                      || ti.Item.Category.Name.ToLower().Contains("tcg")))
+                .Select(t => new
+                {
+                    Day = t.CreatedOn.Date,
+                    t.TotalPrice,
+                    Lines = t.TransactionItems.Select(ti => new
+                    {
+                        Full = ti.Item.Price * ti.Quantity,
+                        IsTcg = ti.Item.Category.ItemType == "Retail" || ti.Item.Category.Name.ToLower().Contains("tcg"),
+                    }).ToList(),
+                })
+                .ToListAsync(ct);
+            var tcgDict = new Dictionary<DateTime, decimal>();
+            foreach (var r in tcgRows)
+            {
+                var full = r.Lines.Sum(l => l.Full);
+                if (full <= 0) continue;
+                var share = r.TotalPrice * (r.Lines.Where(l => l.IsTcg).Sum(l => l.Full) / full);
+                tcgDict[r.Day] = (tcgDict.TryGetValue(r.Day, out var cur) ? cur : 0m) + share;
+            }
+
             // paid event tickets per day (confirmation date) — only when not
             // narrowed to categories, tickets carry none.
             var eventDict = new Dictionary<DateTime, decimal>();
@@ -428,7 +453,8 @@ namespace Application.Services
                     ItemsTotal: items,
                     GamesTotal: games,
                     GrandTotal: items + games + events,
-                    EventsTotal: events
+                    EventsTotal: events,
+                    TcgTotal: Math.Round(tcgDict.TryGetValue(d, out var tc) ? tc : 0m, 2)
                 );
             }).ToList();
 
@@ -439,7 +465,7 @@ namespace Application.Services
                 var endEx = toExclusive.Value.Date; // exclusive
                 var days = Enumerable.Range(0, (endEx - start).Days).Select(i => start.AddDays(i));
                 var dict = result.ToDictionary(x => x.Date);
-                result = days.Select(d => dict.TryGetValue(d, out var v) ? v : new DailySalesDto(d, 0m, 0m, 0m, 0m)).ToList();
+                result = days.Select(d => dict.TryGetValue(d, out var v) ? v : new DailySalesDto(d, 0m, 0m, 0m, 0m, 0m)).ToList();
             }
 
             return result;
@@ -524,6 +550,22 @@ namespace Application.Services
                 .OrderByDescending(x => x.TotalQuantity) // or .OrderByDescending(x => x.TotalAmount)
                 .Take(top > 0 ? top : 100)
                 .ToListAsync(ct);
+
+            // Fill category name + TCG flag from the categories table (one query).
+            var catIds = grouped.Select(g => g.CategoryId).Distinct().ToList();
+            var catInfo = await _repoItem.Query()
+                .Where(i => catIds.Contains(i.CategoryId))
+                .Select(i => new { i.CategoryId, i.Category.Name, i.Category.ItemType })
+                .Distinct()
+                .ToListAsync(ct);
+            var catMap = catInfo.GroupBy(c => c.CategoryId).ToDictionary(g => g.Key, g => g.First());
+            foreach (var g in grouped)
+            {
+                if (!catMap.TryGetValue(g.CategoryId, out var c)) continue;
+                g.CategoryName = c.Name ?? string.Empty;
+                g.IsTcg = string.Equals(c.ItemType?.Trim(), "Retail", StringComparison.OrdinalIgnoreCase)
+                          || (c.Name ?? "").Contains("tcg", StringComparison.OrdinalIgnoreCase);
+            }
 
             return grouped;
         }

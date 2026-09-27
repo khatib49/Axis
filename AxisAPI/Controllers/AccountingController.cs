@@ -63,6 +63,14 @@ namespace AxisAPI.Controllers
         /// Pass capitalOnly=true for capital investments, false for operating.
         /// </summary>
         /// <summary>Per-ingredient breakdown of the Ingredient COGS figure, with mismatch flags.</summary>
+        /// <summary>Drill-down for one Owner Summary tile (metric = cash|revenue|opex|net|gaming|fnb|fnbnet|foodcost|inventory|tcg|tcgcogs|tcgnet|tcgstockbuy|tcgstocksell|discounts).</summary>
+        [HttpGet("metric-breakdown")]
+        public async Task<ActionResult<MetricBreakdownDto>> GetMetricBreakdown([FromQuery] string metric, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+        {
+            try { return Ok(await _svc.GetMetricBreakdownAsync(metric, from, to, ct)); }
+            catch (ArgumentException ex) { return BadRequest(new { error = ex.Message }); }
+        }
+
         [HttpGet("ingredient-cogs-breakdown")]
         public async Task<ActionResult<IngredientCogsBreakdownDto>> GetIngredientCogsBreakdown([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
             => Ok(await _svc.GetIngredientCogsBreakdownAsync(from, to, ct));

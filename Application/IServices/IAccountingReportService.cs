@@ -6,6 +6,7 @@ namespace Application.IServices
     public interface IAccountingReportService
     {
         Task<AccountingDashboardDto> GetDashboardAsync(DateTime? from, DateTime? to, CancellationToken ct = default);
+        Task<MetricBreakdownDto> GetMetricBreakdownAsync(string metric, DateTime? from, DateTime? to, CancellationToken ct = default);
         Task<IngredientCogsBreakdownDto> GetIngredientCogsBreakdownAsync(DateTime? from, DateTime? to, CancellationToken ct = default);
         Task<List<ExpenseCategoryLineDto>> GetExpensesBreakdownAsync(DateTime? from, DateTime? to, bool capitalOnly, CancellationToken ct = default);
         // Reconciliation between TransactionRecord.TotalPrice (the calculator)

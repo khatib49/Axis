@@ -469,4 +469,9 @@
         DateTime? From, DateTime? To, decimal Total, int MovementCount,
         decimal ExpectedAtCurrentPrices,
         List<IngredientCogsLineDto> Lines, List<IngredientCogsMovementDto> TopMovements);
+
+    // ── Owner-summary tile breakdowns ────────────────────────────────────
+    public record BreakdownRowDto(string Label, decimal Amount, int? Count = null, string? Detail = null, decimal? Secondary = null);
+    public record MetricBreakdownDto(string Metric, string Title, decimal Total, List<BreakdownRowDto> Rows,
+        string? Note = null, string? SecondaryLabel = null, string? CountLabel = null);
 }

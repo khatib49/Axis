@@ -20,6 +20,8 @@ namespace Application.Services
         private readonly IBaseRepository<EventRegistration> _eventRegRepo;
         private readonly IBaseRepository<Purchase> _purchaseRepo;
         private readonly IBaseRepository<IntegrationSetting> _settingsRepo;
+        private readonly IBaseRepository<Ingredient> _ingredientRepo;
+        private readonly IItemRevenueReportService _itemReport;
 
         // TCG category IDs — items whose Category.Name contains "TCG" or "Card"
         // We identify TCG items by checking Item.Category name at query time
@@ -45,10 +47,14 @@ namespace Application.Services
             IBaseRepository<StockMovement> movementRepo,
             IBaseRepository<EventRegistration> eventRegRepo,
             IBaseRepository<Purchase> purchaseRepo,
-            IBaseRepository<IntegrationSetting> settingsRepo)
+            IBaseRepository<IntegrationSetting> settingsRepo,
+            IBaseRepository<Ingredient> ingredientRepo,
+            IItemRevenueReportService itemReport)
         {
             _purchaseRepo = purchaseRepo;
             _settingsRepo = settingsRepo;
+            _ingredientRepo = ingredientRepo;
+            _itemReport = itemReport;
             _txRepo = txRepo;
             _expenseRepo = expenseRepo;
             _catRepo = catRepo;
@@ -540,6 +546,206 @@ namespace Application.Services
                 ByAccountNumberRange: byRange,
                 CashOnHand: cashOnHand
             );
+        }
+
+        // ── Owner Summary drill-downs ───────────────────────────────────
+        /// <summary>
+        /// One endpoint behind every tile on the Owner Summary. Each metric
+        /// answers "what is this number made of?" with the same period as
+        /// the dashboard (cash on hand is all-time by definition).
+        /// </summary>
+        public async Task<MetricBreakdownDto> GetMetricBreakdownAsync(string metric, DateTime? from, DateTime? to, CancellationToken ct = default)
+        {
+            metric = (metric ?? "").Trim().ToLowerInvariant();
+            var dash = await GetDashboardAsync(from, to, ct);
+            var toExclusive = to?.Date.AddDays(1);
+
+            IQueryable<TransactionRecord> PaidTx()
+            {
+                var q = _txRepo.Query().Where(t => t.StatusId == 6);
+                if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value.Date);
+                if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+                return q;
+            }
+
+            // Item revenue by category, discount-aware (invoice TotalPrice split
+            // by list-price weight), split into Retail vs F&B by ItemType.
+            async Task<(List<BreakdownRowDto> fnb, List<BreakdownRowDto> tcg)> ItemRevenueByCategoryAsync()
+            {
+                var rows = await PaidTx().Where(t => t.GameId == null)
+                    .Select(t => new
+                    {
+                        t.Id, t.TotalPrice,
+                        Lines = t.TransactionItems.Where(ti => ti.Item != null).Select(ti => new
+                        {
+                            Cat = ti.Item!.Category != null ? ti.Item.Category.Name : "(no category)",
+                            ItemType = ti.Item!.Category != null ? ti.Item.Category.ItemType : null,
+                            Full = ti.Item!.Price * ti.Quantity,
+                            ti.Quantity,
+                        }).ToList(),
+                    }).ToListAsync(ct);
+
+                var acc = new Dictionary<(string cat, bool tcg), (decimal amt, int qty, HashSet<int> tx)>();
+                foreach (var r in rows)
+                {
+                    var full = r.Lines.Sum(l => l.Full);
+                    if (full <= 0) continue;
+                    foreach (var l in r.Lines)
+                    {
+                        var key = (l.Cat, IsTcg(l.Cat, l.ItemType));
+                        (decimal amt, int qty, HashSet<int> tx) cur = acc.TryGetValue(key, out var v) ? v : (0m, 0, new HashSet<int>());
+                        cur.amt += r.TotalPrice * (l.Full / full);
+                        cur.qty += l.Quantity;
+                        cur.tx.Add(r.Id);
+                        acc[key] = cur;
+                    }
+                }
+                List<BreakdownRowDto> Build(bool tcg) => acc.Where(k => k.Key.tcg == tcg)
+                    .Select(k => new BreakdownRowDto(k.Key.cat, Math.Round(k.Value.amt, 2), k.Value.tx.Count, $"{k.Value.qty} units"))
+                    .OrderByDescending(x => x.Amount).ToList();
+                return (Build(false), Build(true));
+            }
+
+            async Task<List<BreakdownRowDto>> GamingByCategoryAsync()
+            {
+                var rows = await PaidTx().Where(t => t.GameId != null)
+                    .GroupBy(t => t.Game != null && t.Game.Category != null ? t.Game.Category.Name : "(no category)")
+                    .Select(g => new { Cat = g.Key, Amt = g.Sum(x => x.TotalPrice), Cnt = g.Count(), Hours = g.Sum(x => x.Hours) })
+                    .ToListAsync(ct);
+                return rows.OrderByDescending(r => r.Amt)
+                    .Select(r => new BreakdownRowDto(r.Cat, Math.Round(r.Amt, 2), r.Cnt, $"{r.Hours:0.#} h")).ToList();
+            }
+
+            List<BreakdownRowDto> ExpenseRows(ExpenseSummaryDto e) =>
+                e.Lines.Select(l => new BreakdownRowDto(l.Category, l.Amount)).ToList();
+
+            switch (metric)
+            {
+                case "cash":
+                {
+                    var c = dash.CashOnHand!;
+                    var expByCat = await _expenseRepo.Query()
+                        .GroupBy(e => e.Category.Name)
+                        .Select(g => new { Cat = g.Key, Amt = g.Sum(x => x.Amount), Cnt = g.Count() })
+                        .ToListAsync(ct);
+                    var rows = new List<BreakdownRowDto>
+                    {
+                        new("Baseline (till reading you set)", c.Baseline),
+                        new("+ Total revenue — all paid sales & sessions (all time)", await _txRepo.Query().Where(t => t.StatusId == 6).SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m),
+                        new("+ Total revenue — paid event tickets (all time)", await _eventRegRepo.Query().Where(r => r.PaymentStatus == "Paid").SumAsync(r => (decimal?)r.Amount, ct) ?? 0m),
+                    };
+                    rows.AddRange(expByCat.OrderByDescending(x => x.Amt).Select(x => new BreakdownRowDto($"− Expenses · {x.Cat}", -x.Amt, x.Cnt)));
+                    return new MetricBreakdownDto("cash", "Cash on Hand — how it is built", c.Amount, rows,
+                        "All time, not affected by the date filter. Expenses = every entry on the Expenses page.", CountLabel: "entries");
+                }
+                case "revenue":
+                {
+                    var r = dash.Revenue;
+                    var rows = new List<BreakdownRowDto>
+                    {
+                        new("Gaming (PS5, billiard, board games…)", r.Gaming),
+                        new("F&B (food, drinks, tobacco)", r.Fnb),
+                        new("TCG / Retail", r.Tcg),
+                        new("Event tickets", r.Events),
+                    };
+                    return new MetricBreakdownDto("revenue", "Total Revenue by stream", r.Total, rows,
+                        $"Net of discounts. Gross {r.TotalGross:0.00} − discounts {r.DiscountsGiven:0.00} = {r.Total:0.00}.");
+                }
+                case "discounts":
+                {
+                    var rows = await PaidTx().Where(t => t.DiscountId != null && t.Discount != null && t.Discount.Percentage > 0 && t.Discount.Percentage < 100)
+                        .GroupBy(t => new { t.Discount!.Name, t.Discount.Percentage })
+                        .Select(g => new { g.Key.Name, g.Key.Percentage, Net = g.Sum(x => x.TotalPrice), Cnt = g.Count() })
+                        .ToListAsync(ct);
+                    var list = rows.Select(x =>
+                    {
+                        var gross = x.Net / (1m - x.Percentage / 100m);
+                        return new BreakdownRowDto($"{x.Name} ({x.Percentage}%)", Math.Round(gross - x.Net, 2), x.Cnt, $"on {x.Net:0.00} net");
+                    }).OrderByDescending(x => x.Amount).ToList();
+                    return new MetricBreakdownDto("discounts", "Discounts given — by discount", dash.Revenue.DiscountsGiven ?? 0m, list, CountLabel: "invoices");
+                }
+                case "opex":
+                    return new MetricBreakdownDto("opex", "Operating Expenses by category", dash.OperatingExpenses.Total, ExpenseRows(dash.OperatingExpenses),
+                        "Prorated to the period for entries that span several days.");
+                case "net":
+                    return new MetricBreakdownDto("net", "Net Income = Total Revenue − Operating Expenses",
+                        dash.Revenue.Total - dash.OperatingExpenses.Total,
+                        new List<BreakdownRowDto>
+                        {
+                            new("Total revenue", dash.Revenue.Total),
+                            new("− Operating expenses", -dash.OperatingExpenses.Total),
+                        }, "COGS is not subtracted here — see F&B Net and TCG Net.");
+                case "gaming":
+                    return new MetricBreakdownDto("gaming", "Gaming Revenue by game category", dash.Revenue.Gaming, await GamingByCategoryAsync(), CountLabel: "sessions");
+                case "fnb":
+                {
+                    var (fnb, _) = await ItemRevenueByCategoryAsync();
+                    return new MetricBreakdownDto("fnb", "F&B Revenue by category", dash.Revenue.Fnb, fnb, "Every item category whose type is not Retail.", CountLabel: "invoices");
+                }
+                case "tcg":
+                {
+                    var (_, tcg) = await ItemRevenueByCategoryAsync();
+                    return new MetricBreakdownDto("tcg", "TCG / Retail Revenue by category", dash.Revenue.Tcg, tcg, "Item categories with type Retail (Pokemon, YuGiOh, Sleeves…).", CountLabel: "invoices");
+                }
+                case "fnbnet":
+                    return new MetricBreakdownDto("fnbnet", "F&B Net = F&B Revenue − Ingredient COGS",
+                        dash.Revenue.Fnb - (dash.Cogs.IngredientCogs ?? 0m),
+                        new List<BreakdownRowDto>
+                        {
+                            new("F&B revenue", dash.Revenue.Fnb),
+                            new("− Ingredient COGS (stock consumed)", -(dash.Cogs.IngredientCogs ?? 0m)),
+                        }, "Open the Ingredient COGS breakdown to see which ingredients drive the cost.");
+                case "foodcost":
+                    return new MetricBreakdownDto("foodcost", "Food Cost % = Ingredient COGS ÷ Sales revenue",
+                        dash.Cogs.FoodCostPercent ?? 0m,
+                        new List<BreakdownRowDto>
+                        {
+                            new("Ingredient COGS", dash.Cogs.IngredientCogs ?? 0m),
+                            new("÷ Sales revenue (gaming + F&B + TCG, excl. tickets)", dash.Revenue.Total - dash.Revenue.Events),
+                        }, "Shown as a percentage on the tile.");
+                case "inventory":
+                {
+                    var ings = await _ingredientRepo.Query().Where(i => i.IsActive && i.QuantityOnHand > 0 && i.BuyPricePerUnit != null)
+                        .Select(i => new { i.Name, i.Unit, i.QuantityOnHand, Price = i.BuyPricePerUnit!.Value }).ToListAsync(ct);
+                    var rows = ings.Select(i => new BreakdownRowDto(i.Name, Math.Round(i.QuantityOnHand * i.Price, 2), null, $"{i.QuantityOnHand:0.##} {i.Unit} × {i.Price:0.####}"))
+                        .OrderByDescending(r => r.Amount).ToList();
+                    return new MetricBreakdownDto("inventory", "Inventory Valuation by ingredient", rows.Sum(r => r.Amount), rows, "Quantity on hand × current buy price.");
+                }
+                case "tcgcogs":
+                case "tcgstockbuy":
+                case "tcgstocksell":
+                case "tcgnet":
+                {
+                    var rep = await _itemReport.GetReportAsync(new ItemRevenueReportRequestDto
+                    {
+                        From = from.HasValue ? DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc) : null,
+                        To = toExclusive.HasValue ? DateTime.SpecifyKind(toExclusive.Value, DateTimeKind.Utc) : null,
+                    }, ct);
+                    var tcgGroups = rep.Categories.Where(g => g.IsTcg).ToList();
+                    if (metric == "tcgnet")
+                        return new MetricBreakdownDto("tcgnet", "TCG Net = TCG Revenue − TCG COGS", rep.TcgRevenue - rep.TcgCogs,
+                            tcgGroups.OrderByDescending(g => g.TotalGrossProfit)
+                                .Select(g => new BreakdownRowDto(g.CategoryName, g.TotalGrossProfit, g.TotalUnitsSold, $"rev {g.TotalRevenue:0.00} − cogs {g.TotalCogs:0.00}")).ToList(),
+                            CountLabel: "units");
+                    if (metric == "tcgcogs")
+                        return new MetricBreakdownDto("tcgcogs", "TCG Cost of Goods Sold by category", rep.TcgCogs,
+                            tcgGroups.OrderByDescending(g => g.TotalCogs)
+                                .Select(g => new BreakdownRowDto(g.CategoryName, g.TotalCogs, g.TotalUnitsSold + g.TotalUnitsGivenFree,
+                                    g.TotalUnitsGivenFree > 0 ? $"{g.TotalUnitsGivenFree} given free in event kits" : null)).ToList(),
+                            "Buy price × units sold (event-kit items included at cost).", CountLabel: "units");
+                    if (metric == "tcgstockbuy")
+                        return new MetricBreakdownDto("tcgstockbuy", "TCG Stock on hand — at cost", rep.TcgStockBuyValue,
+                            tcgGroups.OrderByDescending(g => g.TotalStockBuyValue)
+                                .Select(g => new BreakdownRowDto(g.CategoryName, g.TotalStockBuyValue, g.Items.Sum(i => i.StockOnHand))).ToList(),
+                            CountLabel: "units on hand");
+                    return new MetricBreakdownDto("tcgstocksell", "TCG Stock on hand — at retail price", rep.TcgStockSellValue,
+                        tcgGroups.OrderByDescending(g => g.TotalStockSellValue)
+                            .Select(g => new BreakdownRowDto(g.CategoryName, g.TotalStockSellValue, g.Items.Sum(i => i.StockOnHand))).ToList(),
+                        CountLabel: "units on hand");
+                }
+                default:
+                    throw new ArgumentException($"Unknown metric '{metric}'.");
+            }
         }
 
         /// <summary>

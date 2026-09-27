@@ -41,24 +41,48 @@ namespace Application.Services
             if (from.HasValue) revenueQuery = revenueQuery.Where(t => t.CreatedOn >= from.Value.Date);
             if (to.HasValue) revenueQuery = revenueQuery.Where(t => t.CreatedOn < to.Value.Date.AddDays(1));
 
-            // Exclude TCG Retail transactions (same logic you had)
+            // Keep only invoices that carry at least one NON-TCG line (a
+            // basket of coffee + sleeves still counts its coffee here).
             revenueQuery = revenueQuery.Where(t =>
-                !t.TransactionItems.Any(ti => ti.Item != null && tcgCategoryIds.Contains(ti.Item.CategoryId)));
+                t.TransactionItems.Any(ti => ti.Item != null && !tcgCategoryIds.Contains(ti.Item.CategoryId)));
 
-            // If user selected categories, keep only transactions that include at least 1 item in those categories
             if (catList.Count > 0)
             {
                 revenueQuery = revenueQuery.Where(t =>
                     t.TransactionItems.Any(ti => ti.Item != null && catList.Contains(ti.Item.CategoryId)));
             }
 
-            // ✅ Revenue WITH discount (actual collected)
-            var totalRevenue = await revenueQuery
-                .SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
+            // Revenue = the F&B share of what was actually paid: each invoice's
+            // TotalPrice (discount-aware) split by list-price weight, TCG lines
+            // excluded. Same allocation rule as the accounting dashboard.
+            var fnbRows = await revenueQuery
+                .Select(t => new
+                {
+                    t.TotalPrice,
+                    Lines = t.TransactionItems.Where(ti => ti.Item != null).Select(ti => new
+                    {
+                        ti.Item!.CategoryId,
+                        Full = ti.Item!.Price * ti.Quantity,
+                    }).ToList(),
+                })
+                .ToListAsync(ct);
 
-            var transactionCount = await revenueQuery.CountAsync(ct);
+            decimal totalRevenue = 0m;
+            foreach (var r in fnbRows)
+            {
+                var full = r.Lines.Sum(l => l.Full);
+                if (full <= 0) continue;
+                var fnbFull = r.Lines
+                    .Where(l => !tcgCategoryIds.Contains(l.CategoryId) && (catList.Count == 0 || catList.Contains(l.CategoryId)))
+                    .Sum(l => l.Full);
+                totalRevenue += r.TotalPrice * (fnbFull / full);
+            }
+            totalRevenue = Math.Round(totalRevenue, 2);
 
-            var totalExpenses = await CalculateExpensesAsync(from, to, await GetFnbExpenseCategoryIds(ct), catList, ct);
+            var transactionCount = fnbRows.Count;
+
+            // Item-category filters must not touch expenses — Expense.FK_CategoryId is an ExpenseCategory id.
+            var totalExpenses = await CalculateExpensesAsync(from, to, await GetFnbExpenseCategoryIds(ct), new List<int>(), ct);
 
             var netProfit = totalRevenue - totalExpenses;
             var profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
@@ -164,7 +188,7 @@ namespace Application.Services
             var transactionCount = await revenueQuery.CountAsync(ct);
 
             // TCG Retail Expenses
-            var totalExpenses = await CalculateExpensesAsync(from, to, await GetTcgRetailExpenseCategoryIds(ct), catList, ct);
+            var totalExpenses = await CalculateExpensesAsync(from, to, await GetTcgRetailExpenseCategoryIds(ct), new List<int>(), ct);
 
             var netProfit = totalRevenue - totalExpenses;
             var profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
@@ -241,8 +265,11 @@ namespace Application.Services
         private async Task<List<int>> GetTcgRetailCategoryIds(CancellationToken ct)
         {
             return await _categoryRepo.Query()
-                .Where(c => c.Name.ToLower().Contains("tcg retail") ||
-                           c.Name.ToLower() == "tcg" ||
+                // Item Type = Retail is the real rule (TCG was split into
+                // Pokemon / YuGiOh / Sleeves… for the website); the name checks
+                // only keep legacy categories working.
+                .Where(c => (c.ItemType != null && c.ItemType.ToLower() == "retail") ||
+                           c.Name.ToLower().Contains("tcg") ||
                            c.Type.ToLower().Contains("tcg"))
                 .Select(c => c.Id)
                 .ToListAsync(ct);
@@ -278,8 +305,17 @@ namespace Application.Services
         {
             return await _expenseCategoryRepo.Query()
                 .Where(c => c.Name.ToLower().Contains("tcg") ||
-                           c.Name.ToLower().Contains("card") ||
-                           c.Name.ToLower().Contains("trading"))
+                           c.Name.ToLower().Contains("trading") ||
+                           c.Name.ToLower().Contains("pokemon") ||
+                           c.Name.ToLower().Contains("yugi") ||
+                           c.Name.ToLower().Contains("magic") ||
+                           c.Name.ToLower().Contains("archive") ||
+                           c.Name.ToLower().Contains("digimon") ||
+                           c.Name.ToLower().Contains("sleeve") ||
+                           c.Name.ToLower().Contains("binder") ||
+                           c.Name.ToLower().Contains("deck box") ||
+                           c.Name.ToLower().Contains("playmat") ||
+                           (c.Name.ToLower().Contains("card") && !c.Name.ToLower().Contains("card terminal") && !c.Name.ToLower().Contains("card fee")))
                 .Select(c => c.Id)
                 .ToListAsync(ct);
         }

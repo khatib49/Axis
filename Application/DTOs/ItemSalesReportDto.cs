@@ -9,6 +9,8 @@
         public string CategoryName { get; set; } = string.Empty;
 
         public string ItemType { get; set; } = string.Empty; // CoffeeShop, BoardGame, etc.
+        /// <summary>True when the item's category is TCG / retail (Category.ItemType = Retail).</summary>
+        public bool IsTcg { get; set; }
 
         public int TotalQuantity { get; set; }           // how many units sold
         public decimal TotalAmount { get; set; }         // total revenue from this item

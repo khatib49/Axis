@@ -680,8 +680,18 @@ namespace Application.Services
 
                         if (revenueAccount == null)
                         {
+                            // Unmapped category → 4200 TCG Retail Revenue when the
+                            // category is Retail (Pokemon, YuGiOh, Sleeves… after
+                            // the TCG split), else 4100 F&B. Before 2026-09-27 every
+                            // unmapped category went to 4100.
+                            var isRetail = string.Equals(catGroup.Category?.ItemType?.Trim(), "Retail", StringComparison.OrdinalIgnoreCase)
+                                        || (catGroup.Category?.Name ?? "").Contains("tcg", StringComparison.OrdinalIgnoreCase);
+                            var fallbackNo = isRetail ? "4200" : "4100";
                             revenueAccount = await _accountRepo.Query()
-                                .FirstOrDefaultAsync(a => a.AccountNumber == "4100" && a.IsActive, ct);
+                                .FirstOrDefaultAsync(a => a.AccountNumber == fallbackNo && a.IsActive, ct);
+                            if (revenueAccount == null && isRetail)
+                                revenueAccount = await _accountRepo.Query()
+                                    .FirstOrDefaultAsync(a => a.AccountNumber == "4100" && a.IsActive, ct);
                         }
 
                         if (revenueAccount == null)

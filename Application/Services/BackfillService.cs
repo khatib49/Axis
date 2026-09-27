@@ -99,6 +99,8 @@ namespace Application.Services
 
             accountsByNumber.TryGetValue("4000", out var fallbackGamingRevenue);
             accountsByNumber.TryGetValue("4100", out var fallbackItemRevenue);
+            accountsByNumber.TryGetValue("4200", out var fallbackRetailRevenue);
+            _fallbackRetailRevenue = fallbackRetailRevenue ?? fallbackItemRevenue;
             // 4900 Sales Discounts (contra-revenue) — required for discount
             // accounting. If it's missing, we silently fall back to NET
             // accounting per-transaction (with a log warning inside the
@@ -519,7 +521,7 @@ namespace Application.Services
                     if (categoryName != null
                         && categoriesByName.TryGetValue(categoryName.Trim().ToLowerInvariant(), out var cat))
                     {
-                        expectedAccountId = cat.AccountId ?? fallbackItemRevenue?.Id;
+                        expectedAccountId = cat.AccountId ?? (IsRetailCategory(cat) ? _fallbackRetailRevenue?.Id : fallbackItemRevenue?.Id);
                     }
                     else
                     {
@@ -561,6 +563,14 @@ namespace Application.Services
                 return description.Substring(prefix.Length);
             return null;
         }
+
+        // 4200 when present, else 4100 — set per backfill run.
+        private Account? _fallbackRetailRevenue;
+
+        /// <summary>Same TCG rule as the reports: ItemType Retail, or a legacy "tcg" name.</summary>
+        private static bool IsRetailCategory(Category? c) =>
+            c is not null && (string.Equals(c.ItemType?.Trim(), "Retail", StringComparison.OrdinalIgnoreCase)
+                              || (c.Name ?? "").Contains("tcg", StringComparison.OrdinalIgnoreCase));
 
         private JournalEntry? BuildTransactionEntry(
             TransactionRecord tx,
@@ -665,7 +675,7 @@ namespace Application.Services
 
                     var revenueAccount = catGroup.Category?.AccountId is int catAcctId && accounts.TryGetValue(catAcctId, out var mapped)
                         ? mapped
-                        : fallbackItemRevenue;
+                        : (IsRetailCategory(catGroup.Category) ? _fallbackRetailRevenue : fallbackItemRevenue);
 
                     if (revenueAccount == null) continue;
 

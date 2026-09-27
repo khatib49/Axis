@@ -6,7 +6,9 @@
     decimal GamesTotal,
     decimal GrandTotal,
     // Paid event tickets confirmed that day (trailing default keeps old callers compiling).
-    decimal EventsTotal = 0m
+    decimal EventsTotal = 0m,
+    // TCG / retail share of ItemsTotal (Category.ItemType = Retail). F&B = ItemsTotal − TcgTotal.
+    decimal TcgTotal = 0m
 );
     public record BaseResponse<T>(bool Success, string? Error, string Message, T? Data = default);
     // TotalAmount = sales + paid event tickets; EventsAmount/EventsCount break the ticket part out.
