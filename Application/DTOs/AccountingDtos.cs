@@ -465,13 +465,24 @@
         int Id, DateTime CreatedOn, string IngredientName, string Unit,
         decimal Quantity, decimal? UnitCost, decimal TotalCost, string? ReferenceType, int? ReferenceId);
 
+    /// <summary>One recipe line that consumes an ingredient — used to find the line that blows the cost up.</summary>
+    public record RecipeConsumerDto(
+        int RecipeLineId, int IngredientId, string IngredientName,
+        int ItemId, string ItemName, decimal ItemSellPrice,
+        decimal RecipeQty, string? RecipeUnit, string IngredientUnit,
+        bool UnitConverted, decimal QtyPerPortionInIngredientUnit, decimal CostPerPortion,
+        int UnitsSoldInPeriod, decimal CostInPeriod, string? Flag);
+
     public record IngredientCogsBreakdownDto(
         DateTime? From, DateTime? To, decimal Total, int MovementCount,
         decimal ExpectedAtCurrentPrices,
-        List<IngredientCogsLineDto> Lines, List<IngredientCogsMovementDto> TopMovements);
+        List<IngredientCogsLineDto> Lines, List<IngredientCogsMovementDto> TopMovements,
+        List<RecipeConsumerDto>? RecipeProblems = null,
+        Dictionary<int, List<RecipeConsumerDto>>? ConsumersByIngredient = null);
 
     // ── Owner-summary tile breakdowns ────────────────────────────────────
-    public record BreakdownRowDto(string Label, decimal Amount, int? Count = null, string? Detail = null, decimal? Secondary = null);
+    public record BreakdownRowDto(string Label, decimal Amount, int? Count = null, string? Detail = null, decimal? Secondary = null,
+        List<BreakdownRowDto>? Children = null);
     public record MetricBreakdownDto(string Metric, string Title, decimal Total, List<BreakdownRowDto> Rows,
         string? Note = null, string? SecondaryLabel = null, string? CountLabel = null);
 }
