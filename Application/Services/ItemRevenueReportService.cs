@@ -39,7 +39,7 @@ namespace Application.Services
         private readonly IBaseRepository<RecipeLine> _recipeRepo;
 
         private const int PaidStatus = 6; // "Processed and Paid"
-        private const int ItemDeletedStatus = 3; // Item status "Deleted" (retired from the catalogue)
+        private const int ItemEnabledStatus = 1; // Item status "Enabled" — everything else (Disabled/Deleted) is retired from the shelf
 
         public ItemRevenueReportService(
             IBaseRepository<TransactionRecord> txRepo,
@@ -202,8 +202,9 @@ namespace Application.Services
             }
 
             // ── 5. Per-item lines ────────────────────────────────────────
-            // Retired items (status "Deleted"): they are not on the shelf, so
-            // their stock is worth nothing whatever Item.Quantity still says.
+            // Retired items (status Disabled or Deleted — the shop "disables"
+            // items it no longer sells): they are not on the shelf, so their
+            // stock is worth nothing whatever Item.Quantity still says.
             // They only stay in the report when they actually sold in the
             // period (history must not disappear); otherwise they are dropped.
             var itemLines = items.Select<Item, ItemRevenueLineDto?>(item =>
@@ -211,7 +212,7 @@ namespace Application.Services
                 acc.TryGetValue(item.Id, out var sold);
                 var units = sold?.Units ?? 0;
                 var free = sold?.Free ?? 0;
-                var isDeleted = item.StatusId == ItemDeletedStatus;
+                var isDeleted = item.StatusId != ItemEnabledStatus;
                 if (isDeleted && units == 0 && free == 0) return null;
                 var revenue = Math.Round(sold?.Net ?? 0m, 2);
                 var gross = Math.Round(sold?.Gross ?? 0m, 2);

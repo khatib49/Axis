@@ -188,7 +188,11 @@ namespace Application.Services
             if (pagination.CategoryId.HasValue)
                 query = query.Where(x => x.CategoryId == pagination.CategoryId.Value);
 
-            query = query.Where(x => x.StatusId == 1);// Get Only enabled items
+            // Default = enabled only (cashier / menu). Admin passes StatusId
+            // to see Disabled/Deleted items, or 0 for everything.
+            var statusFilter = pagination.StatusId ?? 1;
+            if (statusFilter != 0)
+                query = query.Where(x => x.StatusId == statusFilter);
             if (!string.IsNullOrWhiteSpace(pagination.search))
             {
                 var term = pagination.search.Trim();
