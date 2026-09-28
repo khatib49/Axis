@@ -39,6 +39,7 @@ namespace Application.Services
         private readonly IBaseRepository<RecipeLine> _recipeRepo;
 
         private const int PaidStatus = 6; // "Processed and Paid"
+        private const int ItemDeletedStatus = 3; // Item status "Deleted" (retired from the catalogue)
 
         public ItemRevenueReportService(
             IBaseRepository<TransactionRecord> txRepo,
@@ -201,11 +202,17 @@ namespace Application.Services
             }
 
             // ── 5. Per-item lines ────────────────────────────────────────
-            var itemLines = items.Select(item =>
+            // Retired items (status "Deleted"): they are not on the shelf, so
+            // their stock is worth nothing whatever Item.Quantity still says.
+            // They only stay in the report when they actually sold in the
+            // period (history must not disappear); otherwise they are dropped.
+            var itemLines = items.Select<Item, ItemRevenueLineDto?>(item =>
             {
                 acc.TryGetValue(item.Id, out var sold);
                 var units = sold?.Units ?? 0;
                 var free = sold?.Free ?? 0;
+                var isDeleted = item.StatusId == ItemDeletedStatus;
+                if (isDeleted && units == 0 && free == 0) return null;
                 var revenue = Math.Round(sold?.Net ?? 0m, 2);
                 var gross = Math.Round(sold?.Gross ?? 0m, 2);
                 var addOnRev = Math.Round(sold?.AddOnNet ?? 0m, 2);
@@ -220,7 +227,8 @@ namespace Application.Services
                 var gp = revenue - cogs;
 
                 // Recipe items: Item.Quantity is not a real shelf count.
-                var stockQty = isRecipe ? 0 : item.Quantity;
+                // Deleted items: nothing on the shelf.
+                var stockQty = isRecipe || isDeleted ? 0 : item.Quantity;
                 var stockBuy = !isRecipe && item.BuyPrice.HasValue ? Math.Round(item.BuyPrice.Value * stockQty, 2) : 0m;
                 var stockSell = isRecipe ? 0m : Math.Round(item.Price * stockQty, 2);
 
@@ -236,6 +244,7 @@ namespace Application.Services
                     UnitCost = unitCost,
                     CostSource = costSource,
                     IsRecipe = isRecipe,
+                    IsDeleted = isDeleted,
                     UnitsSold = units,
                     UnitsGivenFree = free,
                     GrossRevenue = gross,
@@ -250,7 +259,10 @@ namespace Application.Services
                     StockSellValue = stockSell,
                     StockPotentialProfit = stockSell - stockBuy,
                 };
-            }).ToList();
+            })
+            .Where(l => l is not null)
+            .Select(l => l!)
+            .ToList();
 
             // ── 6. Group by category ─────────────────────────────────────
             var grouped = categories.Select(cat =>

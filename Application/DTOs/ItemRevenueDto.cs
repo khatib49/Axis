@@ -28,6 +28,8 @@ namespace Application.DTOs
         /// <summary>"buy" (BuyPrice), "recipe" (ingredients × current cost), or "none" (no cost known → COGS 0).</summary>
         public string CostSource { get; set; } = "none";
         public bool IsRecipe { get; set; }
+        /// <summary>Item status is "Deleted" — kept only because it sold in the period; stock counted as 0.</summary>
+        public bool IsDeleted { get; set; }
 
         // Sales in period
         public int UnitsSold { get; set; }
