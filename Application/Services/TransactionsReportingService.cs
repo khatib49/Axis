@@ -315,7 +315,7 @@ namespace Application.Services
                         }).ToList(),
                     }).ToListAsync(ct);
 
-                decimal amount = 0m; int count = 0;
+                decimal amount = 0m; int segCount = 0;
                 foreach (var r in rows)
                 {
                     var full = r.Lines.Sum(l => l.Full);
@@ -326,10 +326,10 @@ namespace Application.Services
                     // list price less the session's discount (TotalPrice has play time).
                     var keep = r.Pct is > 0 and < 100 ? 1m - r.Pct / 100m : 1m;
                     amount += r.IsGame ? want * keep : r.TotalPrice * (want / full);
-                    count++;
+                    segCount++;
                 }
                 amount = Math.Round(amount, 2);
-                return new PeriodTotalsDto(amount, count, 0m, 0, amount);
+                return new PeriodTotalsDto(amount, segCount, 0m, 0, amount);
             }
 
             List<int> cats = new();
