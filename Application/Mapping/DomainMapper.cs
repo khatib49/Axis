@@ -110,6 +110,10 @@ namespace Application.Mapping
                         .Select(a => new OrderLineAddOnDto(
                             a.AddOnId, a.Name, a.Quantity, a.UnitPrice,
                             a.UnitPrice * a.Quantity))
+                        .ToList(),
+                    ti.Variants
+                        .OrderBy(v => v.Id)
+                        .Select(v => new OrderLineVariantDto(v.VariantId, v.Name, v.Quantity, v.PriceDelta))
                         .ToList()
                 )).ToList(),
                 e.SetId,
@@ -207,6 +211,7 @@ namespace Application.Mapping
         public partial ItemDto ToDto(Item e);
         // Element mapping for Item.AddOns → ItemDto.AddOns.
         public partial ItemAddOnDto ToDto(ItemAddOn e);
+        public partial ItemVariantDto ToDto(ItemVariant e);
         public partial Item ToEntity(ItemCreateDto dto);
         public partial void MapTo(ItemUpdateDto dto, [MappingTarget] Item e);
 

@@ -14,6 +14,34 @@ namespace Infrastructure.Persistence
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options) { }
 
+        /// <summary>
+        /// PaidOn stamping: any transaction that is saved in status 6 (Paid)
+        /// without a PaidOn gets one now. Covers pay-now orders, prepaid game
+        /// sessions and every close path without touching each call site.
+        /// </summary>
+        private void StampPaidOn()
+        {
+            foreach (var entry in ChangeTracker.Entries<TransactionRecord>())
+            {
+                if (entry.State is not (EntityState.Added or EntityState.Modified)) continue;
+                var t = entry.Entity;
+                if (t.StatusId == 6 && t.PaidOn == null)
+                    t.PaidOn = entry.State == EntityState.Added ? t.CreatedOn : DateTime.UtcNow;
+            }
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            StampPaidOn();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            StampPaidOn();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
         // ADD THESE LINES TO ApplicationDbContext.cs
         public DbSet<AccountType> AccountTypes => Set<AccountType>();
         public DbSet<Account> Accounts => Set<Account>();
@@ -35,6 +63,10 @@ namespace Infrastructure.Persistence
         public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
         public DbSet<WalletBonusTier> WalletBonusTiers => Set<WalletBonusTier>();
         public DbSet<OnlinePayment> OnlinePayments => Set<OnlinePayment>();
+        public DbSet<ItemVariant> ItemVariants => Set<ItemVariant>();
+        public DbSet<OnlineOrder> OnlineOrders => Set<OnlineOrder>();
+        public DbSet<OnlineOrderLine> OnlineOrderLines => Set<OnlineOrderLine>();
+        public DbSet<TransactionItemVariant> TransactionItemVariants => Set<TransactionItemVariant>();
         public DbSet<OnlinePaymentEvent> OnlinePaymentEvents => Set<OnlinePaymentEvent>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Item> Items => Set<Item>();
@@ -578,6 +610,7 @@ namespace Infrastructure.Persistence
                 e.HasKey(x => x.Id);
                 e.Property(x => x.TotalPrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.PaidOn);
 
                 e.HasOne(x => x.Room)
                     .WithMany(r => r.Transactions)   // ← updated
@@ -630,6 +663,59 @@ namespace Infrastructure.Persistence
               .HasOne(x => x.Game).WithMany(x => x.Settings)
               .HasForeignKey(x => x.GameId)
               .OnDelete(DeleteBehavior.Cascade);
+
+            // ── Website orders ──────────────────────────────────────────
+            b.Entity<OnlineOrder>(e =>
+            {
+                e.ToTable("OnlineOrders");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Subtotal).HasColumnType("numeric(18,2)");
+                e.Property(x => x.Total).HasColumnType("numeric(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => x.Code).IsUnique();
+                e.HasIndex(x => new { x.Status, x.CreatedOn });
+                e.HasIndex(x => x.UserId);
+            });
+            b.Entity<OnlineOrderLine>(e =>
+            {
+                e.ToTable("OnlineOrderLines");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.UnitPrice).HasColumnType("numeric(18,2)");
+                e.Property(x => x.VariantPriceDelta).HasColumnType("numeric(18,2)");
+                e.Property(x => x.AddOnsTotal).HasColumnType("numeric(18,2)");
+                e.Property(x => x.LineTotal).HasColumnType("numeric(18,2)");
+                e.HasOne(x => x.Order).WithMany(o => o.Lines).HasForeignKey(x => x.OnlineOrderId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => x.OnlineOrderId);
+            });
+
+            // ── Item variants (colour / type, own stock) ────────────────
+            b.Entity<ItemVariant>(e =>
+            {
+                e.ToTable("ItemVariants");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+                e.Property(x => x.Color).HasMaxLength(30);
+                e.Property(x => x.Sku).HasMaxLength(60);
+                e.Property(x => x.PriceDelta).HasColumnType("numeric(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.Item).WithMany(i => i.Variants).HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => x.ItemId);
+            });
+
+            b.Entity<TransactionItemVariant>(e =>
+            {
+                e.ToTable("TransactionItemVariants");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+                e.Property(x => x.PriceDelta).HasColumnType("numeric(18,2)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.Line).WithMany(l => l.Variants)
+                    .HasForeignKey(x => new { x.TransactionRecordId, x.ItemId }).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Variant).WithMany().HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => new { x.TransactionRecordId, x.ItemId });
+                e.HasIndex(x => x.VariantId);
+            });
 
             // ── Item add-ons ────────────────────────────────────────────
             b.Entity<ItemAddOn>(e =>

@@ -31,6 +31,8 @@ namespace Application.Services
         // Item add-ons (paid extras) and their snapshots on order lines.
         private readonly IBaseRepository<ItemAddOn> _repoItemAddOn;
         private readonly IBaseRepository<TransactionItemAddOn> _repoTrxItemAddOn;
+        private readonly IBaseRepository<ItemVariant> _repoVariant;
+        private readonly IBaseRepository<TransactionItemVariant> _repoTrxItemVariant;
         private readonly IBaseRepository<Room> _repoRoom;
         private readonly IBaseRepository<Game> _repoGame;
         private readonly IBaseRepository<Item> _repoItem;
@@ -71,8 +73,11 @@ namespace Application.Services
         IBaseRepository<RecipeLine> repoRecipeLine,
         IStockService stockService, IPrintDispatchService printDispatch, IWalletService walletService,
         IBaseRepository<ItemAddOn> repoItemAddOn, IBaseRepository<TransactionItemAddOn> repoTrxItemAddOn,
-        IBaseRepository<EventRegistration> repoEventReg)
+        IBaseRepository<EventRegistration> repoEventReg,
+        IBaseRepository<ItemVariant> repoVariant, IBaseRepository<TransactionItemVariant> repoTrxItemVariant)
         {
+            _repoVariant = repoVariant;
+            _repoTrxItemVariant = repoTrxItemVariant;
             _repoEventReg = repoEventReg;
             _repoAuditLog = repoAuditLog;
             _printDispatch = printDispatch;
@@ -108,6 +113,8 @@ namespace Application.Services
                     .ThenInclude(ti => ti.Item)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.AddOns)
+
+                    .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
 
             if (tx is null)
@@ -127,6 +134,9 @@ namespace Application.Services
             var dbItem = await _repoItem.GetByIdAsync(itemId, asNoTracking: false, ct);
             if (dbItem is not null)
                 dbItem.Quantity += removedQty;
+
+            // 1b) Per-colour stock, if the line had options.
+            await RestoreVariantStockAsync(tx.Id, itemId, null, ct);
 
             // 2) Ingredient.QuantityOnHand via recipe — restore exactly
             //    what this line consumed. Skips silently for non-recipe
@@ -600,6 +610,122 @@ namespace Application.Services
 
         }
 
+        // ── Variants (colour / type with own stock) ──────────────────────
+        private sealed record VariantPick(int ItemId, int VariantId, int Quantity, ItemVariant Def);
+
+        /// <summary>
+        /// Validates the variant picks of an order request against the catalog:
+        /// each pick must belong to the item and be active, and when an item
+        /// HAS active variants the picks must cover the whole line quantity
+        /// (you can't sell 3 sleeves without saying which colours). Stock is
+        /// never a blocker (same rule as items) — it just goes negative.
+        /// Returns the picks with their definitions and the price delta sum.
+        /// </summary>
+        private async Task<(List<VariantPick> picks, decimal deltaTotal, string? error)> ResolveVariantPicksAsync(
+            IEnumerable<OrderItemRequest> lines, IReadOnlyDictionary<int, int> lineQtyByItem, CancellationToken ct)
+        {
+            var wanted = new Dictionary<(int itemId, int variantId), int>();
+            foreach (var l in lines)
+            {
+                if (l.Variants == null) continue;
+                foreach (var v in l.Variants)
+                {
+                    if (v.Quantity <= 0) continue;
+                    var k = (l.ItemId, v.VariantId);
+                    wanted[k] = wanted.TryGetValue(k, out var c) ? c + v.Quantity : v.Quantity;
+                }
+            }
+
+            var itemIds = lineQtyByItem.Keys.ToList();
+            var catalog = await _repoVariant.Query().AsNoTracking()
+                .Where(v => itemIds.Contains(v.ItemId))
+                .ToListAsync(ct);
+            var byId = catalog.ToDictionary(v => v.Id);
+
+            var picks = new List<VariantPick>();
+            decimal delta = 0m;
+            foreach (var ((itemId, variantId), qty) in wanted)
+            {
+                if (!byId.TryGetValue(variantId, out var def) || def.ItemId != itemId || !def.IsActive)
+                    return (picks, 0m, $"Option #{variantId} is not available for item #{itemId}.");
+                picks.Add(new VariantPick(itemId, variantId, qty, def));
+                delta += def.PriceDelta * qty;
+            }
+
+            // Items with active variants must be fully split.
+            foreach (var (itemId, lineQty) in lineQtyByItem)
+            {
+                if (!catalog.Any(v => v.ItemId == itemId && v.IsActive)) continue;
+                var covered = picks.Where(p => p.ItemId == itemId).Sum(p => p.Quantity);
+                if (covered != lineQty)
+                    return (picks, 0m, $"Item #{itemId}: pick a colour/type for all {lineQty} unit(s) ({covered} chosen).");
+            }
+            return (picks, delta, null);
+        }
+
+        /// <summary>Writes the snapshot rows (merging into an existing row when the same option is already on the line) and moves stock.</summary>
+        private async Task PersistVariantPicksAsync(int transactionId, List<VariantPick> picks, CancellationToken ct)
+        {
+            if (picks.Count == 0) return;
+            var existing = await _repoTrxItemVariant.Query(asNoTracking: false)
+                .Where(r => r.TransactionRecordId == transactionId).ToListAsync(ct);
+            var variantIds = picks.Select(p => p.VariantId).Distinct().ToList();
+            var stockRows = await _repoVariant.Query(asNoTracking: false)
+                .Where(v => variantIds.Contains(v.Id)).ToListAsync(ct);
+
+            foreach (var p in picks)
+            {
+                var row = existing.FirstOrDefault(r => r.ItemId == p.ItemId && r.VariantId == p.VariantId);
+                if (row != null) row.Quantity += p.Quantity;
+                else await _repoTrxItemVariant.AddAsync(new TransactionItemVariant
+                {
+                    TransactionRecordId = transactionId, ItemId = p.ItemId, VariantId = p.VariantId,
+                    Name = p.Def.Name, PriceDelta = p.Def.PriceDelta, Quantity = p.Quantity, CreatedOn = DateTime.UtcNow,
+                }, ct);
+                var stock = stockRows.FirstOrDefault(v => v.Id == p.VariantId);
+                if (stock != null) stock.Quantity -= p.Quantity;
+            }
+        }
+
+        /// <summary>
+        /// Gives variant stock back for a line that is removed (or reduced by
+        /// <paramref name="onlyQuantity"/> units). Returns the price-delta
+        /// money of the units given back so the caller can take it off the
+        /// invoice total.
+        /// </summary>
+        private async Task<decimal> RestoreVariantStockAsync(int transactionId, int itemId, int? onlyQuantity, CancellationToken ct)
+        {
+            var rows = await _repoTrxItemVariant.Query(asNoTracking: false)
+                .Where(r => r.TransactionRecordId == transactionId && r.ItemId == itemId).ToListAsync(ct);
+            if (rows.Count == 0) return 0m;
+            var ids = rows.Select(r => r.VariantId).Distinct().ToList();
+            var stock = await _repoVariant.Query(asNoTracking: false).Where(v => ids.Contains(v.Id)).ToListAsync(ct);
+            var remaining = onlyQuantity ?? int.MaxValue;
+            decimal deltaBack = 0m;
+            foreach (var r in rows)
+            {
+                if (remaining <= 0) break;
+                var give = Math.Min(r.Quantity, remaining);
+                if (give <= 0) continue;
+                var v = stock.FirstOrDefault(x => x.Id == r.VariantId);
+                if (v != null) v.Quantity += give;
+                deltaBack += r.PriceDelta * give;
+                r.Quantity -= give;
+                if (r.Quantity <= 0) _repoTrxItemVariant.Remove(r);
+                remaining -= give;
+            }
+            return deltaBack;
+        }
+
+        /// <summary>Kitchen / receipt note like "2× Black, 1× Green".</summary>
+        private static string? VariantNote(IEnumerable<TransactionItemVariant>? rows)
+        {
+            if (rows == null) return null;
+            var parts = rows.Where(r => r.Quantity > 0).Select(r => $"{r.Quantity}× {r.Name}").ToList();
+            return parts.Count == 0 ? null : string.Join(", ", parts);
+        }
+
+
         public async Task<BaseResponse<TransactionDto>> CreateCoffeeShopOrder(int? userId, int discountId, List<OrderItemRequest> itemsRequest,
             string createdBy, CancellationToken ct, string comment = "", bool isOpenInvoice = false, int? setId = null, int? channelId = null,
             decimal walletAmount = 0)
@@ -693,8 +819,13 @@ namespace Application.Services
                 .SelectMany(kv => kv.Value)
                 .Sum(kv => addOnCatalog[kv.Key].Price * kv.Value);
 
+            // ── Variants (colour / type) ─────────────────────────────────
+            var (variantPicks, variantDelta, variantError) = await ResolveVariantPicksAsync(itemsRequest, requested, ct);
+            if (variantError != null)
+                return new BaseResponse<TransactionDto>(false, "Invalid option", variantError);
+
             // Compute total
-            decimal totalPrice = addOnsTotal;
+            decimal totalPrice = addOnsTotal + variantDelta;
             foreach (var it in dbItems)
             {
                 var qty = requested[it.Id];
@@ -820,6 +951,13 @@ namespace Application.Services
                                 CreatedOn = DateTime.UtcNow,
                             }, ct);
                         }
+                    await _uow.SaveChangesAsync(ct);
+                }
+
+                // ─── Variant rows + per-option stock ────────────────────
+                if (variantPicks.Count > 0)
+                {
+                    await PersistVariantPicksAsync(trx.Id, variantPicks, ct);
                     await _uow.SaveChangesAsync(ct);
                 }
 
@@ -978,6 +1116,8 @@ namespace Application.Services
           .ThenInclude(ti => ti.Item)
       .Include(t => t.TransactionItems)
           .ThenInclude(ti => ti.AddOns)
+
+          .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
       .FirstOrDefaultAsync(t => t.Id == trx.Id, ct);
 
             if (reloaded == null)
@@ -1384,6 +1524,16 @@ namespace Application.Services
                 .Where(a => liveLineItemIds.Contains(a.ItemId))
                 .Sum(a => a.UnitPrice * a.Quantity);
 
+            // Colour / type price deltas, same live-line rule.
+            var variantRows = await _repoTrxItemVariant.Query()
+                .AsNoTracking()
+                .Where(v => v.TransactionRecordId == trx.Id)
+                .Select(v => new { v.ItemId, v.PriceDelta, v.Quantity })
+                .ToListAsync(ct);
+            subtotal += variantRows
+                .Where(v => liveLineItemIds.Contains(v.ItemId))
+                .Sum(v => v.PriceDelta * v.Quantity);
+
             var total = subtotal;
 
             if (trx.DiscountId.HasValue)
@@ -1478,6 +1628,7 @@ namespace Application.Services
             var reloaded = await _repo.Query()
                 .Include(t => t.TransactionItems).ThenInclude(ti => ti.Item)
                 .Include(t => t.TransactionItems).ThenInclude(ti => ti.AddOns)
+                .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .Include(t => t.Discount)
                 .Include(t => t.Room)
                 .Include(t => t.Set)
@@ -1552,6 +1703,11 @@ namespace Application.Services
                     {
                         item.Quantity += -delta;
                         restoreDeltas.Add((itemId, -delta));
+                        // Give back per-colour stock for the reduced units
+                        // (the admin editor doesn't say which colour left, so
+                        // the first rows on the line are trimmed).
+                        var deltaBack = await RestoreVariantStockAsync(tx.Id, itemId, -delta, ct);
+                        if (!line.IsIncluded) priceDelta -= deltaBack;
                     }
                     // An event-kit line still moves stock when an admin edits
                     // the quantity, but it never moves money.
@@ -1583,6 +1739,12 @@ namespace Application.Services
                 .GroupBy(a => a.ItemId)
                 .Select(g => new { ItemId = g.Key, Sum = g.Sum(x => x.UnitPrice * x.Quantity) })
                 .ToDictionaryAsync(x => x.ItemId, x => x.Sum, ct);
+            var variantSumsByItem = await _repoTrxItemVariant.Query()
+                .AsNoTracking()
+                .Where(v => v.TransactionRecordId == tx.Id)
+                .GroupBy(v => v.ItemId)
+                .Select(g => new { ItemId = g.Key, Sum = g.Sum(x => x.PriceDelta * x.Quantity) })
+                .ToDictionaryAsync(x => x.ItemId, x => x.Sum, ct);
 
             // Removals (present now, absent from the wanted list)
             foreach (var (itemId, line) in current)
@@ -1597,7 +1759,10 @@ namespace Application.Services
                     priceDelta -= (item?.Price ?? 0m) * line.Quantity;
                     if (addOnSumsByItem.TryGetValue(itemId, out var addOnSum))
                         priceDelta -= addOnSum;
+                    if (variantSumsByItem.TryGetValue(itemId, out var variantSum))
+                        priceDelta -= variantSum;
                 }
+                await RestoreVariantStockAsync(tx.Id, itemId, null, ct);   // rows cascade with the line; stock must not
                 _repoTrxItem.Remove(line);
             }
 
@@ -1652,6 +1817,7 @@ namespace Application.Services
                 .Include(t => t.Discount).Include(t => t.User)
                 .Include(t => t.TransactionItems).ThenInclude(ti => ti.Item)
                 .Include(t => t.TransactionItems).ThenInclude(ti => ti.AddOns)
+                .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .AsSplitQuery().AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == tx.Id, ct);
 
@@ -1689,6 +1855,10 @@ namespace Application.Services
                     var qty = e.TransactionItems.Where(x => x.ItemId == it.Id).Sum(x => x.Quantity);
                     it.Quantity += qty;
                 }
+
+                // 1b) Per-colour stock for lines that had options.
+                foreach (var itemId in itemIds)
+                    await RestoreVariantStockAsync(e.Id, itemId, null, ct);
 
                 // Reverse all Consumption StockMovements for this tx.
                 // No-op if there were none (non-recipe items, or older
@@ -2077,6 +2247,8 @@ namespace Application.Services
                     .ThenInclude(ti => ti.Item)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.AddOns)
+
+                    .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
@@ -2263,6 +2435,8 @@ namespace Application.Services
                     .ThenInclude(ti => ti.Item)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.AddOns)
+
+                    .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .OrderByDescending(t => t.CreatedOn);
 
             var entities = await query.ToListAsync(ct);
@@ -2321,6 +2495,12 @@ namespace Application.Services
                     $"Invalid quantity (<=0) for items: {string.Join(", ", invalidQty)}");
 
             var ids = requested.Keys.ToList();
+
+            // Colour / type picks are validated BEFORE anything is mutated, so
+            // a bad pick can't leave the invoice half-updated.
+            var (variantPicks, variantDelta, variantError) = await ResolveVariantPicksAsync(itemsRequest, requested, ct);
+            if (variantError != null)
+                return new BaseResponse<TransactionDto>(false, "Invalid option", variantError);
 
             var dbItems = await _repoItem.Query(false)
                 .Where(i => ids.Contains(i.Id))
@@ -2446,6 +2626,24 @@ namespace Application.Services
                 await _uow.SaveChangesAsync(ct);
             }
 
+            // 3c) Variants (colour / type) — validated up-front (before any
+            // line/stock mutation), snapshotted and stock moved here.
+            {
+                if (variantPicks.Count > 0)
+                {
+                    await _uow.SaveChangesAsync(ct);   // lines must exist before their variant rows
+                    await PersistVariantPicksAsync(trx.Id, variantPicks, ct);
+                    additionalTotal += variantDelta;
+                    foreach (var p in variantPicks)
+                    {
+                        if (!addedAddOnNotes.TryGetValue(p.ItemId, out var notes))
+                            addedAddOnNotes[p.ItemId] = notes = new List<string>();
+                        notes.Add($"{p.Quantity}× {p.Def.Name}");
+                    }
+                    await _uow.SaveChangesAsync(ct);
+                }
+            }
+
             // 4) Recalculate total (including existing discount if any)
             if (trx.DiscountId.HasValue)
             {
@@ -2520,6 +2718,8 @@ namespace Application.Services
                         .ThenInclude(i => i.CoffeeShopOrders)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.AddOns)
+
+                    .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
 
             if (reloaded == null)
@@ -2563,6 +2763,8 @@ namespace Application.Services
                     .ThenInclude(ti => ti.Item)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.AddOns)
+
+                    .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .Include(t => t.Discount)
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
 
@@ -2749,6 +2951,8 @@ namespace Application.Services
                     .ThenInclude(ti => ti.Item)
                 .Include(t => t.TransactionItems)
                     .ThenInclude(ti => ti.AddOns)
+
+                    .Include(t => t.TransactionItems).ThenInclude(ti => ti.Variants)
                 .FirstOrDefaultAsync(t => t.Id == invoiceId, ct);
 
             if (reloaded == null)

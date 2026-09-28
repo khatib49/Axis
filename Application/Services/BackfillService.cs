@@ -713,7 +713,7 @@ namespace Application.Services
             var entry = new JournalEntry
             {
                 EntryNumber = FormatEntryNumber(nextSeq++),
-                EntryDate = DateTime.SpecifyKind(tx.CreatedOn, DateTimeKind.Utc),
+                EntryDate = DateTime.SpecifyKind(tx.PaidOn ?? tx.CreatedOn, DateTimeKind.Utc),
                 Description = $"Transaction #{tx.Id} - Sale",
                 ReferenceType = "Transaction",
                 ReferenceId = tx.Id,

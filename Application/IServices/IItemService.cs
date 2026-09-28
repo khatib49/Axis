@@ -14,5 +14,7 @@ namespace Application.IServices
         // ── Add-ons (paid extras) ────────────────────────────────────────
         Task<List<ItemAddOnDto>> GetAddOnsAsync(int itemId, CancellationToken ct = default);
         Task<List<ItemAddOnDto>> SetAddOnsAsync(int itemId, List<ItemAddOnUpsertDto> incoming, CancellationToken ct = default);
+        Task<List<ItemVariantDto>> GetVariantsAsync(int itemId, CancellationToken ct = default);
+        Task<List<ItemVariantDto>> SetVariantsAsync(int itemId, List<ItemVariantUpsertDto> incoming, CancellationToken ct = default);
     }
 }

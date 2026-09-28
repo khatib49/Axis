@@ -23,5 +23,8 @@ namespace Domain.Entities
 
         /// <summary>Paid extras chosen for this line (name/price snapshotted).</summary>
         public ICollection<TransactionItemAddOn> AddOns { get; set; } = new List<TransactionItemAddOn>();
+
+        /// <summary>Colour / type split of this line (name/delta snapshotted).</summary>
+        public ICollection<TransactionItemVariant> Variants { get; set; } = new List<TransactionItemVariant>();
     }
 }

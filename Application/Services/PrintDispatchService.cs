@@ -37,6 +37,7 @@ namespace Application.Services
         private readonly IBaseRepository<Printer> _repoPrinter;
         private readonly IBaseRepository<TransactionItem> _repoTrxItem;
         private readonly IBaseRepository<TransactionItemAddOn> _repoTrxItemAddOn;
+        private readonly IBaseRepository<TransactionItemVariant> _repoTrxItemVariant;
         private readonly IBaseRepository<TransactionRecord> _repoTrx;
         private readonly IReceiptPrintingService _receipts;
         private readonly IHubContext<PrinterHub> _hub;
@@ -46,6 +47,7 @@ namespace Application.Services
             IBaseRepository<Printer> repoPrinter,
             IBaseRepository<TransactionItem> repoTrxItem,
             IBaseRepository<TransactionItemAddOn> repoTrxItemAddOn,
+            IBaseRepository<TransactionItemVariant> repoTrxItemVariant,
             IBaseRepository<TransactionRecord> repoTrx,
             IReceiptPrintingService receipts,
             IHubContext<PrinterHub> hub,
@@ -54,6 +56,7 @@ namespace Application.Services
             _repoPrinter = repoPrinter;
             _repoTrxItem = repoTrxItem;
             _repoTrxItemAddOn = repoTrxItemAddOn;
+            _repoTrxItemVariant = repoTrxItemVariant;
             _repoTrx = repoTrx;
             _receipts = receipts;
             _hub = hub;
@@ -108,6 +111,16 @@ namespace Application.Services
                         g => string.Join(", ", g.OrderBy(x => x.Id).Select(x => $"+{x.Quantity}x {x.Name}")),
                         ct);
 
+                // Colour / type split per line ("2× Black, 1× Green").
+                var variantsByItem = await _repoTrxItemVariant.Query()
+                    .AsNoTracking()
+                    .Where(v => v.TransactionRecordId == transactionId)
+                    .GroupBy(v => v.ItemId)
+                    .ToDictionaryAsync(
+                        g => g.Key,
+                        g => string.Join(", ", g.OrderBy(x => x.Id).Select(x => $"{x.Quantity}× {x.Name}")),
+                        ct);
+
                 // Group the order's lines by destination station.
                 var byStation = new Dictionary<string, List<StationTicketLine>>(StringComparer.OrdinalIgnoreCase);
                 foreach (var ti in items)
@@ -119,6 +132,8 @@ namespace Application.Services
                         byStation[station] = lines = new List<StationTicketLine>();
 
                     addOnsByItem.TryGetValue(ti.ItemId, out var addOnNote);
+                    if (variantsByItem.TryGetValue(ti.ItemId, out var variantNote))
+                        addOnNote = string.IsNullOrEmpty(addOnNote) ? variantNote : $"{variantNote} · {addOnNote}";
                     lines.Add(new StationTicketLine(ti.Quantity, ti.Item!.Name, addOnNote));
                 }
 

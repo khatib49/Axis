@@ -74,7 +74,9 @@ namespace Application.Services
             return new(true, token, null);
         }
 
-        private async Task<string> CreateJwtAsync(AppUser user)
+        public Task<string> IssueTokenAsync(AppUser user, TimeSpan? lifetime = null) => CreateJwtAsync(user, lifetime);
+
+        private async Task<string> CreateJwtAsync(AppUser user, TimeSpan? lifetime = null)
         {
             var roles = await _userMgr.GetRolesAsync(user);
 
@@ -97,7 +99,7 @@ namespace Application.Services
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(8),
+                expires: DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromHours(8)),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);

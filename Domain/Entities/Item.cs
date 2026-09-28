@@ -34,5 +34,8 @@ namespace Domain.Entities
 
         /// <summary>Paid extras this item offers (customize sheet at the cashier).</summary>
         public ICollection<ItemAddOn> AddOns { get; set; } = new List<ItemAddOn>();
+
+        /// <summary>Colour / type options with their own stock (empty = plain item).</summary>
+        public ICollection<ItemVariant> Variants { get; set; } = new List<ItemVariant>();
     }
 }

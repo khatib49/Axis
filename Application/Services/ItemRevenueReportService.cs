@@ -127,8 +127,8 @@ namespace Application.Services
             var txQuery = _txRepo.Query().AsNoTracking()
                 .Where(t => t.StatusId == PaidStatus && t.TransactionItems.Any());
 
-            if (fromUtc.HasValue) txQuery = txQuery.Where(t => t.CreatedOn >= fromUtc.Value);
-            if (toUtc.HasValue) txQuery = txQuery.Where(t => t.CreatedOn < toUtc.Value);
+            if (fromUtc.HasValue) txQuery = txQuery.Where(t => (t.PaidOn ?? t.CreatedOn) >= fromUtc.Value);
+            if (toUtc.HasValue) txQuery = txQuery.Where(t => (t.PaidOn ?? t.CreatedOn) < toUtc.Value);
 
             if (request.CategoryIds is { Count: > 0 })
                 txQuery = txQuery.Where(t => t.TransactionItems.Any(ti => categoryIds.Contains(ti.Item.CategoryId)));

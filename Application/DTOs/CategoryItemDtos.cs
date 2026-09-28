@@ -10,9 +10,14 @@
     /// <summary>What the admin add-ons editor posts back (replace-all list).</summary>
     public record ItemAddOnUpsertDto(int? Id, string Name, decimal Price, bool IsActive = true, int SortOrder = 0);
 
+    /// <summary>A colour / type option with its own stock.</summary>
+    public record ItemVariantDto(int Id, string Name, string? Color, string? Sku, decimal PriceDelta, int Quantity, bool IsActive, int SortOrder);
+    public record ItemVariantUpsertDto(int? Id, string Name, string? Color = null, string? Sku = null, decimal PriceDelta = 0m, int Quantity = 0, bool IsActive = true, int SortOrder = 0);
+
     public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath, decimal? BuyPrice,
-        // Trailing default keeps positional callers valid.
-        List<ItemAddOnDto>? AddOns = null);
+        // Trailing defaults keep positional callers valid.
+        List<ItemAddOnDto>? AddOns = null,
+        List<ItemVariantDto>? Variants = null);
     //public record ItemCreateDto(string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId);
     //public record ItemUpdateDto(string? Name, int? Quantity, decimal? Price, string? Type, int? CategoryId, int? StatusId);
 
@@ -69,6 +74,9 @@
 
         /// <summary>Paid extras chosen for this line (snapshotted at sale time).</summary>
         public List<OrderLineAddOnDto> AddOns { get; set; } = new();
+
+        /// <summary>Colour / type split of this line (e.g. Black 2, Green 1).</summary>
+        public List<OrderLineVariantDto> Variants { get; set; } = new();
 
         public string? ImagePath { get; set; }
     }

@@ -103,6 +103,9 @@ namespace Application
             services.AddScoped<Application.Services.Payments.IOnlinePaymentProvider, Application.Services.Payments.MontyPayProvider>();
             services.AddScoped<IOnlinePaymentService, OnlinePaymentService>();
 
+            // Website ordering (customer accounts, cart checkout, till inbox)
+            services.AddScoped<IShopService, ShopService>();
+
             return services;
         }
     }

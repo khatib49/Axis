@@ -70,7 +70,7 @@ namespace Application.Services.Ai
             var channel = GetStr(input, "channel");
 
             var q = _db.Transactions.AsNoTracking()
-                .Where(t => t.CreatedOn >= from && t.CreatedOn < to);
+                .Where(t => (t.PaidOn ?? t.CreatedOn) >= from && (t.PaidOn ?? t.CreatedOn) < to);
 
             if (!string.IsNullOrWhiteSpace(channel))
             {

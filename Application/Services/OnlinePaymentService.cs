@@ -99,6 +99,7 @@ namespace Application.Services
             "EventTicket" => p.ReferenceId.HasValue ? $"Event registration #{p.ReferenceId}" : "Event ticket",
             "WalletTopUp" => p.ReferenceId.HasValue ? $"Wallet top-up · client #{p.ReferenceId}" : "Wallet top-up",
             "Invoice" => p.ReferenceId.HasValue ? $"Invoice #{p.ReferenceId}" : "Invoice",
+            "OnlineOrder" => p.ReferenceId.HasValue ? $"Website order #{p.ReferenceId}" : "Website order",
             _ => null,
         };
 
@@ -141,8 +142,8 @@ namespace Application.Services
             if (string.IsNullOrWhiteSpace(dto.Description)) throw new ArgumentException("Description is required.");
 
             var purpose = string.IsNullOrWhiteSpace(dto.Purpose) ? "Custom" : dto.Purpose.Trim();
-            if (purpose is not ("Custom" or "WalletTopUp" or "Invoice" or "EventTicket"))
-                throw new ArgumentException("Purpose must be Custom, WalletTopUp, Invoice or EventTicket.");
+            if (purpose is not ("Custom" or "WalletTopUp" or "Invoice" or "EventTicket" or "OnlineOrder"))
+                throw new ArgumentException("Purpose must be Custom, WalletTopUp, Invoice, EventTicket or OnlineOrder.");
             if (purpose == "WalletTopUp" && !(dto.UserId ?? dto.ReferenceId).HasValue)
                 throw new ArgumentException("A wallet top-up link needs the client (userId).");
             if (purpose == "Invoice" && !dto.ReferenceId.HasValue)
@@ -162,6 +163,7 @@ namespace Application.Services
                     "WalletTopUp" => "Wallet",
                     "Invoice" => "TransactionRecord",
                     "EventTicket" => "EventRegistration",
+                    "OnlineOrder" => "OnlineOrder",
                     _ => dto.ReferenceType,
                 },
                 ReferenceId = purpose == "WalletTopUp" ? (dto.UserId ?? dto.ReferenceId) : dto.ReferenceId,
@@ -457,6 +459,13 @@ namespace Application.Services
                         var trx = _sp.GetRequiredService<ITransactionRecordService>();
                         var res = await trx.CloseOpenInvoice(invoiceId, $"online:{p.Provider}", ct, 0m);
                         if (!res.Success) throw new InvalidOperationException(res.Error ?? res.Message ?? "Could not close the invoice.");
+                        break;
+                    }
+                    case "OnlineOrder":
+                    {
+                        var orderId = p.ReferenceId ?? throw new InvalidOperationException("No order on this payment.");
+                        var shop = _sp.GetRequiredService<IShopService>();
+                        await shop.MarkPaidAsync(orderId, p.Id, ct);
                         break;
                     }
                     default:

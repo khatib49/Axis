@@ -87,11 +87,17 @@
 
     /// <summary>One chosen add-on for an order line.</summary>
     public record OrderAddOnRequest(int AddOnId, int Quantity);
+    /// <summary>Colour / type pick on an order line. Sum of quantities must equal the line quantity.</summary>
+    public record OrderVariantRequest(int VariantId, int Quantity);
+    /// <summary>Variant as stored on an order line (snapshotted).</summary>
+    public record OrderLineVariantDto(int VariantId, string Name, int Quantity, decimal PriceDelta);
 
     public record OrderItemRequest(int ItemId, int Quantity,
         // Extras picked in the customize sheet. Trailing default keeps every
         // existing caller valid.
-        List<OrderAddOnRequest>? AddOns = null);
+        List<OrderAddOnRequest>? AddOns = null,
+        // Colour / type split (Black 2 + Green 1 for Quantity 3).
+        List<OrderVariantRequest>? Variants = null);
 
     /// <summary>Add-on as it appears on a stored order line (snapshotted).</summary>
     public record OrderLineAddOnDto(int AddOnId, string Name, int Quantity, decimal UnitPrice, decimal LineTotal);
@@ -149,6 +155,8 @@
     /// </summary>
     bool IsIncluded = false,
     /// <summary>Paid extras chosen for this line (snapshotted at sale time).</summary>
-    List<OrderLineAddOnDto>? AddOns = null
+    List<OrderLineAddOnDto>? AddOns = null,
+    /// <summary>Colour / type split of this line.</summary>
+    List<OrderLineVariantDto>? Variants = null
 )   ;
 }

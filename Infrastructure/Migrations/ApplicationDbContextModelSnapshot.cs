@@ -1342,6 +1342,94 @@ namespace Infrastructure.Migrations
                     b.ToTable("WalletTransactions", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.OnlineOrder", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<DateTime?>("AcceptedOn").HasColumnType("timestamp with time zone");
+                    b.Property<string>("CancelReason").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<string>("Code").IsRequired().HasMaxLength(16).HasColumnType("character varying(16)");
+                    b.Property<DateTime?>("CompletedOn").HasColumnType("timestamp with time zone");
+                    b.Property<DateTime>("CreatedOn").ValueGeneratedOnAdd().HasColumnType("timestamp with time zone").HasDefaultValueSql("NOW()");
+                    b.Property<string>("CustomerEmail").HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<string>("CustomerName").IsRequired().HasMaxLength(150).HasColumnType("character varying(150)");
+                    b.Property<string>("CustomerPhone").IsRequired().HasMaxLength(40).HasColumnType("character varying(40)");
+                    b.Property<string>("Fulfilment").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.Property<string>("HandledBy").HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<DateTime?>("ModifiedOn").HasColumnType("timestamp with time zone");
+                    b.Property<string>("Notes").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<int?>("OnlinePaymentId").HasColumnType("integer");
+                    b.Property<DateTime?>("PaidOn").HasColumnType("timestamp with time zone");
+                    b.Property<string>("PaymentMode").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.Property<string>("PickupTime").HasMaxLength(60).HasColumnType("character varying(60)");
+                    b.Property<DateTime?>("ReadyOn").HasColumnType("timestamp with time zone");
+                    b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.Property<decimal>("Subtotal").HasColumnType("numeric(18,2)");
+                    b.Property<decimal>("Total").HasColumnType("numeric(18,2)");
+                    b.Property<int?>("TransactionRecordId").HasColumnType("integer");
+                    b.Property<int>("UserId").HasColumnType("integer");
+                    b.HasKey("Id");
+                    b.HasIndex("Code").IsUnique();
+                    b.HasIndex("UserId");
+                    b.HasIndex("Status", "CreatedOn");
+                    b.ToTable("OnlineOrders", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.OnlineOrderLine", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("AddOnsJson").HasColumnType("text");
+                    b.Property<decimal>("AddOnsTotal").HasColumnType("numeric(18,2)");
+                    b.Property<int>("ItemId").HasColumnType("integer");
+                    b.Property<string>("ItemName").IsRequired().HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<decimal>("LineTotal").HasColumnType("numeric(18,2)");
+                    b.Property<int>("OnlineOrderId").HasColumnType("integer");
+                    b.Property<int>("Quantity").HasColumnType("integer");
+                    b.Property<decimal>("UnitPrice").HasColumnType("numeric(18,2)");
+                    b.Property<int?>("VariantId").HasColumnType("integer");
+                    b.Property<string>("VariantName").HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<decimal>("VariantPriceDelta").HasColumnType("numeric(18,2)");
+                    b.HasKey("Id");
+                    b.HasIndex("OnlineOrderId");
+                    b.ToTable("OnlineOrderLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.ItemVariant", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Color").HasMaxLength(30).HasColumnType("character varying(30)");
+                    b.Property<DateTime>("CreatedOn").ValueGeneratedOnAdd().HasColumnType("timestamp with time zone").HasDefaultValueSql("NOW()");
+                    b.Property<bool>("IsActive").HasColumnType("boolean");
+                    b.Property<int>("ItemId").HasColumnType("integer");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<decimal>("PriceDelta").HasColumnType("numeric(18,2)");
+                    b.Property<int>("Quantity").HasColumnType("integer");
+                    b.Property<string>("Sku").HasMaxLength(60).HasColumnType("character varying(60)");
+                    b.Property<int>("SortOrder").HasColumnType("integer");
+                    b.HasKey("Id");
+                    b.HasIndex("ItemId");
+                    b.ToTable("ItemVariants", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.TransactionItemVariant", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<DateTime>("CreatedOn").ValueGeneratedOnAdd().HasColumnType("timestamp with time zone").HasDefaultValueSql("NOW()");
+                    b.Property<int>("ItemId").HasColumnType("integer");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<decimal>("PriceDelta").HasColumnType("numeric(18,2)");
+                    b.Property<int>("Quantity").HasColumnType("integer");
+                    b.Property<int>("TransactionRecordId").HasColumnType("integer");
+                    b.Property<int>("VariantId").HasColumnType("integer");
+                    b.HasKey("Id");
+                    b.HasIndex("VariantId");
+                    b.HasIndex("TransactionRecordId", "ItemId");
+                    b.ToTable("TransactionItemVariants", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.OnlinePayment", b =>
                 {
                     b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
@@ -1489,6 +1577,9 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime?>("ModifiedOn")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("PaidOn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int?>("RoomId")
                         .HasColumnType("integer");
 
@@ -1511,6 +1602,8 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PaidOn");
 
                     b.HasIndex("CardId");
 
@@ -3518,6 +3611,58 @@ namespace Infrastructure.Migrations
                     b.Navigation("Tickets");
 
                     b.Navigation("WeeklyWins");
+                });
+
+            modelBuilder.Entity("Domain.Entities.OnlineOrder", b =>
+                {
+                    b.HasOne("Domain.Identity.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Domain.Entities.OnlineOrderLine", b =>
+                {
+                    b.HasOne("Domain.Entities.OnlineOrder", "Order")
+                        .WithMany("Lines")
+                        .HasForeignKey("OnlineOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("Domain.Entities.ItemVariant", b =>
+                {
+                    b.HasOne("Domain.Entities.Item", "Item")
+                        .WithMany("Variants")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TransactionItemVariant", b =>
+                {
+                    b.HasOne("Domain.Entities.TransactionItem", "Line")
+                        .WithMany("Variants")
+                        .HasForeignKey("TransactionRecordId", "ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.ItemVariant", "Variant")
+                        .WithMany()
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Line");
+
+                    b.Navigation("Variant");
                 });
 
             modelBuilder.Entity("Domain.Entities.OnlinePaymentEvent", b =>

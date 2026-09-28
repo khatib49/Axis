@@ -76,9 +76,9 @@ namespace Application.Services
             var txQ = _txRepo.Query().Where(t => t.StatusId == 6);
 
             if (from.HasValue)
-                txQ = txQ.Where(t => t.CreatedOn >= from.Value.Date);
+                txQ = txQ.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value.Date);
             if (toExclusive.HasValue)
-                txQ = txQ.Where(t => t.CreatedOn < toExclusive.Value);
+                txQ = txQ.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
 
             // Helper: recover gross from net using the transaction's discount %.
             // pct >= 100 is degenerate (would divide by zero) so we treat it as
@@ -566,8 +566,8 @@ namespace Application.Services
             IQueryable<TransactionRecord> PaidTx()
             {
                 var q = _txRepo.Query().Where(t => t.StatusId == 6);
-                if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value.Date);
-                if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+                if (from.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value.Date);
+                if (toExclusive.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
                 return q;
             }
 
@@ -846,8 +846,8 @@ namespace Application.Services
             // Units sold per item in the period (paid item invoices + game sessions).
             var itemIds = recipeRows.Select(r => r.ItemId).Distinct().ToList();
             var soldQ = _txRepo.Query().Where(t => t.StatusId == 6);
-            if (from.HasValue) soldQ = soldQ.Where(t => t.CreatedOn >= from.Value.Date);
-            if (toExclusive.HasValue) soldQ = soldQ.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue) soldQ = soldQ.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value.Date);
+            if (toExclusive.HasValue) soldQ = soldQ.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
             var soldRows = await soldQ
                 .SelectMany(t => t.TransactionItems.Where(ti => itemIds.Contains(ti.ItemId)).Select(ti => new { ti.ItemId, ti.Quantity }))
                 .GroupBy(x => x.ItemId)
@@ -980,8 +980,8 @@ namespace Application.Services
             // 1) Paid transactions in window (status=6 only — same as JE-create rule).
             var txQ = _txRepo.Query()
                 .Where(t => t.StatusId == 6 && t.TotalPrice > 0);
-            if (from.HasValue) txQ = txQ.Where(t => t.CreatedOn >= from.Value.Date);
-            if (toExclusive.HasValue) txQ = txQ.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue) txQ = txQ.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value.Date);
+            if (toExclusive.HasValue) txQ = txQ.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
 
             var txList = await txQ
                 .Select(t => new { t.Id, t.TotalPrice, DiscountPct = (int?)(t.Discount != null ? t.Discount.Percentage : 0) })

@@ -38,8 +38,8 @@ namespace Application.Services
                 .Where(t => t.StatusId == 6)
                 .Where(t => t.GameId == null);
 
-            if (from.HasValue) revenueQuery = revenueQuery.Where(t => t.CreatedOn >= from.Value.Date);
-            if (to.HasValue) revenueQuery = revenueQuery.Where(t => t.CreatedOn < to.Value.Date.AddDays(1));
+            if (from.HasValue) revenueQuery = revenueQuery.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value.Date);
+            if (to.HasValue) revenueQuery = revenueQuery.Where(t => (t.PaidOn ?? t.CreatedOn) < to.Value.Date.AddDays(1));
 
             // Keep only invoices that carry at least one NON-TCG line (a
             // basket of coffee + sleeves still counts its coffee here).
@@ -113,9 +113,9 @@ namespace Application.Services
                 .Where(t => t.GameId != null);
 
             if (from.HasValue)
-                revenueQuery = revenueQuery.Where(t => t.CreatedOn >= from.Value);
+                revenueQuery = revenueQuery.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value);
             if (to.HasValue)
-                revenueQuery = revenueQuery.Where(t => t.CreatedOn < to.Value.AddDays(1));
+                revenueQuery = revenueQuery.Where(t => (t.PaidOn ?? t.CreatedOn) < to.Value.AddDays(1));
 
             if (catList.Count > 0)
             {
@@ -167,9 +167,9 @@ namespace Application.Services
                     ti.Item != null && tcgCategoryIds.Contains(ti.Item.CategoryId)));
 
             if (from.HasValue)
-                revenueQuery = revenueQuery.Where(t => t.CreatedOn >= from.Value);
+                revenueQuery = revenueQuery.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value);
             if (to.HasValue)
-                revenueQuery = revenueQuery.Where(t => t.CreatedOn < to.Value.AddDays(1));
+                revenueQuery = revenueQuery.Where(t => (t.PaidOn ?? t.CreatedOn) < to.Value.AddDays(1));
 
             if (catList.Count > 0)
             {

@@ -36,6 +36,14 @@ namespace Domain.Entities
         // Audit fields
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedOn { get; set; }
+        /// <summary>
+        /// When the money was actually taken (status became 6 Paid). Sales
+        /// reports and dashboards bucket by this, so an open tab paid after
+        /// midnight counts on the day it was paid. Null on legacy rows →
+        /// callers fall back to CreatedOn. Stamped automatically by the
+        /// DbContext on every save that leaves the row in status 6.
+        /// </summary>
+        public DateTime? PaidOn { get; set; }
         public string CreatedBy { get; set; } = default!;
 
         public int? SetId { get; set; }

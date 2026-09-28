@@ -758,7 +758,7 @@ namespace Application.Services
 
                 // Create journal entry
                 var entryDto = new JournalEntryCreateDto(
-                    transaction.CreatedOn,
+                    transaction.PaidOn ?? transaction.CreatedOn,   // the day the money came in
                     $"Transaction #{transactionId} - Sale",
                     "Transaction",
                     transactionId,

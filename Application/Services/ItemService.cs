@@ -12,14 +12,15 @@ namespace Application.Services
     {
         private readonly IBaseRepository<Item> _repo;
         private readonly IBaseRepository<ItemAddOn> _repoAddOn;
+        private readonly IBaseRepository<ItemVariant> _repoVariant;
         private readonly IUnitOfWork _uow;
         private readonly DomainMapper _mapper;
         private readonly IImageStorageService _imageStorage;
 
         public ItemService(IBaseRepository<Item> repo, IBaseRepository<ItemAddOn> repoAddOn,
-            IUnitOfWork uow, DomainMapper mapper, IImageStorageService imageStorage)
+            IUnitOfWork uow, DomainMapper mapper, IImageStorageService imageStorage, IBaseRepository<ItemVariant> repoVariant)
         {
-            _repo = repo; _repoAddOn = repoAddOn; _uow = uow; _mapper = mapper;
+            _repo = repo; _repoAddOn = repoAddOn; _uow = uow; _mapper = mapper; _repoVariant = repoVariant;
             _imageStorage = imageStorage;
         }
 
@@ -27,6 +28,7 @@ namespace Application.Services
         {
             var e = await _repo.Query()
                 .Include(x => x.AddOns.OrderBy(a => a.SortOrder).ThenBy(a => a.Id))
+                .Include(x => x.Variants.OrderBy(v => v.SortOrder).ThenBy(v => v.Id))
                 .FirstOrDefaultAsync(x => x.Id == id, ct);
             return e is null ? null : _mapper.ToDto(e);
         }
@@ -104,6 +106,77 @@ namespace Application.Services
             await _uow.SaveChangesAsync(ct);
             return await GetAddOnsAsync(itemId, ct);
         }
+
+        // ── Variants (colour / type with own stock) ─────────────────────
+        public async Task<List<ItemVariantDto>> GetVariantsAsync(int itemId, CancellationToken ct = default)
+            => await _repoVariant.Query()
+                .Where(v => v.ItemId == itemId)
+                .OrderBy(v => v.SortOrder).ThenBy(v => v.Id)
+                .Select(v => new ItemVariantDto(v.Id, v.Name, v.Color, v.Sku, v.PriceDelta, v.Quantity, v.IsActive, v.SortOrder))
+                .ToListAsync(ct);
+
+        /// <summary>
+        /// Replace-all sync of an item's variants. Removed rows are
+        /// deactivated (historical lines reference them). After the sync the
+        /// item's own Quantity is set to the sum of its ACTIVE variants so
+        /// every existing stock screen and low-stock check keeps working.
+        /// </summary>
+        public async Task<List<ItemVariantDto>> SetVariantsAsync(int itemId, List<ItemVariantUpsertDto> incoming, CancellationToken ct = default)
+        {
+            var item = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(i => i.Id == itemId, ct)
+                       ?? throw new KeyNotFoundException("Item not found.");
+            var existing = await _repoVariant.Query(asNoTracking: false).Where(v => v.ItemId == itemId).ToListAsync(ct);
+            incoming ??= new List<ItemVariantUpsertDto>();
+
+            foreach (var dto in incoming)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Every option needs a name.");
+                if (dto.Quantity < 0) throw new ArgumentException($"Option '{dto.Name}' has a negative stock.");
+            }
+            var names = incoming.Select(i => i.Name.Trim().ToLowerInvariant()).ToList();
+            if (names.Count != names.Distinct().Count()) throw new ArgumentException("Two options have the same name.");
+
+            var keptIds = new HashSet<int>(incoming.Where(i => i.Id is > 0).Select(i => i.Id!.Value));
+            foreach (var row in existing)
+                if (!keptIds.Contains(row.Id)) row.IsActive = false;
+
+            var sort = 0;
+            foreach (var dto in incoming)
+            {
+                sort++;
+                var match = dto.Id is > 0 ? existing.FirstOrDefault(v => v.Id == dto.Id.Value) : null;
+                if (match != null)
+                {
+                    match.Name = dto.Name.Trim();
+                    match.Color = string.IsNullOrWhiteSpace(dto.Color) ? null : dto.Color.Trim();
+                    match.Sku = string.IsNullOrWhiteSpace(dto.Sku) ? null : dto.Sku.Trim();
+                    match.PriceDelta = Math.Round(dto.PriceDelta, 2);
+                    match.Quantity = dto.Quantity;
+                    match.IsActive = dto.IsActive;
+                    match.SortOrder = sort;
+                }
+                else
+                {
+                    var v = new ItemVariant
+                    {
+                        ItemId = item.Id, Name = dto.Name.Trim(),
+                        Color = string.IsNullOrWhiteSpace(dto.Color) ? null : dto.Color.Trim(),
+                        Sku = string.IsNullOrWhiteSpace(dto.Sku) ? null : dto.Sku.Trim(),
+                        PriceDelta = Math.Round(dto.PriceDelta, 2), Quantity = dto.Quantity,
+                        IsActive = dto.IsActive, SortOrder = sort, CreatedOn = DateTime.UtcNow,
+                    };
+                    await _repoVariant.AddAsync(v, ct);
+                    existing.Add(v);
+                }
+            }
+
+            // Item stock mirrors the options.
+            if (existing.Any(v => v.IsActive))
+                item.Quantity = existing.Where(v => v.IsActive).Sum(v => v.Quantity);
+
+            await _uow.SaveChangesAsync(ct);
+            return await GetVariantsAsync(itemId, ct);
+        }
         public async Task<PaginatedResponse<ItemDto>> ListAsync(BasePaginationRequestDto pagination, CancellationToken ct = default)
         {
             var page = pagination.Page <= 0 ? 1 : pagination.Page;
@@ -133,6 +206,7 @@ namespace Application.Services
                 // Add-ons travel with the list so the cashier's customize
                 // sheet needs no extra round-trip per item.
                 .Include(x => x.AddOns.Where(a => a.IsActive).OrderBy(a => a.SortOrder).ThenBy(a => a.Id))
+                .Include(x => x.Variants.Where(v => v.IsActive).OrderBy(v => v.SortOrder).ThenBy(v => v.Id))
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync(ct);

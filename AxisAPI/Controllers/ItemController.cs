@@ -39,6 +39,21 @@ namespace AxisAPI.Controllers
             return Ok(items);
         }
 
+        /// <summary>Colour / type options with their own stock (admin editor).</summary>
+        [HttpGet("{id:int}/variants")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> GetVariants(int id, CancellationToken ct)
+            => Ok(await _itemService.GetVariantsAsync(id, ct));
+
+        [HttpPut("{id:int}/variants")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> SetVariants(int id, [FromBody] List<ItemVariantUpsertDto> body, CancellationToken ct)
+        {
+            try { return Ok(await _itemService.SetVariantsAsync(id, body, ct)); }
+            catch (KeyNotFoundException) { return NotFound(); }
+            catch (ArgumentException ex) { return BadRequest(new { error = ex.Message }); }
+        }
+
         /// <summary>All add-ons of an item, inactive included — feeds the admin editor.</summary>
         [HttpGet("{id:int}/addons")]
         [Authorize(Roles = "admin")]

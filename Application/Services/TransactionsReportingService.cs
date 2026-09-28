@@ -12,8 +12,8 @@ namespace Application.Services
             var q = _repo.Query(); // IQueryable<TransactionRecord> (AsNoTracking in repo)
 
             // -------- Filters (dates, status, creator) --------
-            if (f.From.HasValue) q = q.Where(t => t.CreatedOn >= f.From.Value);
-            if (f.To.HasValue) q = q.Where(t => t.CreatedOn < f.To.Value);
+            if (f.From.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= f.From.Value);
+            if (f.To.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < f.To.Value);
 
             if (f.StatusIds is { Count: > 0 })
                 q = q.Where(t => f.StatusIds!.Contains(t.StatusId));
@@ -126,6 +126,10 @@ namespace Application.Services
                                 a.AddOnId, a.Name, a.Quantity, a.UnitPrice,
                                 a.UnitPrice * a.Quantity))
                             .ToList(),
+                        Variants = ti.Variants
+                            .OrderBy(v => v.Id)
+                            .Select(v => new OrderLineVariantDto(v.VariantId, v.Name, v.Quantity, v.PriceDelta))
+                            .ToList(),
                         ImagePath = ti.Item != null ? ti.Item.ImagePath : null
                     }).ToList()
                 }).Where(t => t.StatusId == 6 || t.StatusId == 7 || t.StatusId == 5)
@@ -140,8 +144,8 @@ namespace Application.Services
             var q = _repo.Query(); // IQueryable<TransactionRecord>
 
             // -------- Filters (dates, status, creator) --------
-            if (f.From.HasValue) q = q.Where(t => t.CreatedOn >= f.From.Value);
-            if (f.To.HasValue) q = q.Where(t => t.CreatedOn < f.To.Value);
+            if (f.From.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= f.From.Value);
+            if (f.To.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < f.To.Value);
 
             if (f.StatusIds is { Count: > 0 })
                 q = q.Where(t => f.StatusIds!.Contains(t.StatusId));
@@ -268,17 +272,65 @@ namespace Application.Services
             return q;
         }
 
-        public async Task<PeriodTotalsDto> GetTotalsAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default)
+        public async Task<PeriodTotalsDto> GetTotalsAsync(DateTime? from, DateTime? to, string? categoryIds, CancellationToken ct = default, string? segment = null)
         {
             var q = _repo.Query();
 
             var toExclusive = to?.Date.AddDays(1);
             if (from.HasValue)
-                q = q.Where(t => t.CreatedOn >= from.Value);
+                q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value);
             if (toExclusive.HasValue)
-                q = q.Where(t => t.CreatedOn < toExclusive.Value);
+                q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
 
             q = q.Where(t => t.StatusId == 6);
+
+            // ── Segment totals (stable, discount-aware) ─────────────────
+            // "fnb" / "tcg" / "gaming" / "items": the same allocation rule as
+            // the accounting dashboard — each invoice's paid TotalPrice is
+            // split across its lines by list-price weight, and a line belongs
+            // to TCG when its category ItemType is Retail. A category-id list
+            // could never do this: a basket with coffee + sleeves counted its
+            // whole total in both buckets, and items sold on game sessions
+            // were missed entirely.
+            var seg = segment?.Trim().ToLowerInvariant();
+            if (seg is "fnb" or "tcg" or "gaming" or "items")
+            {
+                if (seg == "gaming")
+                {
+                    var g = q.Where(t => t.GameId != null);
+                    var gAmt = await g.SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m;
+                    var gCnt = await g.CountAsync(ct);
+                    return new PeriodTotalsDto(Math.Round(gAmt, 2), gCnt, 0m, 0, Math.Round(gAmt, 2));
+                }
+
+                var rows = await q.Where(t => t.TransactionItems.Any())
+                    .Select(t => new
+                    {
+                        t.Id, t.TotalPrice, IsGame = t.GameId != null,
+                        Pct = t.Discount != null ? t.Discount.Percentage : 0,
+                        Lines = t.TransactionItems.Select(ti => new
+                        {
+                            Full = ti.IsIncluded ? 0m : ti.Item.Price * ti.Quantity,
+                            IsTcg = ti.Item.Category.ItemType == "Retail" || ti.Item.Category.Name.ToLower().Contains("tcg"),
+                        }).ToList(),
+                    }).ToListAsync(ct);
+
+                decimal amount = 0m; int count = 0;
+                foreach (var r in rows)
+                {
+                    var full = r.Lines.Sum(l => l.Full);
+                    if (full <= 0) continue;
+                    var want = seg == "items" ? full : r.Lines.Where(l => l.IsTcg == (seg == "tcg")).Sum(l => l.Full);
+                    if (want <= 0) continue;
+                    // Item-only invoice: share of what was paid. Game session:
+                    // list price less the session's discount (TotalPrice has play time).
+                    var keep = r.Pct is > 0 and < 100 ? 1m - r.Pct / 100m : 1m;
+                    amount += r.IsGame ? want * keep : r.TotalPrice * (want / full);
+                    count++;
+                }
+                amount = Math.Round(amount, 2);
+                return new PeriodTotalsDto(amount, count, 0m, 0, amount);
+            }
 
             List<int> cats = new();
             if (!string.IsNullOrWhiteSpace(categoryIds))
@@ -327,8 +379,8 @@ namespace Application.Services
 
             // date filter  [from .. to]
             var toExclusive = to?.Date.AddDays(1);
-            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
-            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
 
             // only completed transactions
             q = q.Where(t => t.StatusId == 6);
@@ -368,8 +420,8 @@ namespace Application.Services
 
             // inclusive date range [from, to]
             var toExclusive = to?.Date.AddDays(1);
-            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
-            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
 
             // parse "1,2,3" -> List<int>
             List<int> catList = new();
@@ -392,12 +444,12 @@ namespace Application.Services
             }
 
             // games totals per day (use TransactionRecord.TotalPrice)
-            var gamesDaily = await q.Where(t => t.GameId != null && t.StatusId ==6).GroupBy(t => t.CreatedOn.Date)
+            var gamesDaily = await q.Where(t => t.GameId != null && t.StatusId ==6).GroupBy(t => (t.PaidOn ?? t.CreatedOn).Date)
                 .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
             // items totals per day (sum Item.Price * Quantity)
-            var itemsDaily = await q.Where(t => t.GameId == null && t.StatusId == 6).GroupBy(t => t.CreatedOn.Date)
+            var itemsDaily = await q.Where(t => t.GameId == null && t.StatusId == 6).GroupBy(t => (t.PaidOn ?? t.CreatedOn).Date)
                 .Select(g => new { Date = g.Key, Total = g.Sum(t => t.TotalPrice) })
                 .ToListAsync(ct);
 
@@ -408,7 +460,7 @@ namespace Application.Services
                                                                       || ti.Item.Category.Name.ToLower().Contains("tcg")))
                 .Select(t => new
                 {
-                    Day = t.CreatedOn.Date,
+                    Day = (t.PaidOn ?? t.CreatedOn).Date,
                     t.TotalPrice,
                     Lines = t.TransactionItems.Select(ti => new
                     {
@@ -482,8 +534,8 @@ namespace Application.Services
 
             // Date range [from..to]
             var toExclusive = to?.Date.AddDays(1);
-            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
-            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
 
             // Only completed transactions
             q = q.Where(t => t.StatusId == 6);
@@ -576,8 +628,8 @@ namespace Application.Services
 
             // date filter [from .. to]
             var toExclusive = to?.Date.AddDays(1);
-            if (from.HasValue) q = q.Where(t => t.CreatedOn >= from.Value);
-            if (toExclusive.HasValue) q = q.Where(t => t.CreatedOn < toExclusive.Value);
+            if (from.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) >= from.Value);
+            if (toExclusive.HasValue) q = q.Where(t => (t.PaidOn ?? t.CreatedOn) < toExclusive.Value);
 
             // only completed GAME transactions
             q = q.Where(t => t.StatusId == 6 && t.GameId != null);
@@ -601,7 +653,7 @@ namespace Application.Services
 
             // group by CreatedOn.Hour
             var grouped = await q
-                .GroupBy(t => t.CreatedOn.Hour) // 0..23
+                .GroupBy(t => (t.PaidOn ?? t.CreatedOn).Hour) // 0..23
                 .Select(g => new GameHourlySalesDto
                 {
                     Hour = g.Key,
