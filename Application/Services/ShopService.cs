@@ -546,7 +546,7 @@ namespace Application.Services
             {
                 var trx = _sp.GetRequiredService<ITransactionRecordService>();
                 var comment = $"Website order {o.Code} · {o.CustomerName} · {o.CustomerPhone}"
-                    + (o.IsDelivery ? $" · DELIVERY {o.City} ({o.PaymentMode == "COD" ? "cash on delivery" : "paid online"})" : "")
+                    + (o.IsDelivery ? $" · DELIVERY {o.City} ({(o.PaymentMode == "COD" ? "cash on delivery" : "paid online")})" : "")
                     + (o.PickupTime != null ? $" · pickup {o.PickupTime}" : "") + (o.Notes != null ? $" · {o.Notes}" : "");
                 // COD: the invoice stays OPEN until Aramex confirms delivery (no cash yet).
                 var res = await trx.CreateCoffeeShopOrder(o.UserId, 0, ToTillLines(o), $"web:{actor}", ct,

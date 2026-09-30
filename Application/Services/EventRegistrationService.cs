@@ -407,7 +407,10 @@ namespace Application.Services
             if (r.PaymentStatus != "Paid")
                 return new(false, "unpaid", $"Not paid yet ({r.PaymentMethod}). Take {r.Amount:0.##} {r.Currency} and press \"Confirm cash\" to admit.", ticket);
             if (r.CheckedInOn.HasValue)
-                return new(false, "already", $"Already checked in by {r.CheckedInBy} ({(int)(DateTime.UtcNow - r.CheckedInOn.Value).TotalMinutes} min ago).", ticket);
+            {
+                var minutesAgo = (int)(DateTime.UtcNow - r.CheckedInOn.Value).TotalMinutes;
+                return new(false, "already", $"Already checked in by {r.CheckedInBy} ({minutesAgo} min ago).", ticket);
+            }
 
             r.CheckedInOn = DateTime.UtcNow; r.CheckedInBy = actor; r.ModifiedOn = DateTime.UtcNow;
             await _uow.SaveChangesAsync(ct);

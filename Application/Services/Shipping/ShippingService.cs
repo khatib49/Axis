@@ -602,7 +602,8 @@ namespace Application.Services.Shipping
             }
 
             var lines = new List<JournalEntryLineCreateDto>();
-            if (net > 0) lines.Add(new(into.Id, net, 0, $"Aramex COD remittance{(req.Reference is { Length: > 0 } ? $" ({req.Reference})" : "")}"));
+            var refSuffix = string.IsNullOrWhiteSpace(req.Reference) ? "" : $" ({req.Reference})";
+            if (net > 0) lines.Add(new(into.Id, net, 0, "Aramex COD remittance" + refSuffix));
             if (fees > 0) lines.Add(new(expense!.Id, fees, 0, "Aramex freight / COD fees deducted"));
             lines.Add(new(receivable.Id, 0, codTotal, $"COD settled — {rows.Count} shipment(s): {string.Join(", ", rows.Select(s => s.AwbNumber))}"));
 
