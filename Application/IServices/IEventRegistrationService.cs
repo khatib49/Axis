@@ -28,8 +28,24 @@ namespace Application.IServices
         Task<EventLedgerBackfillResultDto> BackfillLedgerAsync(
             string? eventKey, bool dryRun, CancellationToken ct = default);
 
+        // ── Tickets ──────────────────────────────────────────────────────
+        /// <summary>Public ticket by its secret code (null when unknown).</summary>
+        Task<EventTicketDto?> GetTicketAsync(string ticketCode, CancellationToken ct = default);
+        /// <summary>Tickets that belong to a signed-in website customer (by UserId or the account's phone).</summary>
+        Task<List<EventTicketDto>> MyTicketsAsync(int userId, string? phone, CancellationToken ct = default);
+        /// <summary>Door scan: marks a PAID ticket as checked in. Idempotent, never throws.</summary>
+        Task<TicketCheckInResultDto> CheckInAsync(string ticketCode, string actor, string? eventKey, CancellationToken ct = default);
+        /// <summary>Undo a check-in (wrong scan).</summary>
+        Task<bool> UndoCheckInAsync(int registrationId, string actor, CancellationToken ct = default);
+        /// <summary>Attendee list for one event (cashier board).</summary>
+        Task<EventAttendeeListDto?> AttendeesAsync(string eventKey, string? search, CancellationToken ct = default);
+        /// <summary>Till: the customer paid cash at the counter/door → Paid + ledger (1000). Same as admin confirm but allowed for cashiers.</summary>
+        Task<bool> ConfirmCashAtTillAsync(int registrationId, string actor, CancellationToken ct = default);
+
         // ── Gateway callbacks ────────────────────────────────────────────
         /// <summary>Marks a registration paid by provider reference (Stripe session id / Whish externalId). Idempotent.</summary>
-        Task<bool> MarkPaidByProviderRefAsync(string providerRef, string? rawPayload, CancellationToken ct = default);
+        Task<bool> MarkPaidByProviderRefAsync(string providerRef, string? rawPayload, CancellationToken ct = default, int? registrationId = null);
+        /// <summary>Ticket code for a registration id (used by the pay result page to link to the ticket).</summary>
+        Task<string?> TicketCodeForRegistrationAsync(int registrationId, CancellationToken ct = default);
     }
 }

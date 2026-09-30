@@ -32,15 +32,40 @@ namespace Domain.Entities
         [Required][MaxLength(40)] public string CustomerPhone { get; set; } = default!;
         [MaxLength(200)] public string? CustomerEmail { get; set; }
 
-        /// <summary>"Pickup" (only mode today).</summary>
+        /// <summary>"Pickup" | "Delivery"</summary>
         [Required][MaxLength(20)] public string Fulfilment { get; set; } = "Pickup";
-        /// <summary>"PayAtPickup" | "Online"</summary>
+        /// <summary>"PayAtPickup" | "Online" | "COD" (cash on delivery, collected by the courier)</summary>
         [Required][MaxLength(20)] public string PaymentMode { get; set; } = "PayAtPickup";
-        /// <summary>New | AwaitingPayment | Paid | Accepted | Ready | Completed | Cancelled</summary>
+        /// <summary>
+        /// New | AwaitingPayment | Paid | Accepted | Ready | Shipped | Delivered | Completed | Cancelled
+        /// (Ready is the pickup path; Shipped/Delivered the delivery path.)
+        /// </summary>
         [Required][MaxLength(20)] public string Status { get; set; } = "New";
 
         [Column(TypeName = "numeric(18,2)")] public decimal Subtotal { get; set; }
+        /// <summary>Shipping charged to the customer (0 for pickup / free delivery).</summary>
+        [Column(TypeName = "numeric(18,2)")] public decimal DeliveryFee { get; set; }
+        /// <summary>Subtotal + DeliveryFee.</summary>
         [Column(TypeName = "numeric(18,2)")] public decimal Total { get; set; }
+
+        // ── Delivery ─────────────────────────────────────────────────────
+        /// <summary>zone | aramex | free | manual — how DeliveryFee was decided.</summary>
+        [MaxLength(20)] public string? RateSource { get; set; }
+        public int? ShippingZoneId { get; set; }
+        [MaxLength(200)] public string? AddressLine1 { get; set; }
+        [MaxLength(200)] public string? AddressLine2 { get; set; }
+        [MaxLength(100)] public string? City { get; set; }
+        [MaxLength(100)] public string? Region { get; set; }
+        [MaxLength(2)] public string CountryCode { get; set; } = "LB";
+        [MaxLength(500)] public string? DeliveryNotes { get; set; }
+        /// <summary>Total parcel weight computed at order time (kg).</summary>
+        [Column(TypeName = "numeric(9,3)")] public decimal? WeightKg { get; set; }
+        public DateTime? ShippedOn { get; set; }
+        public DateTime? DeliveredOn { get; set; }
+        /// <summary>Journal entry that booked the delivery fee to 4400 (null until delivered/paid).</summary>
+        public int? FeeJournalEntryId { get; set; }
+
+        public bool IsDelivery => string.Equals(Fulfilment, "Delivery", StringComparison.OrdinalIgnoreCase);
         [MaxLength(500)] public string? Notes { get; set; }
         /// <summary>When the customer wants to collect (free text like "18:30" / "ASAP").</summary>
         [MaxLength(60)] public string? PickupTime { get; set; }

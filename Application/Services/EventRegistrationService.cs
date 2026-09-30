@@ -127,25 +127,55 @@ namespace Application.Services
             var amount = ev.Price;
             var currency = ev.Currency;
 
-            var entity = new EventRegistration
+            // A pending registration on the same phone for the same event is
+            // REUSED (the buyer is retrying / changed payment method) instead
+            // of piling up a new row per attempt.
+            // Reuse only when it is clearly the same person (same name, or the
+            // same signed-in account) — a stranger typing someone else's phone
+            // must not take over their pending ticket.
+            var firstLower = dto.FirstName.Trim().ToLowerInvariant(); var lastLower = dto.LastName.Trim().ToLowerInvariant();
+            var callerId = dto.UserId;
+            var entity = await _repo.Query(asNoTracking: false)
+                .Where(r => r.EventKey == eventKey && r.Phone == phone && r.PaymentStatus == "Pending")
+                .Where(r => (callerId != null && r.UserId == callerId)
+                         || (r.FirstName.ToLower() == firstLower && r.LastName.ToLower() == lastLower))
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync(ct);
+            if (entity is not null && entity.ProviderRef is { Length: > 3 } oldRef && oldRef.StartsWith("OP:", StringComparison.Ordinal) && method != "Visa")
             {
-                EventKey = eventKey,
-                EventId = ev.Id,
-                FirstName = dto.FirstName.Trim(),
-                LastName = dto.LastName.Trim(),
-                Phone = phone,
-                Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
-                PaymentMethod = method,
-                PaymentStatus = "Pending",
-                Amount = amount,
-                Currency = currency,
-                CreatedOn = DateTime.UtcNow,
-            };
-            await _repo.AddAsync(entity, ct);
+                // Switching away from a card link: close it so it can't be paid later.
+                try { await _onlinePayments.CancelOpenByCodeAsync(oldRef[3..], "website", "Customer chose another payment method", ct); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not cancel old pay link {Ref}", oldRef); }
+                entity.ProviderRef = null;
+            }
+            if (entity is null)
+            {
+                entity = new EventRegistration
+                {
+                    EventKey = eventKey,
+                    EventId = ev.Id,
+                    TicketCode = await NewTicketCodeAsync(ct),
+                    CreatedOn = DateTime.UtcNow,
+                };
+                await _repo.AddAsync(entity, ct);
+            }
+            entity.FirstName = dto.FirstName.Trim();
+            entity.LastName = dto.LastName.Trim();
+            entity.Phone = phone;
+            entity.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+            entity.PaymentMethod = method;
+            entity.PaymentStatus = "Pending";
+            entity.Amount = amount;
+            entity.Currency = currency;
+            entity.UserId ??= dto.UserId;
+            entity.EventId ??= ev.Id;
+            entity.TicketCode ??= await NewTicketCodeAsync(ct);
+            entity.ModifiedOn = DateTime.UtcNow;
             await _uow.SaveChangesAsync(ct);
 
             var fullName = $"{entity.FirstName} {entity.LastName}";
             var whatsAppUrl = BuildWhatsAppUrl(entity, ev);
+            var ticketUrl = await TicketUrlAsync(entity.TicketCode!, ct);
 
             // Cash → nothing to charge online; admin confirms at the store.
             if (method == "Cash")
@@ -154,7 +184,8 @@ namespace Application.Services
                     entity.Id, method, entity.PaymentStatus, amount, currency,
                     RedirectUrl: null,
                     WhatsAppUrl: whatsAppUrl,
-                    Message: "You're registered. Pay in cash at the AXIS store before the event — confirm on WhatsApp so we hold your spot.");
+                    Message: "You're registered. Pay in cash at the AXIS store before the event — confirm on WhatsApp so we hold your spot.",
+                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
             }
 
             // Whish without merchant-API credentials → fall back to the plain
@@ -172,7 +203,8 @@ namespace Application.Services
                     RedirectUrl: null,
                     WhatsAppUrl: whatsAppUrl,
                     Message: $"You're registered. Pay {amount:0.##} {currency} through the Whish link below, then send us the confirmation on WhatsApp so we hold your spot.",
-                    PayLinkUrl: ev.WhishPaymentLink);
+                    PayLinkUrl: ev.WhishPaymentLink,
+                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
             }
 
             // Cards → MontyPay through the Online Payments module when it is
@@ -182,22 +214,43 @@ namespace Application.Services
             {
                 try
                 {
-                    var (payment, payUrl) = await _onlinePayments.CreateForReferenceAsync(
-                        purpose: "EventTicket", referenceType: "EventRegistration", referenceId: entity.Id,
-                        amount: amount, currency: currency,
-                        description: $"{ev.Title} - Entry Ticket #{entity.Id}",
-                        customerName: fullName, customerPhone: entity.Phone, customerEmail: entity.Email,
-                        userId: null, actor: "website", ct: ct);
-
-                    entity.ProviderRef = $"OP:{payment.Code}";
-                    entity.ModifiedOn = DateTime.UtcNow;
-                    await _uow.SaveChangesAsync(ct);
+                    // Reuse a still-open pay link from a previous attempt.
+                    string? payUrl = null;
+                    if (entity.ProviderRef is { Length: > 3 } pr && pr.StartsWith("OP:", StringComparison.Ordinal))
+                    {
+                        var open = await _onlinePayments.GetPublicAsync(pr[3..], ct);
+                        if (open is { CanPay: true })
+                        {
+                            var publicBaseReuse = (await _settings.GetRawAsync("Payments.PublicBaseUrl", ct)
+                                ?? await _settings.GetRawAsync("Event.PublicBaseUrl", ct) ?? "https://www.axislb.com").TrimEnd('/');
+                            payUrl = _onlinePayments.BuildPayUrl(open.Code, publicBaseReuse);
+                        }
+                    }
+                    if (payUrl is null)
+                    {
+                        if (entity.ProviderRef is { Length: > 3 } stale && stale.StartsWith("OP:", StringComparison.Ordinal))
+                        {
+                            try { await _onlinePayments.CancelOpenByCodeAsync(stale[3..], "website", "Replaced by a new pay link", ct); }
+                            catch (Exception ex) { _logger.LogWarning(ex, "Could not cancel stale pay link {Ref}", stale); }
+                        }
+                        var (payment, url) = await _onlinePayments.CreateForReferenceAsync(
+                            purpose: "EventTicket", referenceType: "EventRegistration", referenceId: entity.Id,
+                            amount: amount, currency: currency,
+                            description: $"{ev.Title} - Entry Ticket #{entity.Id}",
+                            customerName: fullName, customerPhone: entity.Phone, customerEmail: entity.Email,
+                            userId: dto.UserId, actor: "website", ct: ct);
+                        entity.ProviderRef = $"OP:{payment.Code}";
+                        entity.ModifiedOn = DateTime.UtcNow;
+                        await _uow.SaveChangesAsync(ct);
+                        payUrl = url;
+                    }
 
                     return new EventRegisterResultDto(
                         entity.Id, method, entity.PaymentStatus, amount, currency,
                         RedirectUrl: payUrl,
                         WhatsAppUrl: whatsAppUrl,
-                        Message: "Redirecting you to secure card payment…");
+                        Message: "Redirecting you to secure card payment…",
+                        TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
                 }
                 catch (Exception ex)
                 {
@@ -210,15 +263,17 @@ namespace Application.Services
                         return new EventRegisterResultDto(
                             entity.Id, method, entity.PaymentStatus, amount, currency,
                             RedirectUrl: null, WhatsAppUrl: whatsAppUrl,
-                            Message: "You're registered, but online payment is unavailable right now. Confirm on WhatsApp and we'll arrange payment.");
+                            Message: "You're registered, but online payment is unavailable right now. Confirm on WhatsApp and we'll arrange payment.",
+                            TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
                     }
                 }
             }
 
-            // Card (Stripe) / Whish → start the hosted checkout.
+            // Card (Stripe) / Whish → start the hosted checkout. Success lands
+            // straight on the ticket page.
             var publicBase = (await _settings.GetRawAsync("Event.PublicBaseUrl", ct))?.TrimEnd('/')
                              ?? "https://www.axislb.com";
-            var successUrl = $"{publicBase}/events/{eventKey}/paid?reg={entity.Id}";
+            var successUrl = $"{publicBase}/tickets/{entity.TicketCode}?paid=1";
             var cancelUrl = $"{publicBase}/events/{eventKey}?cancelled=1&reg={entity.Id}";
 
             IPaymentGateway gateway = method == "Visa" ? _stripe : _whish;
@@ -240,7 +295,8 @@ namespace Application.Services
                     entity.Id, method, entity.PaymentStatus, amount, currency,
                     RedirectUrl: null,
                     WhatsAppUrl: whatsAppUrl,
-                    Message: "You're registered, but online payment is unavailable right now. Confirm on WhatsApp and we'll arrange payment.");
+                    Message: "You're registered, but online payment is unavailable right now. Confirm on WhatsApp and we'll arrange payment.",
+                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
             }
 
             entity.ProviderRef = start.Reference;
@@ -251,7 +307,151 @@ namespace Application.Services
                 entity.Id, method, entity.PaymentStatus, amount, currency,
                 RedirectUrl: start.RedirectUrl,
                 WhatsAppUrl: whatsAppUrl,
-                Message: "Redirecting you to secure payment…");
+                Message: "Redirecting you to secure payment…",
+                TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
+        }
+
+        // ── Tickets ──────────────────────────────────────────────────────
+        private async Task<string> NewTicketCodeAsync(CancellationToken ct)
+        {
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                var code = Events.TicketCodes.NewRandom();
+                if (!await _repo.Query().AnyAsync(r => r.TicketCode == code, ct)) return code;
+            }
+            throw new InvalidOperationException("Could not allocate a ticket code.");
+        }
+
+        private async Task<string> TicketUrlAsync(string code, CancellationToken ct)
+        {
+            var publicBase = ((await _settings.GetRawAsync("Payments.PublicBaseUrl", ct))
+                              ?? (await _settings.GetRawAsync("Event.PublicBaseUrl", ct))
+                              ?? "https://www.axislb.com").TrimEnd('/');
+            return $"{publicBase}/tickets/{code}";
+        }
+
+        private static string NormaliseCode(string raw) => Events.TicketCodes.Normalise(raw);
+
+        private async Task<EventTicketDto> ToTicketAsync(EventRegistration r, Event? ev, CancellationToken ct)
+        {
+            ev ??= await _eventRepo.Query().FirstOrDefaultAsync(e => e.Id == r.EventId || e.Key == r.EventKey, ct);
+            string? payUrl = null;
+            if (r.PaymentStatus == "Pending" && r.PaymentMethod == "Visa" && r.ProviderRef is { Length: > 3 } pr && pr.StartsWith("OP:", StringComparison.Ordinal))
+            {
+                try
+                {
+                    var p = await _onlinePayments.GetPublicAsync(pr[3..], ct);
+                    if (p is { CanPay: true })
+                    {
+                        var publicBase = ((await _settings.GetRawAsync("Payments.PublicBaseUrl", ct))
+                                          ?? (await _settings.GetRawAsync("Event.PublicBaseUrl", ct)) ?? "https://www.axislb.com").TrimEnd('/');
+                        payUrl = _onlinePayments.BuildPayUrl(p.Code, publicBase);
+                    }
+                }
+                catch { /* pay link is a convenience */ }
+            }
+            if (payUrl is null && r.PaymentStatus == "Pending" && r.PaymentMethod == "Whish" && !string.IsNullOrWhiteSpace(ev?.WhishPaymentLink))
+                payUrl = ev!.WhishPaymentLink;
+
+            return new EventTicketDto(
+                r.TicketCode ?? "", r.Id, r.EventKey,
+                ev?.Title ?? r.EventKey, ev?.Subtitle, ev?.EventDate, ev?.Location, ev?.HeroImagePath,
+                r.FirstName, r.LastName, r.Phone, r.Email,
+                r.PaymentMethod, r.PaymentStatus, r.Amount, r.Currency,
+                r.PaymentStatus == "Paid" ? r.ConfirmedOn : null,
+                r.CheckedInOn, r.CheckedInBy, r.CreatedOn,
+                payUrl,
+                ev is null ? null : BuildWhatsAppUrl(r, ev),
+                ev?.EventDate is null || ev.EventDate.Value >= DateTime.UtcNow.AddHours(-12));
+        }
+
+        public async Task<EventTicketDto?> GetTicketAsync(string ticketCode, CancellationToken ct = default)
+        {
+            var code = NormaliseCode(ticketCode);
+            if (code.Length < 6) return null;
+            var r = await _repo.Query().FirstOrDefaultAsync(x => x.TicketCode == code, ct);
+            return r is null ? null : await ToTicketAsync(r, null, ct);
+        }
+
+        public async Task<string?> TicketCodeForRegistrationAsync(int registrationId, CancellationToken ct = default)
+            => await _repo.Query().Where(r => r.Id == registrationId).Select(r => r.TicketCode).FirstOrDefaultAsync(ct);
+
+        public async Task<List<EventTicketDto>> MyTicketsAsync(int userId, string? phone, CancellationToken ct = default)
+        {
+            var p = string.IsNullOrWhiteSpace(phone) ? null : NormalisePhone(phone);
+            var rows = await _repo.Query()
+                .Where(r => r.UserId == userId || (p != null && r.Phone == p))
+                .Where(r => r.PaymentStatus != "Rejected")
+                .OrderByDescending(r => r.Id).Take(50).ToListAsync(ct);
+            var evIds = rows.Select(r => r.EventId).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+            var keys = rows.Select(r => r.EventKey).Distinct().ToList();
+            var events = await _eventRepo.Query().Where(e => evIds.Contains(e.Id) || keys.Contains(e.Key)).ToListAsync(ct);
+            var list = new List<EventTicketDto>();
+            foreach (var r in rows)
+                list.Add(await ToTicketAsync(r, events.FirstOrDefault(e => e.Id == r.EventId) ?? events.FirstOrDefault(e => e.Key == r.EventKey), ct));
+            return list;
+        }
+
+        public async Task<TicketCheckInResultDto> CheckInAsync(string ticketCode, string actor, string? eventKey, CancellationToken ct = default)
+        {
+            var code = NormaliseCode(ticketCode);
+            var r = code.Length >= 6 ? await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(x => x.TicketCode == code, ct) : null;
+            if (r is null) return new(false, "not_found", "Ticket not found — check the code and try again.", null);
+            var ev = await _eventRepo.Query().FirstOrDefaultAsync(e => e.Id == r.EventId || e.Key == r.EventKey, ct);
+            var ticket = await ToTicketAsync(r, ev, ct);
+
+            if (!string.IsNullOrWhiteSpace(eventKey) && !string.Equals(eventKey.Trim(), r.EventKey, StringComparison.OrdinalIgnoreCase))
+                return new(false, "wrong_event", $"This ticket is for \"{ticket.EventTitle}\", not this event.", ticket);
+            if (r.PaymentStatus == "Rejected" || r.PaymentStatus == "Refunded")
+                return new(false, "rejected", $"Ticket is {r.PaymentStatus.ToLowerInvariant()} — not valid for entry.", ticket);
+            if (r.PaymentStatus != "Paid")
+                return new(false, "unpaid", $"Not paid yet ({r.PaymentMethod}). Take {r.Amount:0.##} {r.Currency} and press \"Confirm cash\" to admit.", ticket);
+            if (r.CheckedInOn.HasValue)
+                return new(false, "already", $"Already checked in by {r.CheckedInBy} ({(int)(DateTime.UtcNow - r.CheckedInOn.Value).TotalMinutes} min ago).", ticket);
+
+            r.CheckedInOn = DateTime.UtcNow; r.CheckedInBy = actor; r.ModifiedOn = DateTime.UtcNow;
+            await _uow.SaveChangesAsync(ct);
+            _logger.LogInformation("Ticket {Code} checked in by {Actor}", code, actor);
+            return new(true, "ok", $"Welcome {r.FirstName} {r.LastName} — checked in.", await ToTicketAsync(r, ev, ct));
+        }
+
+        public async Task<bool> UndoCheckInAsync(int registrationId, string actor, CancellationToken ct = default)
+        {
+            var r = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(x => x.Id == registrationId, ct);
+            if (r is null) return false;
+            r.CheckedInOn = null; r.CheckedInBy = null; r.ModifiedOn = DateTime.UtcNow;
+            await _uow.SaveChangesAsync(ct);
+            _logger.LogInformation("Check-in undone for registration {Id} by {Actor}", registrationId, actor);
+            return true;
+        }
+
+        public async Task<EventAttendeeListDto?> AttendeesAsync(string eventKey, string? search, CancellationToken ct = default)
+        {
+            var ev = await _eventRepo.Query().FirstOrDefaultAsync(e => e.Key == eventKey, ct);
+            if (ev is null) return null;
+            var q = _repo.Query().Where(r => r.EventKey == eventKey && r.PaymentStatus != "Rejected");
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                q = q.Where(r => r.FirstName.ToLower().Contains(s) || r.LastName.ToLower().Contains(s) || r.Phone.Contains(s)
+                              || (r.TicketCode != null && r.TicketCode.ToLower().Contains(s)));
+            }
+            var rows = await q.OrderBy(r => r.CheckedInOn == null ? 0 : 1).ThenBy(r => r.LastName).ThenBy(r => r.FirstName).ToListAsync(ct);
+            var all = await _repo.Query().Where(r => r.EventKey == eventKey).Select(r => new { r.PaymentStatus, r.CheckedInOn }).ToListAsync(ct);
+            return new EventAttendeeListDto(
+                ev.Key, ev.Title, ev.EventDate, ev.Capacity,
+                all.Count(a => a.PaymentStatus == "Paid"), all.Count(a => a.PaymentStatus == "Pending"), all.Count(a => a.CheckedInOn != null),
+                rows.Select(r => new EventAttendeeDto(r.Id, r.TicketCode ?? "", r.FirstName, r.LastName, r.Phone, r.Email,
+                    r.PaymentMethod, r.PaymentStatus, r.Amount, r.Currency, r.CheckedInOn, r.CheckedInBy, r.CreatedOn)).ToList());
+        }
+
+        public async Task<bool> ConfirmCashAtTillAsync(int registrationId, string actor, CancellationToken ct = default)
+        {
+            var r = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(x => x.Id == registrationId, ct);
+            if (r is null) return false;
+            if (r.PaymentStatus == "Paid") return true;
+            r.PaymentMethod = "Cash";        // whatever they chose online, the money arrived as cash
+            return await SetStatusAsync(registrationId, "Paid", $"till:{actor}", "Paid in cash at the till", ct);
         }
 
         // ── Admin ────────────────────────────────────────────────────────
@@ -284,7 +484,7 @@ namespace Application.Services
                 .Select(r => new EventRegistrationDto(
                     r.Id, r.EventKey, r.FirstName, r.LastName, r.Phone, r.Email,
                     r.PaymentMethod, r.PaymentStatus, r.Amount, r.Currency,
-                    r.ProviderRef, r.ConfirmedBy, r.ConfirmedOn, r.AdminNotes, r.CreatedOn))
+                    r.ProviderRef, r.ConfirmedBy, r.ConfirmedOn, r.AdminNotes, r.CreatedOn, r.TicketCode, r.CheckedInOn))
                 .ToListAsync(ct);
 
             return new PaginatedResponse<EventRegistrationDto>(total, rows, page, size);
@@ -400,6 +600,14 @@ namespace Application.Services
             await _uow.SaveChangesAsync(ct);
             _logger.LogInformation("Event registration {Id} marked {Status} by {Actor}", id, status, actor);
 
+            // Paid by other means (cash at the till / admin) or rejected: an
+            // open card link must not stay payable — that would be a double charge.
+            if (status != "Pending" && e.ProviderRef is { Length: > 3 } op && op.StartsWith("OP:", StringComparison.Ordinal))
+            {
+                try { await _onlinePayments.CancelOpenByCodeAsync(op[3..], actor, $"Registration marked {status} by {actor}", ct); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not cancel pay link {Ref} for registration {Id}", op, id); }
+            }
+
             // Accounting runs AFTER the status is committed, and never blocks
             // it — same contract as sales postings. If the ledger write fails
             // the admin's action still stands and the gap shows up in the
@@ -453,12 +661,21 @@ namespace Application.Services
         }
 
         // ── Gateway callback ─────────────────────────────────────────────
-        public async Task<bool> MarkPaidByProviderRefAsync(string providerRef, string? rawPayload, CancellationToken ct = default)
+        public async Task<bool> MarkPaidByProviderRefAsync(string providerRef, string? rawPayload, CancellationToken ct = default, int? registrationId = null)
         {
-            if (string.IsNullOrWhiteSpace(providerRef)) return false;
+            if (string.IsNullOrWhiteSpace(providerRef) && registrationId is null) return false;
 
-            var e = await _repo.Query(asNoTracking: false)
+            var e = string.IsNullOrWhiteSpace(providerRef) ? null : await _repo.Query(asNoTracking: false)
                 .FirstOrDefaultAsync(r => r.ProviderRef == providerRef, ct);
+            if (e is null && registrationId is int rid)
+            {
+                // The registration may have moved on to another pay link since
+                // this one was created; money arrived on THIS link, so the
+                // registration id the payment carries is the truth.
+                e = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(r => r.Id == rid, ct);
+                if (e is not null && e.PaymentStatus != "Paid")
+                    _logger.LogWarning("Payment {Ref} settled on a superseded link — applying to registration {Id} by id", providerRef, rid);
+            }
             if (e is null)
             {
                 _logger.LogWarning("Payment callback for unknown providerRef {Ref}", providerRef);

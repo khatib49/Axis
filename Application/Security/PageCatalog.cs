@@ -115,6 +115,8 @@ namespace Application.Security
                 new[] { "PaymentsController" }, None),
             new PageDefinition("online-orders", "Online Orders", "Till", "/cashier/online-orders",
                 new[] { "ShopController" }, new[] { "cashier", "admin_fnb" }),
+            new PageDefinition("shipments", "Shipping & Aramex", "Accounting", "/admin/shipments",
+                new[] { "ShippingController" }, None),
 
             // ── Accounting ──────────────────────────────────────────────
             new PageDefinition("accounting", "Accounting Dashboard", "Accounting", "/accounting",

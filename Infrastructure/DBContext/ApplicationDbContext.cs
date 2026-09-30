@@ -66,6 +66,9 @@ namespace Infrastructure.Persistence
         public DbSet<ItemVariant> ItemVariants => Set<ItemVariant>();
         public DbSet<OnlineOrder> OnlineOrders => Set<OnlineOrder>();
         public DbSet<OnlineOrderLine> OnlineOrderLines => Set<OnlineOrderLine>();
+        public DbSet<ShippingZone> ShippingZones => Set<ShippingZone>();
+        public DbSet<Shipment> Shipments => Set<Shipment>();
+        public DbSet<ShipmentEvent> ShipmentEvents => Set<ShipmentEvent>();
         public DbSet<TransactionItemVariant> TransactionItemVariants => Set<TransactionItemVariant>();
         public DbSet<OnlinePaymentEvent> OnlinePaymentEvents => Set<OnlinePaymentEvent>();
         public DbSet<Category> Categories => Set<Category>();
@@ -670,12 +673,45 @@ namespace Infrastructure.Persistence
                 e.ToTable("OnlineOrders");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Subtotal).HasColumnType("numeric(18,2)");
+                e.Property(x => x.DeliveryFee).HasColumnType("numeric(18,2)");
                 e.Property(x => x.Total).HasColumnType("numeric(18,2)");
+                e.Property(x => x.WeightKg).HasColumnType("numeric(9,3)");
+                e.Property(x => x.CountryCode).HasDefaultValue("LB");
                 e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.Ignore(x => x.IsDelivery);
                 e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(x => x.Code).IsUnique();
                 e.HasIndex(x => new { x.Status, x.CreatedOn });
                 e.HasIndex(x => x.UserId);
+            });
+
+            // ── Shipping (Aramex) — see db-migrations/2026-09-shop-and-aramex-shipping.sql
+            b.Entity<ShippingZone>(e =>
+            {
+                e.ToTable("ShippingZones");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Fee).HasColumnType("numeric(18,2)");
+                e.Property(x => x.FreeAbove).HasColumnType("numeric(18,2)");
+            });
+            b.Entity<Shipment>(e =>
+            {
+                e.ToTable("Shipments");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.CodAmount).HasColumnType("numeric(18,2)");
+                e.Property(x => x.WeightKg).HasColumnType("numeric(9,3)");
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.Ignore(x => x.IsOpen);
+                e.HasOne(x => x.Order).WithMany().HasForeignKey(x => x.OnlineOrderId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => x.OnlineOrderId);
+                e.HasIndex(x => new { x.Status, x.CreatedOn });
+            });
+            b.Entity<ShipmentEvent>(e =>
+            {
+                e.ToTable("ShipmentEvents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.CreatedOn).HasDefaultValueSql("NOW()");
+                e.HasOne(x => x.Shipment).WithMany(s => s.Events).HasForeignKey(x => x.ShipmentId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => new { x.ShipmentId, x.EventAt });
             });
             b.Entity<OnlineOrderLine>(e =>
             {

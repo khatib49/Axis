@@ -64,13 +64,23 @@ namespace AxisAPI.Controllers
             return e is null ? NotFound(new { message = "Event not found." }) : Ok(e);
         }
 
-        /// <summary>Anonymous registration. Returns a redirect URL for Visa/Whish.</summary>
+        /// <summary>
+        /// Registration. Anonymous by design; when the visitor is signed in to
+        /// the website (client token) the ticket is linked to their account so
+        /// it shows under "My tickets". The UserId from the body is ignored.
+        /// </summary>
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] EventRegisterRequestDto dto, CancellationToken ct)
         {
             try
             {
-                return Ok(await _svc.RegisterAsync(dto, ct));
+                int? userId = null;
+                if (User?.Identity?.IsAuthenticated == true && User.IsInRole("client"))
+                {
+                    var raw = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+                    if (int.TryParse(raw, out var uid)) userId = uid;
+                }
+                return Ok(await _svc.RegisterAsync(dto with { UserId = userId }, ct));
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
             catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
@@ -79,6 +89,17 @@ namespace AxisAPI.Controllers
                 _logger.LogError(ex, "Event registration failed");
                 return StatusCode(500, new { message = "Registration failed. Please try again." });
             }
+        }
+
+        /// <summary>
+        /// Public ticket. The code is unguessable (TK- + 10 random chars) so
+        /// knowing it IS the authorisation — same model as the pay page.
+        /// </summary>
+        [HttpGet("tickets/{code}")]
+        public async Task<IActionResult> Ticket(string code, CancellationToken ct)
+        {
+            var t = await _svc.GetTicketAsync(code, ct);
+            return t is null ? NotFound(new { message = "Ticket not found." }) : Ok(t);
         }
 
         /// <summary>
@@ -103,7 +124,8 @@ namespace AxisAPI.Controllers
                 if (verified)
                 {
                     await _svc.MarkPaidByProviderRefAsync(externalId, "whish-verified", ct);
-                    return Redirect($"{publicBase}/events/{eventKey}/paid?reg={reg}");
+                    var code = reg.HasValue ? await _svc.TicketCodeForRegistrationAsync(reg.Value, ct) : null;
+                    return Redirect(code is null ? $"{publicBase}/events/{eventKey}/paid?reg={reg}" : $"{publicBase}/tickets/{code}?paid=1");
                 }
             }
 
@@ -196,13 +218,46 @@ namespace AxisAPI.Controllers
     public class EventsTillController : ControllerBase
     {
         private readonly IEventService _events;
+        private readonly IEventRegistrationService _regs;
         private readonly IHttpContextAccessor _http;
 
-        public EventsTillController(IEventService events, IHttpContextAccessor http)
+        public EventsTillController(IEventService events, IEventRegistrationService regs, IHttpContextAccessor http)
         {
             _events = events;
+            _regs = regs;
             _http = http;
         }
+
+        private string Actor => _http.HttpContext?.User?.Identity?.Name ?? "cashier";
+
+        // ── Door: tickets & check-in ─────────────────────────────────────
+        /// <summary>Attendees of one event with paid / pending / checked-in counters.</summary>
+        [HttpGet("{eventKey}/attendees")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> Attendees(string eventKey, [FromQuery] string? search, CancellationToken ct)
+        {
+            var list = await _regs.AttendeesAsync(eventKey, search, ct);
+            return list is null ? NotFound(new { error = "Event not found." }) : Ok(list);
+        }
+
+        public record CheckInBody(string Code, string? EventKey);
+
+        /// <summary>Scan / type a ticket code at the door. Never throws; the outcome says what happened.</summary>
+        [HttpPost("checkin")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> CheckIn([FromBody] CheckInBody body, CancellationToken ct)
+            => Ok(await _regs.CheckInAsync(body.Code ?? "", Actor, body.EventKey, ct));
+
+        [HttpPost("registrations/{id:int}/undo-checkin")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> UndoCheckIn(int id, CancellationToken ct)
+            => await _regs.UndoCheckInAsync(id, Actor, ct) ? NoContent() : NotFound();
+
+        /// <summary>Customer paid cash at the counter / door → ticket becomes Paid (ledger DR 1000 / CR 4300).</summary>
+        [HttpPost("registrations/{id:int}/confirm-cash")]
+        [Authorize(Roles = "admin,cashier,gamecashier,admin_fnb")]
+        public async Task<IActionResult> ConfirmCash(int id, CancellationToken ct)
+            => await _regs.ConfirmCashAtTillAsync(id, Actor, ct) ? NoContent() : NotFound();
 
         /// <summary>Active dated events for the cashier boards (drafts included).</summary>
         [HttpGet("upcoming")]

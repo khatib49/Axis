@@ -43,6 +43,15 @@ namespace Domain.Entities
         public DateTime? ConfirmedOn { get; set; }
         public string? AdminNotes { get; set; }
 
+        // ── Ticket ───────────────────────────────────────────────────────
+        /// <summary>Unguessable code on the ticket + QR ("TK-XXXXXXXXXX"). Opens /tickets/{code}.</summary>
+        [MaxLength(24)] public string? TicketCode { get; set; }
+        /// <summary>Website account that bought the ticket (null when anonymous).</summary>
+        public int? UserId { get; set; }
+        /// <summary>Stamped by the till when the QR is scanned at the door.</summary>
+        public DateTime? CheckedInOn { get; set; }
+        [MaxLength(200)] public string? CheckedInBy { get; set; }
+
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedOn { get; set; }
     }

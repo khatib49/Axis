@@ -22,6 +22,11 @@ namespace Domain.Entities
         public string? ImagePath { get; set; }
         public decimal? BuyPrice { get; set; }
 
+        /// <summary>Item can be ordered on the online shop (category must also be ShowInShop).</summary>
+        public bool SellOnline { get; set; } = true;
+        /// <summary>Shipping weight (kg); falls back to Category.DefaultWeightKg.</summary>
+        public decimal? WeightKg { get; set; }
+
         public ICollection<CoffeeShopOrder> CoffeeShopOrders { get; set; } = new List<CoffeeShopOrder>();
 
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();

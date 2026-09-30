@@ -106,6 +106,11 @@ namespace Application
             // Website ordering (customer accounts, cart checkout, till inbox)
             services.AddScoped<IShopService, ShopService>();
 
+            // Delivery: Aramex client + shipping service + Hangfire tracking poller
+            services.AddScoped<Application.Services.Shipping.IAramexClient, Application.Services.Shipping.AramexClient>();
+            services.AddScoped<IShippingService, Application.Services.Shipping.ShippingService>();
+            services.AddScoped<Application.Services.Shipping.ShippingJobs>();
+
             return services;
         }
     }

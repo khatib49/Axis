@@ -5,6 +5,12 @@ namespace Application.IServices
     /// <summary>Website customers: account, cart checkout, order tracking; plus the till's order inbox.</summary>
     public interface IShopService
     {
+        // ── Public catalogue (anonymous) ─────────────────────────────────
+        /// <summary>Categories flagged ShowInShop with their sellable items, plus shop/delivery switches and zones.</summary>
+        Task<ShopCatalogDto> GetCatalogAsync(CancellationToken ct = default);
+        /// <summary>Price a cart for delivery to a city (fee, total, weight) without placing it.</summary>
+        Task<ShopQuoteDto> QuoteAsync(ShopQuoteRequest req, CancellationToken ct = default);
+
         // ── Customer ─────────────────────────────────────────────────────
         Task<CustomerAuthResponse> RegisterAsync(CustomerRegisterRequest req, CancellationToken ct = default);
         Task<CustomerAuthResponse> LoginAsync(CustomerLoginRequest req, CancellationToken ct = default);

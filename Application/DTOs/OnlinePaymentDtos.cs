@@ -66,7 +66,10 @@ namespace Application.DTOs
     public record PublicPaymentDto(
         string Code, string Provider, string Purpose, decimal Amount, string Currency, string Description,
         string? CustomerName, string Status, bool CanPay, bool IsExpired, DateTime? PaidOn,
-        string? ReferenceLabel);
+        string? ReferenceLabel,
+        /// Where to send the customer after a successful payment (ticket page / order page). Relative path.
+        string? NextUrl = null,
+        string? NextLabel = null);
 
     public record PublicPaymentStartResultDto(bool Success, string? RedirectUrl, string Status, string? Error);
 }

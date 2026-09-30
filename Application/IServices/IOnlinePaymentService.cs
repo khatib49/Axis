@@ -12,6 +12,8 @@ namespace Application.IServices
         Task<OnlinePaymentDto?> ReconcileAsync(int id, string actor, CancellationToken ct = default);
         /// <summary>Admin cancels a link that should no longer be payable.</summary>
         Task<bool> CancelAsync(int id, string actor, string? reason, CancellationToken ct = default);
+        /// <summary>Cancel a still-open pay link by its public code (no-op when already paid/cancelled/unknown).</summary>
+        Task<bool> CancelOpenByCodeAsync(string code, string actor, string? reason, CancellationToken ct = default);
         Task<PaymentProviderConfigDto> GetProviderConfigAsync(string provider, CancellationToken ct = default);
 
         // ── Public (pay page) ────────────────────────────────────────────

@@ -7,7 +7,9 @@ namespace Application.DTOs
         string Phone,
         string? Email,
         string PaymentMethod,          // 'Visa' | 'Whish' | 'Cash'
-        string EventKey = "squid-game-x-axis"
+        string EventKey = "squid-game-x-axis",
+        /// Website account id when the visitor is signed in (set by the controller, never trusted from the body).
+        int? UserId = null
     );
 
     /// <summary>
@@ -30,8 +32,60 @@ namespace Application.DTOs
         /// WhatsApp. Set only when the Collect API isn't configured, so the
         /// page shows a "Pay with Whish" button instead of auto-redirecting.
         /// </summary>
-        string? PayLinkUrl = null
+        string? PayLinkUrl = null,
+        /// The ticket code — the ticket page is /tickets/{TicketCode} (Pending until paid).
+        string? TicketCode = null,
+        string? TicketUrl = null
     );
+
+    // ── Ticket (public page, my tickets, door check-in) ──────────────────
+    public record EventTicketDto(
+        string TicketCode,
+        int RegistrationId,
+        string EventKey,
+        string EventTitle,
+        string? EventSubtitle,
+        DateTime? EventDate,
+        string? Location,
+        string? HeroImagePath,
+        string FirstName,
+        string LastName,
+        string Phone,
+        string? Email,
+        string PaymentMethod,
+        /// Pending | Paid | Rejected | Refunded
+        string PaymentStatus,
+        decimal Amount,
+        string Currency,
+        DateTime? PaidOn,
+        DateTime? CheckedInOn,
+        string? CheckedInBy,
+        DateTime CreatedOn,
+        /// Open pay link when the ticket is Pending and the card payment is still valid.
+        string? PayUrl,
+        string? WhatsAppUrl,
+        /// True when the event has not started yet (ticket is usable).
+        bool IsUpcoming
+    );
+
+    /// <summary>Door scan result.</summary>
+    public record TicketCheckInResultDto(
+        bool Ok,
+        /// ok | already | unpaid | not_found | wrong_event | rejected
+        string Outcome,
+        string Message,
+        EventTicketDto? Ticket
+    );
+
+    /// <summary>Attendee row for the cashier events board.</summary>
+    public record EventAttendeeDto(
+        int Id, string TicketCode, string FirstName, string LastName, string Phone, string? Email,
+        string PaymentMethod, string PaymentStatus, decimal Amount, string Currency,
+        DateTime? CheckedInOn, string? CheckedInBy, DateTime CreatedOn);
+
+    public record EventAttendeeListDto(
+        string EventKey, string EventTitle, DateTime? EventDate, int? Capacity,
+        int Paid, int Pending, int CheckedIn, List<EventAttendeeDto> Attendees);
 
     // ── Admin panel ──────────────────────────────────────────────────────
     public record EventRegistrationDto(
@@ -49,7 +103,9 @@ namespace Application.DTOs
         string? ConfirmedBy,
         DateTime? ConfirmedOn,
         string? AdminNotes,
-        DateTime CreatedOn
+        DateTime CreatedOn,
+        string? TicketCode = null,
+        DateTime? CheckedInOn = null
     );
 
     public record EventRegistrationFilterDto(

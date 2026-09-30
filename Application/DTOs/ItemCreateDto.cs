@@ -16,6 +16,8 @@ namespace Application.DTOs
         public int CategoryId { get; set; }
         public int? StatusId { get; set; }
         public decimal? BuyPrice { get; set; }
+        public bool SellOnline { get; set; } = true;
+        public decimal? WeightKg { get; set; }
         public IFormFile? Image { get; set; } // for upload
     }
 }

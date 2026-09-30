@@ -249,6 +249,13 @@ Hangfire.RecurringJob.AddOrUpdate<Application.Services.Ai.AiMonitorJobs>(
     j => j.RunPatternMonitorAsync(CancellationToken.None),
     "0 10 * * *");                    // daily 10:00 UTC
 
+// Aramex tracking: polls every open shipment; no-op until Aramex is configured.
+// (Interval is fixed here; Aramex.TrackingPollMinutes is informational for the UI.)
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Shipping.ShippingJobs>(
+    "aramex-tracking-poll",
+    j => j.PollTrackingAsync(CancellationToken.None),
+    "*/30 * * * *");                  // every 30 minutes
+
 app.UseHttpsRedirection();
 //app.UseForce403ForUnauthorized();
 app.UseSerilogRequestEnricher();

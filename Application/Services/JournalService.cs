@@ -17,6 +17,7 @@ namespace Application.Services
         private readonly IBaseRepository<Expense> _expenseRepo;
         private readonly IBaseRepository<Category> _categoryRepo;
         private readonly IBaseRepository<EventRegistration> _eventRegistrationRepo;
+        private readonly IBaseRepository<OnlineOrder> _onlineOrderRepo;
         private readonly IUnitOfWork _uow;
         private readonly AccountingMapper _mapper;
         private readonly ILogger<JournalService> _logger;
@@ -29,6 +30,7 @@ namespace Application.Services
             IBaseRepository<Expense> expenseRepo,
             IBaseRepository<Category> categoryRepo,
             IBaseRepository<EventRegistration> eventRegistrationRepo,
+            IBaseRepository<OnlineOrder> onlineOrderRepo,
             IUnitOfWork uow,
             AccountingMapper mapper,
             ILogger<JournalService> logger)
@@ -40,9 +42,47 @@ namespace Application.Services
             _expenseRepo = expenseRepo;
             _categoryRepo = categoryRepo;
             _eventRegistrationRepo = eventRegistrationRepo;
+            _onlineOrderRepo = onlineOrderRepo;
             _uow = uow;
             _mapper = mapper;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Where the money of a sale actually is. Till sales → 1000 Cash. A
+        /// website order paid by card → 1050 Online Payments Clearing; paid
+        /// cash-on-delivery → 1060 Aramex COD Receivable (the courier holds
+        /// the cash until settlement). Falls back to 1000 when the special
+        /// account is missing so a sale is never blocked.
+        /// </summary>
+        private async Task<Account?> ResolveSaleCashAccountAsync(int transactionId, CancellationToken ct)
+        {
+            var cash = await _accountRepo.Query().FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
+            string? mode = null;
+            try
+            {
+                mode = await _onlineOrderRepo.Query()
+                    .Where(o => o.TransactionRecordId == transactionId)
+                    .Select(o => o.PaymentMode)
+                    .FirstOrDefaultAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "OnlineOrders lookup failed for tx {Tx}; booking to 1000", transactionId);
+            }
+            if (mode is null) return cash;
+
+            var number = mode switch
+            {
+                "Online" => "1050",
+                "COD" => "1060",
+                _ => null,
+            };
+            if (number is null) return cash;
+            var special = await _accountRepo.Query().FirstOrDefaultAsync(a => a.AccountNumber == number && a.IsActive, ct);
+            if (special is null)
+                _logger.LogWarning("Account {Acc} missing — website order tx {Tx} ({Mode}) booked to 1000 Cash", number, transactionId, mode);
+            return special ?? cash;
         }
 
         // ============================================
@@ -557,8 +597,7 @@ namespace Application.Services
                 // so spending it RELEASES the liability instead of touching
                 // cash again. Double-counting the cash was the failure mode
                 // this split exists to prevent.
-                var cashAccount = await _accountRepo.Query()
-                    .FirstOrDefaultAsync(a => a.AccountNumber == "1000" && a.IsActive, ct);
+                var cashAccount = await ResolveSaleCashAccountAsync(transactionId, ct);
 
                 if (cashAccount == null)
                     return new BaseResponse<JournalEntryDto>(false, "Cash account (1000) not found", "", null);
@@ -589,7 +628,8 @@ namespace Application.Services
                 if (cashPart > 0)
                 {
                     lines.Add(new JournalEntryLineCreateDto(
-                        cashAccount.Id, cashPart, 0, "Cash received"));
+                        cashAccount.Id, cashPart, 0,
+                        cashAccount.AccountNumber == "1000" ? "Cash received" : $"Received via {cashAccount.AccountName}"));
                 }
 
                 // DEBIT: 4900 Sales Discounts (contra-revenue) for the discount

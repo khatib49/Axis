@@ -10,5 +10,10 @@
         public int? AccountId { get; set; }
         public Account? Account { get; set; }
 
+        /// <summary>Category is listed on the public online shop page (retail).</summary>
+        public bool ShowInShop { get; set; }
+        /// <summary>Weight used for shipping when an item has none (kg).</summary>
+        public decimal? DefaultWeightKg { get; set; }
+
     }
 }

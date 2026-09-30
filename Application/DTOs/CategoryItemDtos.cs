@@ -1,8 +1,8 @@
 ﻿namespace Application.DTOs
 {
-    public record CategoryDto(int Id, string Name , string Type , string? ItemType);
-    public record CategoryCreateDto(string Name , string Type , string? ItemType);
-    public record CategoryUpdateDto(string? Name , string Type , string? ItemType);
+    public record CategoryDto(int Id, string Name , string Type , string? ItemType, bool ShowInShop = false, decimal? DefaultWeightKg = null);
+    public record CategoryCreateDto(string Name , string Type , string? ItemType, bool ShowInShop = false, decimal? DefaultWeightKg = null);
+    public record CategoryUpdateDto(string? Name , string Type , string? ItemType, bool? ShowInShop = null, decimal? DefaultWeightKg = null);
 
     /// <summary>A paid extra an item offers (customize sheet at the cashier).</summary>
     public record ItemAddOnDto(int Id, string Name, decimal Price, bool IsActive, int SortOrder);
@@ -17,7 +17,9 @@
     public record ItemDto(int Id, string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId, string? ImagePath, decimal? BuyPrice,
         // Trailing defaults keep positional callers valid.
         List<ItemAddOnDto>? AddOns = null,
-        List<ItemVariantDto>? Variants = null);
+        List<ItemVariantDto>? Variants = null,
+        bool SellOnline = true,
+        decimal? WeightKg = null);
     //public record ItemCreateDto(string Name, int Quantity, decimal Price, string Type, int CategoryId, int? StatusId);
     //public record ItemUpdateDto(string? Name, int? Quantity, decimal? Price, string? Type, int? CategoryId, int? StatusId);
 

@@ -211,11 +211,39 @@ namespace Application.Services
             var p = await _repo.Query().FirstOrDefaultAsync(x => x.Code == code, ct);
             if (p is null) return null;
             var expired = IsExpired(p);
+            var (nextUrl, nextLabel) = await NextUrlAsync(p, ct);
             return new PublicPaymentDto(
                 p.Code, p.Provider, p.Purpose, p.Amount, p.Currency, p.Description, p.CustomerName,
                 expired ? "Expired" : p.Status,
                 CanPay: !expired && (OpenStatuses.Contains(p.Status) || p.Status == "Failed"),
-                IsExpired: expired, PaidOn: p.PaidOn, ReferenceLabel: ReferenceLabel(p));
+                IsExpired: expired, PaidOn: p.PaidOn, ReferenceLabel: ReferenceLabel(p),
+                NextUrl: nextUrl, NextLabel: nextLabel);
+        }
+
+        /// <summary>After a successful payment the result page sends the customer on: ticket page or order page.</summary>
+        private async Task<(string? url, string? label)> NextUrlAsync(OnlinePayment p, CancellationToken ct)
+        {
+            if (!p.ReferenceId.HasValue) return (null, null);
+            try
+            {
+                switch (p.Purpose)
+                {
+                    case "EventTicket":
+                        var code = await _sp.GetRequiredService<IEventRegistrationService>().TicketCodeForRegistrationAsync(p.ReferenceId.Value, ct);
+                        return code is null ? (null, null) : ($"/tickets/{code}", p.Status == "Paid" ? "View your ticket" : "Your ticket (pending payment)");
+                    case "OnlineOrder":
+                        var order = await _sp.GetRequiredService<IBaseRepository<OnlineOrder>>().Query()
+                            .Where(o => o.Id == p.ReferenceId.Value).Select(o => o.Code).FirstOrDefaultAsync(ct);
+                        return order is null ? (null, null) : ($"/orders/{order}", "Track your order");
+                    default:
+                        return (null, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "NextUrl lookup failed for payment {Code}", p.Code);
+                return (null, null);
+            }
         }
 
         public async Task<PublicPaymentStartResultDto> StartCheckoutAsync(string code, CancellationToken ct = default)
@@ -432,7 +460,7 @@ namespace Application.Services
                     case "EventTicket":
                     {
                         var events = _sp.GetRequiredService<IEventRegistrationService>();
-                        var ok = await events.MarkPaidByProviderRefAsync($"OP:{p.Code}", $"{p.Provider} {p.ProviderPaymentId} settled", ct);
+                        var ok = await events.MarkPaidByProviderRefAsync($"OP:{p.Code}", $"{p.Provider} {p.ProviderPaymentId} settled", ct, registrationId: p.ReferenceId);
                         if (!ok) throw new InvalidOperationException("Event registration not found for this payment.");
                         break;
                     }
@@ -624,6 +652,18 @@ namespace Application.Services
             p.FailureReason = reason;
             p.ModifiedOn = DateTime.UtcNow;
             await LogEventAsync(p, "manual", $"Cancelled by {actor}: {reason}", resultStatus: "Cancelled", ct: ct);
+            await _uow.SaveChangesAsync(ct);
+            return true;
+        }
+
+        public async Task<bool> CancelOpenByCodeAsync(string code, string actor, string? reason, CancellationToken ct = default)
+        {
+            var p = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(x => x.Code == code, ct);
+            if (p is null || !OpenStatuses.Contains(p.Status)) return false;
+            p.Status = "Cancelled";
+            p.FailureReason = reason;
+            p.ModifiedOn = DateTime.UtcNow;
+            await LogEventAsync(p, "system", $"Cancelled by {actor}: {reason}", resultStatus: "Cancelled", ct: ct);
             await _uow.SaveChangesAsync(ct);
             return true;
         }
