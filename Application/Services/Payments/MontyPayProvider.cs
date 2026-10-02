@@ -133,6 +133,40 @@ namespace Application.Services.Payments
             return customer.Count == 0 ? null : customer;
         }
 
+        /// <summary>
+        /// billing_address for the session. When it is complete, the hosted page
+        /// skips its billing form and the "provide missing data: State" step
+        /// (MontyPay's instruction, 2026-10-02). We only know the customer's
+        /// phone, so the address part defaults to Beirut, Lebanon — overridable
+        /// per key (MontyPay.Billing.Country/State/City/Address/Zip/Phone)
+        /// without a deploy. Values outside the API's length limits are dropped
+        /// so a bad override can never fail the whole session.
+        /// </summary>
+        internal static Dictionary<string, object?> BuildBillingAddress(
+            string? customerPhone, string? country, string? state, string? city, string? address, string? zip, string? fallbackPhone)
+        {
+            static string? Fit(string? v, string fallback, int min, int max)
+            {
+                var s = string.IsNullOrWhiteSpace(v) ? fallback : v.Trim();
+                return s.Length >= min && s.Length <= max ? s : (fallback.Length >= min && fallback.Length <= max ? fallback : null);
+            }
+
+            var cc = (country ?? "").Trim().ToUpperInvariant();
+            var billing = new Dictionary<string, object?>
+            {
+                ["country"] = cc.Length == 2 && cc.All(char.IsAsciiLetterUpper) ? cc : "LB",
+                ["state"] = Fit(state, "Beirut", 2, 32),
+                ["city"] = Fit(city, "Beirut", 2, 40),
+                ["address"] = Fit(address, "Beirut", 2, 255),
+                ["zip"] = Fit(zip, "1100", 2, 10),
+            };
+            var digits = new string((string.IsNullOrWhiteSpace(customerPhone) ? fallbackPhone ?? "" : customerPhone).Where(char.IsAsciiDigit).ToArray());
+            if (digits.Length is >= 6 and <= 32) billing["phone"] = digits;
+
+            foreach (var k in billing.Where(kv => kv.Value is null).Select(kv => kv.Key).ToList()) billing.Remove(k);
+            return billing;
+        }
+
         // ── Session ──────────────────────────────────────────────────────
         public async Task<CheckoutSessionResult> CreateCheckoutAsync(
             OnlinePayment payment, string successUrl, string cancelUrl, string notificationUrl, CancellationToken ct = default)
@@ -141,8 +175,9 @@ namespace Application.Services.Payments
             if (creds is null)
                 return new CheckoutSessionResult(false, null, null, $"MontyPay ({payment.Environment}) is not configured.");
 
-            // order.number must be unique per attempt → code + attempt stamp.
-            var orderNumber = $"AX-{payment.Code}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 100000000}";
+            // order.number must be unique per attempt → code + millisecond stamp
+            // (every Pay click mints a session, so two in one second must differ).
+            var orderNumber = $"AX-{payment.Code}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10_000_000_000}";
             var amount = FormatAmount(payment.Amount);
             var currency = (payment.Currency ?? "USD").ToUpperInvariant();
             var description = SafeDescription(payment.Description);
@@ -177,6 +212,16 @@ namespace Application.Services.Payments
 
             if (BuildCustomer(payment.CustomerName, payment.CustomerEmail) is { } customer)
                 body["customer"] = customer;
+
+            if (!string.Equals(await _settings.GetRawAsync("MontyPay.SendBillingAddress", ct), "false", StringComparison.OrdinalIgnoreCase))
+                body["billing_address"] = BuildBillingAddress(
+                    payment.CustomerPhone,
+                    await _settings.GetRawAsync("MontyPay.Billing.Country", ct),
+                    await _settings.GetRawAsync("MontyPay.Billing.State", ct),
+                    await _settings.GetRawAsync("MontyPay.Billing.City", ct),
+                    await _settings.GetRawAsync("MontyPay.Billing.Address", ct),
+                    await _settings.GetRawAsync("MontyPay.Billing.Zip", ct),
+                    await _settings.GetRawAsync("MontyPay.Billing.Phone", ct));
 
             using var http = _httpFactory.CreateClient();
             http.Timeout = TimeSpan.FromSeconds(30);

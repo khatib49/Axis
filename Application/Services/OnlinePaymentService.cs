@@ -317,12 +317,11 @@ namespace Application.Services
             if (provider is null || !await provider.IsConfiguredAsync(p.Environment, ct))
                 return new PublicPaymentStartResultDto(false, null, p.Status, "Online payment is not available right now. Please pay at the store.");
 
-            // Re-use a session created in the last 15 minutes (double click / two tabs)
-            // instead of minting a new order number every time.
-            if (p.Status == "Redirected" && !string.IsNullOrWhiteSpace(p.RedirectUrl)
-                && p.ModifiedOn.HasValue && (DateTime.UtcNow - p.ModifiedOn.Value) < TimeSpan.FromMinutes(15))
-                return new PublicPaymentStartResultDto(true, p.RedirectUrl, p.Status, null);
-
+            // Always a fresh session: MontyPay's checkout URL is single-use — once
+            // opened, reopening it shows "Your session has expired" (seen live
+            // 2026-10-02). Reusing it broke Back / Close → Pay again. Older
+            // sessions stay valid at the gateway; their callbacks still find this
+            // row via the code embedded in the order number (see HandleCallbackAsync).
             var publicBase = await PublicBaseAsync(ct);
             var apiBase = await ApiBaseAsync(ct);
             var successUrl = $"{publicBase}/pay/{p.Code}/result?outcome=success";

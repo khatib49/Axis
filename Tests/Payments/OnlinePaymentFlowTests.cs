@@ -336,6 +336,35 @@ namespace Tests.Payments
             p.FulfillmentError.Should().Be("db error");
         }
 
+        // ── Starting checkout ───────────────────────────────────────────
+        [Fact]
+        public async Task Every_Pay_click_gets_a_fresh_single_use_session()
+        {
+            // MontyPay's checkout URL dies once opened ("Your session has expired"),
+            // so Back/Close → Pay again must never be handed the old one.
+            var n = 0;
+            _gateway = req => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent($"{{\"redirect_url\":\"https://checkout.example.test/auth/token{++n}\"}}"),
+            };
+            var dto = await _svc.CreateAsync(new OnlinePaymentCreateDto(1m, "Test product 1 USD"), "admin");
+
+            var first = await _svc.StartCheckoutAsync(dto.Code);
+            var firstOrder = Persisted(dto.Id).Payment.ProviderOrderNumber;
+            await Task.Delay(5);
+            var second = await _svc.StartCheckoutAsync(dto.Code);
+            var secondOrder = Persisted(dto.Id).Payment.ProviderOrderNumber;
+
+            first.RedirectUrl.Should().Be("https://checkout.example.test/auth/token1");
+            second.RedirectUrl.Should().Be("https://checkout.example.test/auth/token2");
+            secondOrder.Should().NotBe(firstOrder);
+            _gatewayCalls.Should().HaveCount(2).And.OnlyContain(c => c.StartsWith("/api/v1/session"));
+
+            // A callback for the FIRST (superseded) session still lands on this payment.
+            await CallbackAsync(SignedCallback(firstOrder!, "1.00", "USD", "Test product 1 USD"));
+            Persisted(dto.Id).Payment.Status.Should().Be("Paid");
+        }
+
         // ── Return-page status check (no callback received) ────────────
         private static HttpResponseMessage StatusJson(string status, string amount = "1.00", string currency = "USD") =>
             new(System.Net.HttpStatusCode.OK)
