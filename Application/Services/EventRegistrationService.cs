@@ -688,6 +688,15 @@ namespace Application.Services
             // Idempotent — a provider may deliver the same webhook twice.
             if (e.PaymentStatus == "Paid") return true;
 
+            // The money arrived through an Online Payments card link, whatever the
+            // registration says now (the buyer may have re-registered as Cash
+            // while the old link stayed open). The ledger picks the debit
+            // account from PaymentMethod — card money must land on 1050, not 1000.
+            if (providerRef?.StartsWith("OP:", StringComparison.Ordinal) == true && e.PaymentMethod is not ("Visa" or "Card" or "MontyPay" or "Online"))
+            {
+                _logger.LogWarning("Registration {Id} was {Method} but settled by card link {Ref} — recording it as Visa", e.Id, e.PaymentMethod, providerRef);
+                e.PaymentMethod = "Visa";
+            }
             e.PaymentStatus = "Paid";
             e.ConfirmedBy = "gateway";
             e.ConfirmedOn = DateTime.UtcNow;

@@ -19,4 +19,9 @@
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Payment hashing / outcome mapping are internal; the test project pins them to the gateway docs. -->
+    <InternalsVisibleTo Include="Tests" />
+  </ItemGroup>
+
 </Project>

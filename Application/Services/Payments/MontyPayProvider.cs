@@ -102,14 +102,35 @@ namespace Application.Services.Payments
         internal static string FormatAmount(decimal amount) =>
             amount.ToString("0.00", CultureInfo.InvariantCulture);
 
-        /// <summary>Description goes into the hash verbatim — keep it ASCII and stable.</summary>
+        /// <summary>
+        /// Description goes into the hash verbatim — keep it ASCII and stable.
+        /// The session API rejects descriptions shorter than 2 chars, and
+        /// control chars (newlines) would not survive the callback round trip.
+        /// </summary>
         internal static string SafeDescription(string? d)
         {
             var s = (d ?? "Payment").Trim();
             var sb = new StringBuilder();
-            foreach (var c in s) sb.Append(c < 128 ? c : '-');
-            var res = sb.ToString();
-            return res.Length > 120 ? res[..120] : (res.Length == 0 ? "Payment" : res);
+            foreach (var c in s) sb.Append(c < 32 || c == 127 ? ' ' : c < 128 ? c : '-');
+            var res = sb.ToString().Trim();
+            if (res.Length > 120) res = res[..120].TrimEnd();
+            return res.Length < 2 ? "Payment" : res;
+        }
+
+        /// <summary>
+        /// The session API validates customer.name (2–200 chars) and
+        /// customer.email (format, ≤255) and fails the WHOLE session on a bad
+        /// value. Both are optional, so anything doubtful is left out instead.
+        /// </summary>
+        internal static Dictionary<string, object?>? BuildCustomer(string? name, string? email)
+        {
+            var customer = new Dictionary<string, object?>();
+            var n = name?.Trim();
+            if (n is { Length: >= 2 }) customer["name"] = n.Length > 200 ? n[..200] : n;
+            var e = email?.Trim();
+            if (e is { Length: >= 6 and <= 255 } && System.Text.RegularExpressions.Regex.IsMatch(e, @"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$"))
+                customer["email"] = e;
+            return customer.Count == 0 ? null : customer;
         }
 
         // ── Session ──────────────────────────────────────────────────────
@@ -142,18 +163,20 @@ namespace Application.Services.Payments
                 },
                 ["success_url"] = successUrl,
                 ["cancel_url"] = cancelUrl,
+                // A timed-out session lands on the same result page as a cancel;
+                // that page polls our status, so it shows the truth either way.
+                ["expiry_url"] = cancelUrl,
                 ["hash"] = hash,
             };
+            // NOTE: the Checkout docs say notification_url is NOT a per-request
+            // field — MontyPay's admin sets it on the merchant. We still send it
+            // when enabled (harmless where accepted) and drop it automatically
+            // if the session API rejects it — see the retry below.
             if (sendNotify && !string.IsNullOrWhiteSpace(notificationUrl))
                 body["notification_url"] = notificationUrl;
 
-            if (!string.IsNullOrWhiteSpace(payment.CustomerName) || !string.IsNullOrWhiteSpace(payment.CustomerEmail))
-            {
-                var customer = new Dictionary<string, object?>();
-                if (!string.IsNullOrWhiteSpace(payment.CustomerName)) customer["name"] = payment.CustomerName!.Trim();
-                if (!string.IsNullOrWhiteSpace(payment.CustomerEmail)) customer["email"] = payment.CustomerEmail!.Trim();
+            if (BuildCustomer(payment.CustomerName, payment.CustomerEmail) is { } customer)
                 body["customer"] = customer;
-            }
 
             using var http = _httpFactory.CreateClient();
             http.Timeout = TimeSpan.FromSeconds(30);
@@ -162,6 +185,15 @@ namespace Application.Services.Payments
             {
                 var resp = await http.PostAsJsonAsync($"{creds.CheckoutUrl}/api/v1/session", body, ct);
                 var raw = await resp.Content.ReadAsStringAsync(ct);
+
+                if (!resp.IsSuccessStatusCode && body.ContainsKey("notification_url")
+                    && raw.Contains("notification_url", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("MontyPay rejected notification_url for payment {Id} — retrying without it (set MontyPay.SendNotificationUrl=false). {Body}", payment.Id, raw);
+                    body.Remove("notification_url");
+                    resp = await http.PostAsJsonAsync($"{creds.CheckoutUrl}/api/v1/session", body, ct);
+                    raw = await resp.Content.ReadAsStringAsync(ct);
+                }
 
                 if (!resp.IsSuccessStatusCode)
                 {
@@ -277,16 +309,19 @@ namespace Application.Services.Payments
             // A refund/void that FAILED leaves the payment exactly as it was.
             if ((t is "refund" or "void") && s == "fail") return null;
 
-            if (s == "fail" || o == "decline") return "Failed";
+            // "declined" is the status-check spelling of the callback's "decline".
+            if (s == "fail" || o is "decline" or "declined") return "Failed";
 
+            // The ONLY Paid: a settling event that succeeded and left the order
+            // settled (Callbacks guide decision table). Status checks are mapped
+            // onto this shape by QueryStatusAsync (type defaults to "sale").
             if (SettlingTypes.Contains(t) && s == "success" && o == "settled") return "Paid";
-            if (o == "settled" && s == "success") return "Paid";          // status-check shape
             if (o == "refund") return "Refunded";
-            if (o == "void") return "Voided";
+            if (o is "void" or "reversal") return "Voided";
             if (o == "chargeback") return "Chargeback";
-            if (o == "decline") return "Failed";
 
-            // 3ds / redirect / prepare / pending / waiting / undefined → keep waiting
+            // 3ds / redirect / init / prepare / pending (DMS auth) /
+            // waiting / undefined → keep waiting, never fulfil
             return null;
         }
 
@@ -344,20 +379,22 @@ namespace Application.Services.Payments
                 var type = S("type") ?? "sale";
                 var outcome = MapOutcome(type, status ?? (orderStatus == "settled" ? "success" : null), orderStatus);
 
-                string? amountStr = S("order_amount") ?? S("amount");
-                if (amountStr is null && root.TryGetProperty("order", out var orderObj) && orderObj.ValueKind == JsonValueKind.Object
-                    && orderObj.TryGetProperty("amount", out var oa))
-                    amountStr = oa.ValueKind == JsonValueKind.String ? oa.GetString() : oa.ToString();
+                // Documented shape: { payment_id, status:"settled", order:{number,amount,currency,description} }
+                string? O(string k) => root.TryGetProperty("order", out var orderObj) && orderObj.ValueKind == JsonValueKind.Object
+                    && orderObj.TryGetProperty(k, out var v) && v.ValueKind != JsonValueKind.Null
+                    ? (v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString())
+                    : null;
+                var amountStr = S("order_amount") ?? S("amount") ?? O("amount");
 
                 return new ProviderCallbackResult(
                     HashValid: true,
-                    OrderNumber: S("order_number") ?? payment.ProviderOrderNumber,
+                    OrderNumber: S("order_number") ?? O("number") ?? payment.ProviderOrderNumber,
                     ProviderPaymentId: S("id") ?? S("payment_id") ?? payment.ProviderPaymentId,
                     ProviderType: type, ProviderStatus: status, OrderStatus: orderStatus,
                     Outcome: outcome, Reason: S("reason") ?? S("decline_reason"),
                     PaymentMethod: S("payment_method") ?? S("brand"), CardMasked: S("card"),
                     Amount: decimal.TryParse(amountStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amt) ? amt : null,
-                    Currency: S("order_currency"), Raw: raw);
+                    Currency: S("order_currency") ?? O("currency"), Raw: raw);
             }
             catch (Exception ex)
             {

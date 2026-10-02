@@ -542,7 +542,16 @@ namespace Application.Services
             if (o == null) return (false, "Order not found.", null);
             if (o.Status is not ("New" or "Paid")) return (false, $"Order is {o.Status}.", null);
 
-            if (o.TransactionRecordId == null)
+            if (o.Status == "Paid")
+            {
+                // Card-paid but the settlement hook could not finish the invoice
+                // (or did, and this is a no-op): finish it the 1050 way. Creating
+                // it closed in one go here would post the sale before the order
+                // link exists and book card money to 1000 Cash.
+                try { await BookPaidInvoiceAsync(o, null, $"web:{actor}", ct); }
+                catch (InvalidOperationException ex) { return (false, ex.Message, null); }
+            }
+            else if (o.TransactionRecordId == null)
             {
                 var trx = _sp.GetRequiredService<ITransactionRecordService>();
                 var comment = $"Website order {o.Code} · {o.CustomerName} · {o.CustomerPhone}"
@@ -592,18 +601,52 @@ namespace Application.Services
 
         // ── Payments hook ────────────────────────────────────────────────
         /// <summary>
-        /// MontyPay settled the order: create the PAID invoice right away
-        /// (money is real — accounting + kitchen tickets), then show it in
-        /// the inbox as Paid for the till to accept/prepare.
+        /// MontyPay settled the order: mark it Paid (committed first — money is
+        /// real), then create + close its invoice (accounting on 1050 + kitchen
+        /// tickets). Shows in the inbox as Paid for the till to accept/prepare.
+        /// Throws when the invoice step fails so the payment row records it and
+        /// Reconcile can retry; safe to call again.
         /// </summary>
         public async Task MarkPaidAsync(int orderId, int onlinePaymentId, CancellationToken ct = default)
         {
             var o = await _orders.Query(asNoTracking: false).Include(x => x.Lines).FirstOrDefaultAsync(x => x.Id == orderId, ct)
                     ?? throw new InvalidOperationException($"Online order #{orderId} not found.");
-            if (o.Status is "Paid" or "Accepted" or "Ready" or "Shipped" or "Delivered" or "Completed") return;   // idempotent
+            if (o.Status is "Accepted" or "Ready" or "Shipped" or "Delivered" or "Completed") return;   // idempotent — the till has it
+            if (o.Status == "Paid" && o.TransactionRecordId is int doneTx
+                && await _txRepo.Query().AnyAsync(t => t.Id == doneTx && t.StatusId == 6, ct))
+                return;                                                                                  // idempotent — fully applied
             if (o.Status == "Cancelled")
                 _logger.LogWarning("Online order {Code} was cancelled but the card payment settled — reviving it as Paid", o.Code);
 
+            // The money is real: the order is Paid from this moment, whatever
+            // happens to the invoice below. If the invoice step throws, the
+            // payment row records the error (Reconcile retries it) and the till
+            // still sees a Paid order — AcceptAsync builds the invoice then.
+            if (o.Status != "Paid")
+            {
+                o.OnlinePaymentId = onlinePaymentId;
+                o.Status = "Paid"; o.PaidOn ??= DateTime.UtcNow; o.ModifiedOn = DateTime.UtcNow; o.CancelReason = null;
+                await _uow.SaveChangesAsync(ct);
+            }
+
+            await BookPaidInvoiceAsync(o, onlinePaymentId, "web:montypay", ct);
+
+            if (o.IsDelivery && o.DeliveryFee > 0)
+            {
+                try { await _shipping.BookDeliveryFeeAsync(o.Id, ct); }
+                catch (Exception ex) { _logger.LogError(ex, "Delivery fee booking failed for paid order {Code}", o.Code); }
+            }
+        }
+
+        /// <summary>
+        /// Card-paid order → its invoice, booked to 1050. Created OPEN, linked to
+        /// the order, THEN closed: the journal posting finds the order by
+        /// TransactionRecordId to pick 1050 (Online) instead of 1000 Cash, so the
+        /// link must exist before the posting runs. Resumes where a previous
+        /// attempt stopped (invoice created but not closed). Throws on failure.
+        /// </summary>
+        private async Task BookPaidInvoiceAsync(OnlineOrder o, int? onlinePaymentId, string actor, CancellationToken ct)
+        {
             var trx = _sp.GetRequiredService<ITransactionRecordService>();
             int txId;
             if (o.TransactionRecordId is int existingTx)
@@ -615,11 +658,7 @@ namespace Application.Services
                 var comment = $"Website order {o.Code} · PAID ONLINE · {o.CustomerName} · {o.CustomerPhone}"
                     + (o.IsDelivery ? $" · DELIVERY {o.City}" : "")
                     + (o.PickupTime != null ? $" · pickup {o.PickupTime}" : "") + (o.Notes != null ? $" · {o.Notes}" : "");
-                // Create the invoice OPEN, link it to the order, THEN close it: the
-                // journal posting looks the order up by TransactionRecordId to book
-                // card money to 1050 (clearing) instead of 1000 Cash — the link must
-                // exist before the posting runs.
-                var res = await trx.CreateCoffeeShopOrder(o.UserId, 0, ToTillLines(o), "web:montypay", ct,
+                var res = await trx.CreateCoffeeShopOrder(o.UserId, 0, ToTillLines(o), actor, ct,
                     comment: comment, isOpenInvoice: true, channelId: await WebsiteChannelIdAsync(ct));
                 if (!res.Success || res.Data == null)
                     throw new InvalidOperationException(res.Error ?? res.Message ?? "Could not create the paid invoice for the order.");
@@ -629,28 +668,18 @@ namespace Application.Services
                     _logger.LogWarning("Online order {Code}: invoice total {Inv} differs from items paid {Paid} (price changed between checkout and settlement)", o.Code, res.Data.TotalPrice, o.Subtotal);
 
                 txId = res.Data.Id;
-                o.TransactionRecordId = txId; o.OnlinePaymentId = onlinePaymentId; o.ModifiedOn = DateTime.UtcNow;
-                _orders.Update(o);
+                o.TransactionRecordId = txId; o.ModifiedOn = DateTime.UtcNow;
+                if (onlinePaymentId.HasValue) o.OnlinePaymentId = onlinePaymentId;
+                _orders.Update(o);   // re-attach in case the till service reset the change tracker
                 await _uow.SaveChangesAsync(ct);
             }
 
             var stillOpen = await _txRepo.Query().Where(t => t.Id == txId).Select(t => t.StatusId != 6).FirstOrDefaultAsync(ct);
             if (stillOpen)
             {
-                var close = await trx.CloseOpenInvoice(txId, "web:montypay", ct);
+                var close = await trx.CloseOpenInvoice(txId, actor, ct);
                 if (!close.Success)
                     throw new InvalidOperationException(close.Error ?? close.Message ?? "Invoice created but could not be closed as paid.");
-            }
-
-            o.OnlinePaymentId = onlinePaymentId;
-            o.Status = "Paid"; o.PaidOn ??= DateTime.UtcNow; o.ModifiedOn = DateTime.UtcNow; o.CancelReason = null;
-            _orders.Update(o);
-            await _uow.SaveChangesAsync(ct);
-
-            if (o.IsDelivery && o.DeliveryFee > 0)
-            {
-                try { await _shipping.BookDeliveryFeeAsync(o.Id, ct); }
-                catch (Exception ex) { _logger.LogError(ex, "Delivery fee booking failed for paid order {Code}", o.Code); }
             }
         }
     }

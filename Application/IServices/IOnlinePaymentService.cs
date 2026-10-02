@@ -19,6 +19,8 @@ namespace Application.IServices
         // ── Public (pay page) ────────────────────────────────────────────
         Task<PublicPaymentDto?> GetPublicAsync(string code, CancellationToken ct = default);
         Task<PublicPaymentStartResultDto> StartCheckoutAsync(string code, CancellationToken ct = default);
+        /// <summary>Result-page poll: if still waiting, ask the gateway (throttled) and apply a final answer; returns the public view.</summary>
+        Task<PublicPaymentDto?> CheckPublicAsync(string code, CancellationToken ct = default);
 
         // ── Gateway callback ─────────────────────────────────────────────
         /// <summary>Verifies, records and applies a gateway callback. Never throws; always returns quickly.</summary>

@@ -246,6 +246,63 @@ namespace Application.Services
             }
         }
 
+        // Per-payment throttle for the public status check (keyed by the public
+        // code, not the id). Single App Service instance, so in-process is enough;
+        // a second instance would only mean an occasional extra status call.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastPublicCheck = new();
+        private static readonly TimeSpan PublicCheckInterval = TimeSpan.FromSeconds(8);
+        private static readonly TimeSpan PublicCheckWindow = TimeSpan.FromHours(6);
+
+        /// <summary>
+        /// The result page's poll. When the customer is back from the gateway but
+        /// no callback has landed, ask the gateway ourselves — the same signed
+        /// server-to-server status call as admin Reconcile, applied through the
+        /// same state machine (amount/currency guard, idempotent fulfilment).
+        /// The browser only says "look now"; nothing it sends is trusted.
+        /// Throttled per payment, only for payments still waiting, and silent
+        /// (no event row) while the gateway has nothing final to report.
+        /// </summary>
+        public async Task<PublicPaymentDto?> CheckPublicAsync(string code, CancellationToken ct = default)
+        {
+            var p = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(x => x.Code == code, ct);
+            if (p is null) return null;
+
+            var now = DateTime.UtcNow;
+            var waiting = p.Status is "Redirected" or "Pending"
+                          && p.ProviderStatus != "settled"            // held for an amount mismatch → admin decides
+                          && (!string.IsNullOrWhiteSpace(p.ProviderOrderNumber) || !string.IsNullOrWhiteSpace(p.ProviderPaymentId))
+                          && (p.ModifiedOn ?? p.CreatedOn) > now - PublicCheckWindow;
+            var due = !LastPublicCheck.TryGetValue(p.Code, out var last) || now - last >= PublicCheckInterval;
+
+            if (waiting && due)
+            {
+                LastPublicCheck[p.Code] = now;
+                if (LastPublicCheck.Count > 2000)
+                    foreach (var kv in LastPublicCheck.Where(kv => now - kv.Value > TimeSpan.FromMinutes(30)).ToList())
+                        LastPublicCheck.TryRemove(kv.Key, out _);
+
+                try
+                {
+                    var provider = Provider(p.Provider);
+                    var res = provider is null ? null : await provider.QueryStatusAsync(p, ct);
+                    if (res is { Outcome: not null } && res.ProviderStatus != "error")
+                    {
+                        await ApplyAsync(p, res, "status-check", SettledMismatch(p, res), ct);
+                        await _uow.SaveChangesAsync(ct);
+                        _logger.LogInformation("Payment {Code} → {Status} via return-page status check (no callback yet)", p.Code, p.Status);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // e.g. a callback landed at the same instant and won the xmin race — fine.
+                    _logger.LogWarning(ex, "Return-page status check failed for payment {Code}", p.Code);
+                    _uow.ResetChangeTracker();
+                }
+            }
+
+            return await GetPublicAsync(code, ct);
+        }
+
         public async Task<PublicPaymentStartResultDto> StartCheckoutAsync(string code, CancellationToken ct = default)
         {
             var p = await _repo.Query(asNoTracking: false)
@@ -296,6 +353,8 @@ namespace Application.Services
         // ── Callback ─────────────────────────────────────────────────────
         public async Task HandleCallbackAsync(string providerKey, IReadOnlyDictionary<string, string> form, string raw, CancellationToken ct = default)
         {
+            int? paymentId = null;
+            ProviderCallbackResult? parsed = null;
             try
             {
                 var provider = Provider(providerKey);
@@ -306,6 +365,7 @@ namespace Application.Services
                 }
 
                 var cb = await provider.ParseCallbackAsync(form, raw, ct);
+                parsed = cb;
 
                 OnlinePayment? p = null;
                 if (!string.IsNullOrWhiteSpace(cb.OrderNumber))
@@ -335,6 +395,7 @@ namespace Application.Services
                     return;
                 }
 
+                paymentId = p.Id;
                 p.CallbackCount++;
                 p.LastCallbackOn = DateTime.UtcNow;
 
@@ -361,11 +422,9 @@ namespace Application.Services
                     return;
                 }
 
-                // Amount guard: a settled callback for a different amount is
-                // recorded but NOT fulfilled.
-                var amountMismatch = cb.Outcome == "Paid" && cb.Amount.HasValue && Math.Abs(cb.Amount.Value - p.Amount) > 0.005m;
-
-                await ApplyAsync(p, cb, "callback", amountMismatch, ct);
+                // Amount/currency guard: a settled callback for a different
+                // amount is recorded but NOT fulfilled.
+                await ApplyAsync(p, cb, "callback", SettledMismatch(p, cb), ct);
                 await _uow.SaveChangesAsync(ct);
             }
             catch (Exception ex)
@@ -374,8 +433,44 @@ namespace Application.Services
                 // (a non-2xx trips its circuit breaker for ALL merchants on
                 // the URL). Log loudly; reconcile picks it up.
                 _logger.LogError(ex, "Payment callback processing failed for {Provider}: {Raw}", providerKey, raw.Length > 500 ? raw[..500] : raw);
+
+                // Keep the verbatim callback on the payment even when processing
+                // blew up (e.g. a concurrent duplicate lost the xmin race) — the
+                // gateway never re-sends it, so this row is the only copy.
+                if (paymentId is int pid)
+                {
+                    try
+                    {
+                        _uow.ResetChangeTracker();
+                        var note = $"Processing error: {ex.GetType().Name}: {ex.Message}";
+                        await _events.AddAsync(new OnlinePaymentEvent
+                        {
+                            OnlinePaymentId = pid,
+                            Kind = "callback",
+                            ProviderType = parsed?.ProviderType,
+                            ProviderStatus = parsed?.ProviderStatus,
+                            OrderStatus = parsed?.OrderStatus,
+                            Note = note.Length > 500 ? note[..500] : note,
+                            Raw = raw.Length > 8000 ? raw[..8000] : raw,
+                            // HashValid=false keeps this row out of the duplicate
+                            // check, so a later identical callback is still applied.
+                            HashValid = false,
+                            CreatedOn = DateTime.UtcNow,
+                        }, ct);
+                        await _uow.SaveChangesAsync(ct);
+                    }
+                    catch (Exception logEx)
+                    {
+                        _logger.LogError(logEx, "Could not record the failed callback for payment {Id}", pid);
+                    }
+                }
             }
         }
+
+        private static bool SettledMismatch(OnlinePayment p, ProviderCallbackResult cb) =>
+            cb.Outcome == "Paid"
+            && ((cb.Amount.HasValue && Math.Abs(cb.Amount.Value - p.Amount) > 0.005m)
+                || (!string.IsNullOrWhiteSpace(cb.Currency) && !string.Equals(cb.Currency.Trim(), p.Currency, StringComparison.OrdinalIgnoreCase)));
 
         /// <summary>Shared state machine for callbacks and status checks. Caller saves.</summary>
         private async Task ApplyAsync(OnlinePayment p, ProviderCallbackResult cb, string kind, bool amountMismatch, CancellationToken ct)
@@ -442,7 +537,15 @@ namespace Application.Services
             await LogEventAsync(p, kind, note, cb.Raw, cb.ProviderType, cb.ProviderStatus, cb.OrderStatus, result, ct: ct);
 
             if (p.Status == "Paid" && !p.IsFulfilled)
+            {
+                // Commit Paid + the verbatim callback BEFORE fulfilment: whatever
+                // a downstream service does to the shared DbContext (save, reset
+                // the tracker, throw), the money is recorded and Reconcile can
+                // retry the business effect. Also makes a concurrent duplicate
+                // lose the xmin race here — before it can fulfil a second time.
+                await _uow.SaveChangesAsync(ct);
                 await FulfilAsync(p, ct);
+            }
         }
 
         // ── Fulfilment ───────────────────────────────────────────────────
@@ -509,15 +612,34 @@ namespace Application.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Fulfilment failed for online payment {Id} ({Purpose})", p.Id, p.Purpose);
+                // Paid was committed before fulfilment started, so everything
+                // still pending belongs to the failed attempt — drop it, or our
+                // own save below would re-flush the half-written rows and fail too.
+                _uow.ResetChangeTracker();
                 p.FulfillmentError = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
                 await LogEventAsync(p, "fulfilled", $"FAILED: {ex.Message}", ct: ct);
             }
 
-            // A downstream service may have reset the change tracker (the
-            // journal service does on a failed post), which detaches `p` and
-            // would silently drop IsFulfilled. Re-attaching is a no-op when
-            // it is still tracked.
-            _repo.Update(p);
+            await ReattachAsync(p, ct);
+        }
+
+        /// <summary>
+        /// A downstream service may have reset the change tracker (the journal
+        /// service does on a failed post), which detaches <paramref name="p"/>
+        /// and would silently drop IsFulfilled. Re-attaching with Update() is
+        /// not enough: the xmin concurrency token is a shadow property and is
+        /// lost on detach, so the save would always conflict. Load the row
+        /// fresh (identity resolution returns <paramref name="p"/> itself when
+        /// it is still tracked) and copy the fulfilment outcome onto it.
+        /// </summary>
+        private async Task ReattachAsync(OnlinePayment p, CancellationToken ct)
+        {
+            var tracked = await _repo.Query(asNoTracking: false).FirstOrDefaultAsync(x => x.Id == p.Id, ct);
+            if (tracked is null || ReferenceEquals(tracked, p)) return;
+            tracked.IsFulfilled = p.IsFulfilled;
+            tracked.FulfilledOn = p.FulfilledOn;
+            tracked.FulfillmentError = p.FulfillmentError;
+            tracked.ModifiedOn = DateTime.UtcNow;
         }
 
         // ── Admin ────────────────────────────────────────────────────────
@@ -635,8 +757,7 @@ namespace Application.Services
             }
             else
             {
-                var mismatch = res.Outcome == "Paid" && res.Amount.HasValue && Math.Abs(res.Amount.Value - p.Amount) > 0.005m;
-                await ApplyAsync(p, res, "status-check", mismatch, ct);
+                await ApplyAsync(p, res, "status-check", SettledMismatch(p, res), ct);
             }
             p.ModifiedOn = DateTime.UtcNow;
             await _uow.SaveChangesAsync(ct);

@@ -94,6 +94,18 @@ namespace AxisAPI.Controllers
         public async Task<IActionResult> Start(string code, CancellationToken ct)
             => Ok(await _svc.StartCheckoutAsync(code, ct));
 
+        /// <summary>
+        /// Result-page poll. Asks the gateway for the status when no callback has
+        /// arrived yet (throttled server-side); the request carries nothing trusted.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("public/{code}/check")]
+        public async Task<IActionResult> Check(string code, CancellationToken ct)
+        {
+            var d = await _svc.CheckPublicAsync(code, ct);
+            return d is null ? NotFound(new { error = "This payment link does not exist." }) : Ok(d);
+        }
+
         // ── Gateway callbacks ────────────────────────────────────────────
         /// <summary>
         /// MontyPay notification URL. Form-urlencoded body, signed with the

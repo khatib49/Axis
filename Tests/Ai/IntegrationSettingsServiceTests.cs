@@ -1,9 +1,10 @@
-using System.Linq.Expressions;
 using Application.DTOs;
 using Application.Services;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.IRepositories;
+using Infrastructure.Persistence;
+using Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.InMemory;
 using Moq;
@@ -19,37 +20,17 @@ namespace Tests.Ai
     /// </summary>
     public class IntegrationSettingsServiceTests
     {
-        // Tiny in-memory repo backed by a List so we can exercise the
-        // service without spinning up a real EF context.
-        private class FakeRepo : IBaseRepository<IntegrationSetting>
+        // Real repository over EF InMemory: the service uses EF async
+        // operators (ToListAsync / FirstOrDefaultAsync), which a List-backed
+        // IQueryable cannot serve.
+        private class FakeRepo : BaseRepository<IntegrationSetting>
         {
-            public readonly List<IntegrationSetting> Rows = new();
-            public int NextId = 1;
+            private readonly ApplicationDbContext _db;
+            private FakeRepo(ApplicationDbContext db) : base(db) => _db = db;
+            public FakeRepo() : this(new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options)) { }
 
-            public IQueryable<IntegrationSetting> Query(bool asNoTracking = true) => Rows.AsQueryable();
-            public IQueryable<IntegrationSetting> QueryableAsync(Expression<Func<IntegrationSetting, bool>>? p = null, bool asNoTracking = true)
-                => p == null ? Query() : Query().Where(p);
-
-            public Task AddAsync(IntegrationSetting e, CancellationToken ct = default)
-            {
-                e.Id = NextId++; Rows.Add(e); return Task.CompletedTask;
-            }
-            public Task AddRangeAsync(IEnumerable<IntegrationSetting> es, CancellationToken ct = default)
-            {
-                foreach (var e in es) AddAsync(e, ct).GetAwaiter().GetResult();
-                return Task.CompletedTask;
-            }
-            public void Update(IntegrationSetting e) { /* tracked in-place */ }
-            public void UpdateRange(IEnumerable<IntegrationSetting> es) { }
-            public void Remove(IntegrationSetting e) { Rows.Remove(e); }
-            public void RemoveRange(IEnumerable<IntegrationSetting> es) { foreach (var e in es) Rows.Remove(e); }
-            public void Attach(IntegrationSetting e) { }
-            public Task<IntegrationSetting?> GetByIdAsync(int id, bool asNoTracking = true, CancellationToken ct = default)
-                => Task.FromResult(Rows.FirstOrDefault(r => r.Id == id));
-            public Task<List<IntegrationSetting>> ListAsync(Expression<Func<IntegrationSetting, bool>>? p = null, bool asNoTracking = true, CancellationToken ct = default)
-                => Task.FromResult((p == null ? Rows : Rows.Where(p.Compile())).ToList());
-            public Task<int> CountAsync(Expression<Func<IntegrationSetting, bool>>? p = null, CancellationToken ct = default)
-                => Task.FromResult(p == null ? Rows.Count : Rows.Count(p.Compile()));
+            public void Seed(IntegrationSetting row) { _db.Add(row); _db.SaveChanges(); _db.ChangeTracker.Clear(); }
         }
 
         private static IntegrationSettingsService NewService(FakeRepo repo, Mock<IUnitOfWork> uow, Mock<IHttpClientFactory> http)
@@ -59,7 +40,7 @@ namespace Tests.Ai
         public async Task ListAsync_masks_secret_values()
         {
             var repo = new FakeRepo();
-            repo.Rows.Add(new IntegrationSetting { Id = 1, Key = "Anthropic.ApiKey", Value = "sk-ant-abcd1234efgh", IsSecret = true });
+            repo.Seed(new IntegrationSetting { Id = 1, Key = "Anthropic.ApiKey", Value = "sk-ant-abcd1234efgh", IsSecret = true });
             var svc = NewService(repo, new Mock<IUnitOfWork>(), new Mock<IHttpClientFactory>());
 
             var list = await svc.ListAsync();
@@ -76,7 +57,7 @@ namespace Tests.Ai
         public async Task ListAsync_shows_non_secret_values_plain()
         {
             var repo = new FakeRepo();
-            repo.Rows.Add(new IntegrationSetting { Id = 1, Key = "Anthropic.Model", Value = "claude-sonnet-4-6", IsSecret = false });
+            repo.Seed(new IntegrationSetting { Id = 1, Key = "Anthropic.Model", Value = "claude-sonnet-4-6", IsSecret = false });
             var svc = NewService(repo, new Mock<IUnitOfWork>(), new Mock<IHttpClientFactory>());
 
             var list = await svc.ListAsync();
@@ -88,7 +69,7 @@ namespace Tests.Ai
         public async Task ListAsync_marks_empty_as_not_set()
         {
             var repo = new FakeRepo();
-            repo.Rows.Add(new IntegrationSetting { Id = 1, Key = "WhatsApp.AccessToken", Value = null, IsSecret = true });
+            repo.Seed(new IntegrationSetting { Id = 1, Key = "WhatsApp.AccessToken", Value = null, IsSecret = true });
             var svc = NewService(repo, new Mock<IUnitOfWork>(), new Mock<IHttpClientFactory>());
 
             var list = await svc.ListAsync();
@@ -100,7 +81,7 @@ namespace Tests.Ai
         public async Task GetRawAsync_returns_full_value_for_internal_use()
         {
             var repo = new FakeRepo();
-            repo.Rows.Add(new IntegrationSetting { Id = 1, Key = "Anthropic.ApiKey", Value = "sk-ant-fullvalue", IsSecret = true });
+            repo.Seed(new IntegrationSetting { Id = 1, Key = "Anthropic.ApiKey", Value = "sk-ant-fullvalue", IsSecret = true });
             var svc = NewService(repo, new Mock<IUnitOfWork>(), new Mock<IHttpClientFactory>());
 
             var raw = await svc.GetRawAsync("Anthropic.ApiKey");
@@ -111,7 +92,7 @@ namespace Tests.Ai
         public async Task GetRawAsync_returns_null_when_value_is_empty()
         {
             var repo = new FakeRepo();
-            repo.Rows.Add(new IntegrationSetting { Id = 1, Key = "WhatsApp.AccessToken", Value = "", IsSecret = true });
+            repo.Seed(new IntegrationSetting { Id = 1, Key = "WhatsApp.AccessToken", Value = "", IsSecret = true });
             var svc = NewService(repo, new Mock<IUnitOfWork>(), new Mock<IHttpClientFactory>());
 
             (await svc.GetRawAsync("WhatsApp.AccessToken")).Should().BeNull();
