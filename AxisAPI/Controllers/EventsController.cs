@@ -65,9 +65,9 @@ namespace AxisAPI.Controllers
         }
 
         /// <summary>
-        /// Registration. Anonymous by design; when the visitor is signed in to
-        /// the website (client token) the ticket is linked to their account so
-        /// it shows under "My tickets". The UserId from the body is ignored.
+        /// Registration. Requires a signed-in website customer (client token):
+        /// the ticket is linked to their account so it shows under "My tickets"
+        /// (owner's decision, 2026-10-02). The UserId from the body is ignored.
         /// </summary>
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] EventRegisterRequestDto dto, CancellationToken ct)
@@ -80,6 +80,8 @@ namespace AxisAPI.Controllers
                     var raw = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
                     if (int.TryParse(raw, out var uid)) userId = uid;
                 }
+                if (userId is null)
+                    return Unauthorized(new { message = "Please sign in to register — your ticket is saved to your AXIS account." });
                 return Ok(await _svc.RegisterAsync(dto with { UserId = userId }, ct));
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
@@ -317,9 +319,10 @@ namespace AxisAPI.Controllers
             [FromQuery] string? search,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 50,
+            [FromQuery] string? ticketType = null,
             CancellationToken ct = default)
             => Ok(await _svc.ListAsync(
-                new EventRegistrationFilterDto(eventKey, paymentStatus, paymentMethod, search, page, pageSize), ct));
+                new EventRegistrationFilterDto(eventKey, paymentStatus, paymentMethod, search, page, pageSize, ticketType), ct));
 
         [HttpGet("stats")]
         public async Task<IActionResult> Stats([FromQuery] string? eventKey, CancellationToken ct)

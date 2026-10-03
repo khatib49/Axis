@@ -933,7 +933,7 @@ namespace Application.Services
                 var lines = new List<JournalEntryLineCreateDto>
                 {
                     new(cashAccount.Id, amount, 0, $"Ticket paid ({reg.PaymentMethod})"),
-                    new(revenueAccount.Id, 0, amount, $"Event ticket - {reg.EventKey}"),
+                    new(revenueAccount.Id, 0, amount, $"Event ticket - {reg.EventKey}" + (reg.TicketTypeName is { Length: > 0 } tt ? $" ({tt})" : "")),
                 };
 
                 // Revenue is recognised the moment the money is confirmed, not
@@ -943,7 +943,7 @@ namespace Application.Services
 
                 var entryDto = new JournalEntryCreateDto(
                     entryDate,
-                    $"Event registration #{registrationId} - {reg.EventKey} - {who}",
+                    $"Event registration #{registrationId} - {reg.EventKey}" + (reg.TicketTypeName is { Length: > 0 } tn ? $" - {tn}" : "") + $" - {who}",
                     EventReferenceType,
                     registrationId,
                     lines);

@@ -9,7 +9,9 @@ namespace Application.DTOs
         string PaymentMethod,          // 'Visa' | 'Whish' | 'Cash'
         string EventKey = "squid-game-x-axis",
         /// Website account id when the visitor is signed in (set by the controller, never trusted from the body).
-        int? UserId = null
+        int? UserId = null,
+        /// Chosen ticket type (required when the event has ticket types). The price always comes from the server.
+        string? TicketTypeKey = null
     );
 
     /// <summary>
@@ -35,7 +37,8 @@ namespace Application.DTOs
         string? PayLinkUrl = null,
         /// The ticket code — the ticket page is /tickets/{TicketCode} (Pending until paid).
         string? TicketCode = null,
-        string? TicketUrl = null
+        string? TicketUrl = null,
+        string? TicketTypeName = null
     );
 
     // ── Ticket (public page, my tickets, door check-in) ──────────────────
@@ -65,7 +68,8 @@ namespace Application.DTOs
         string? PayUrl,
         string? WhatsAppUrl,
         /// True when the event has not started yet (ticket is usable).
-        bool IsUpcoming
+        bool IsUpcoming,
+        string? TicketTypeName = null
     );
 
     /// <summary>Door scan result.</summary>
@@ -81,7 +85,8 @@ namespace Application.DTOs
     public record EventAttendeeDto(
         int Id, string TicketCode, string FirstName, string LastName, string Phone, string? Email,
         string PaymentMethod, string PaymentStatus, decimal Amount, string Currency,
-        DateTime? CheckedInOn, string? CheckedInBy, DateTime CreatedOn);
+        DateTime? CheckedInOn, string? CheckedInBy, DateTime CreatedOn,
+        string? TicketTypeName = null);
 
     public record EventAttendeeListDto(
         string EventKey, string EventTitle, DateTime? EventDate, int? Capacity,
@@ -105,7 +110,8 @@ namespace Application.DTOs
         string? AdminNotes,
         DateTime CreatedOn,
         string? TicketCode = null,
-        DateTime? CheckedInOn = null
+        DateTime? CheckedInOn = null,
+        string? TicketTypeName = null
     );
 
     public record EventRegistrationFilterDto(
@@ -114,7 +120,9 @@ namespace Application.DTOs
         string? PaymentMethod = null,
         string? Search = null,
         int Page = 1,
-        int PageSize = 50
+        int PageSize = 50,
+        /// Ticket type name (as shown in the list) to filter on.
+        string? TicketType = null
     );
 
     public record EventRegistrationStatsDto(

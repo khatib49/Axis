@@ -124,8 +124,28 @@ namespace Application.Services
             if (alreadyPaid)
                 throw new InvalidOperationException("This phone number is already registered and paid for this event.");
 
-            var amount = ev.Price;
             var currency = ev.Currency;
+
+            // Ticket types: the buyer picks one, the server prices it. The
+            // amount never comes from the browser.
+            var amount = ev.Price;
+            string? ticketTypeKey = null, ticketTypeName = null;
+            var ticketTypes = Events.EventTicketTypes.Active(ev.TicketTypesJson);
+            if (ticketTypes.Count > 0)
+            {
+                var chosen = ticketTypes.FirstOrDefault(t => t.Key == dto.TicketTypeKey?.Trim())
+                             ?? throw new ArgumentException("Choose a ticket type.");
+                if (chosen.Capacity is > 0)
+                {
+                    var soldOfType = await _repo.Query()
+                        .CountAsync(r => r.EventId == ev.Id && r.TicketTypeKey == chosen.Key && r.PaymentStatus == "Paid", ct);
+                    if (soldOfType >= chosen.Capacity.Value)
+                        throw new InvalidOperationException($"{chosen.Name} tickets are sold out. Please choose another ticket.");
+                }
+                amount = chosen.Price;
+                ticketTypeKey = chosen.Key;
+                ticketTypeName = chosen.Name;
+            }
 
             // A pending registration on the same phone for the same event is
             // REUSED (the buyer is retrying / changed payment method) instead
@@ -167,6 +187,8 @@ namespace Application.Services
             entity.PaymentStatus = "Pending";
             entity.Amount = amount;
             entity.Currency = currency;
+            entity.TicketTypeKey = ticketTypeKey;
+            entity.TicketTypeName = ticketTypeName;
             entity.UserId ??= dto.UserId;
             entity.EventId ??= ev.Id;
             entity.TicketCode ??= await NewTicketCodeAsync(ct);
@@ -185,7 +207,7 @@ namespace Application.Services
                     RedirectUrl: null,
                     WhatsAppUrl: whatsAppUrl,
                     Message: "You're registered. Pay in cash at the AXIS store before the event — confirm on WhatsApp so we hold your spot.",
-                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
+                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl, TicketTypeName: ticketTypeName);
             }
 
             // Whish without merchant-API credentials → fall back to the plain
@@ -204,7 +226,7 @@ namespace Application.Services
                     WhatsAppUrl: whatsAppUrl,
                     Message: $"You're registered. Pay {amount:0.##} {currency} through the Whish link below, then send us the confirmation on WhatsApp so we hold your spot.",
                     PayLinkUrl: ev.WhishPaymentLink,
-                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
+                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl, TicketTypeName: ticketTypeName);
             }
 
             // Cards → MontyPay through the Online Payments module when it is
@@ -219,7 +241,10 @@ namespace Application.Services
                     if (entity.ProviderRef is { Length: > 3 } pr && pr.StartsWith("OP:", StringComparison.Ordinal))
                     {
                         var open = await _onlinePayments.GetPublicAsync(pr[3..], ct);
-                        if (open is { CanPay: true })
+                        // Same link only for the same price: switching from a $15
+                        // to a $25 ticket must mint a new $25 link (the old one is
+                        // cancelled just below).
+                        if (open is { CanPay: true } && open.Amount == amount && open.Currency == currency)
                         {
                             var publicBaseReuse = (await _settings.GetRawAsync("Payments.PublicBaseUrl", ct)
                                 ?? await _settings.GetRawAsync("Event.PublicBaseUrl", ct) ?? "https://www.axislb.com").TrimEnd('/');
@@ -236,7 +261,7 @@ namespace Application.Services
                         var (payment, url) = await _onlinePayments.CreateForReferenceAsync(
                             purpose: "EventTicket", referenceType: "EventRegistration", referenceId: entity.Id,
                             amount: amount, currency: currency,
-                            description: $"{ev.Title} - Entry Ticket #{entity.Id}",
+                            description: $"{ev.Title} - {ticketTypeName ?? "Entry"} Ticket #{entity.Id}",
                             customerName: fullName, customerPhone: entity.Phone, customerEmail: entity.Email,
                             userId: dto.UserId, actor: "website", ct: ct);
                         entity.ProviderRef = $"OP:{payment.Code}";
@@ -250,7 +275,7 @@ namespace Application.Services
                         RedirectUrl: payUrl,
                         WhatsAppUrl: whatsAppUrl,
                         Message: "Redirecting you to secure card payment…",
-                        TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
+                        TicketCode: entity.TicketCode, TicketUrl: ticketUrl, TicketTypeName: ticketTypeName);
                 }
                 catch (Exception ex)
                 {
@@ -264,7 +289,7 @@ namespace Application.Services
                             entity.Id, method, entity.PaymentStatus, amount, currency,
                             RedirectUrl: null, WhatsAppUrl: whatsAppUrl,
                             Message: "You're registered, but online payment is unavailable right now. Confirm on WhatsApp and we'll arrange payment.",
-                            TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
+                            TicketCode: entity.TicketCode, TicketUrl: ticketUrl, TicketTypeName: ticketTypeName);
                     }
                 }
             }
@@ -279,7 +304,7 @@ namespace Application.Services
             IPaymentGateway gateway = method == "Visa" ? _stripe : _whish;
             var start = await gateway.StartAsync(
                 entity.Id, amount, currency,
-                description: $"{ev.Title} — Entry Ticket",
+                description: $"{ev.Title} — {ticketTypeName ?? "Entry"} Ticket",
                 customerName: fullName, customerEmail: entity.Email,
                 successUrl: successUrl, cancelUrl: cancelUrl, ct: ct);
 
@@ -296,7 +321,7 @@ namespace Application.Services
                     RedirectUrl: null,
                     WhatsAppUrl: whatsAppUrl,
                     Message: "You're registered, but online payment is unavailable right now. Confirm on WhatsApp and we'll arrange payment.",
-                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
+                    TicketCode: entity.TicketCode, TicketUrl: ticketUrl, TicketTypeName: ticketTypeName);
             }
 
             entity.ProviderRef = start.Reference;
@@ -308,7 +333,7 @@ namespace Application.Services
                 RedirectUrl: start.RedirectUrl,
                 WhatsAppUrl: whatsAppUrl,
                 Message: "Redirecting you to secure payment…",
-                TicketCode: entity.TicketCode, TicketUrl: ticketUrl);
+                TicketCode: entity.TicketCode, TicketUrl: ticketUrl, TicketTypeName: ticketTypeName);
         }
 
         // ── Tickets ──────────────────────────────────────────────────────
@@ -362,7 +387,8 @@ namespace Application.Services
                 r.CheckedInOn, r.CheckedInBy, r.CreatedOn,
                 payUrl,
                 ev is null ? null : BuildWhatsAppUrl(r, ev),
-                ev?.EventDate is null || ev.EventDate.Value >= DateTime.UtcNow.AddHours(-12));
+                ev?.EventDate is null || ev.EventDate.Value >= DateTime.UtcNow.AddHours(-12),
+                r.TicketTypeName);
         }
 
         public async Task<EventTicketDto?> GetTicketAsync(string ticketCode, CancellationToken ct = default)
@@ -445,7 +471,8 @@ namespace Application.Services
                 ev.Key, ev.Title, ev.EventDate, ev.Capacity,
                 all.Count(a => a.PaymentStatus == "Paid"), all.Count(a => a.PaymentStatus == "Pending"), all.Count(a => a.CheckedInOn != null),
                 rows.Select(r => new EventAttendeeDto(r.Id, r.TicketCode ?? "", r.FirstName, r.LastName, r.Phone, r.Email,
-                    r.PaymentMethod, r.PaymentStatus, r.Amount, r.Currency, r.CheckedInOn, r.CheckedInBy, r.CreatedOn)).ToList());
+                    r.PaymentMethod, r.PaymentStatus, r.Amount, r.Currency, r.CheckedInOn, r.CheckedInBy, r.CreatedOn,
+                    r.TicketTypeName)).ToList());
         }
 
         public async Task<bool> ConfirmCashAtTillAsync(int registrationId, string actor, CancellationToken ct = default)
@@ -468,6 +495,8 @@ namespace Application.Services
                 q = q.Where(r => r.PaymentStatus == filter.PaymentStatus);
             if (!string.IsNullOrWhiteSpace(filter.PaymentMethod))
                 q = q.Where(r => r.PaymentMethod == filter.PaymentMethod);
+            if (!string.IsNullOrWhiteSpace(filter.TicketType))
+                q = q.Where(r => r.TicketTypeName == filter.TicketType);
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
                 var s = filter.Search.Trim().ToLower();
@@ -487,7 +516,8 @@ namespace Application.Services
                 .Select(r => new EventRegistrationDto(
                     r.Id, r.EventKey, r.FirstName, r.LastName, r.Phone, r.Email,
                     r.PaymentMethod, r.PaymentStatus, r.Amount, r.Currency,
-                    r.ProviderRef, r.ConfirmedBy, r.ConfirmedOn, r.AdminNotes, r.CreatedOn, r.TicketCode, r.CheckedInOn))
+                    r.ProviderRef, r.ConfirmedBy, r.ConfirmedOn, r.AdminNotes, r.CreatedOn, r.TicketCode, r.CheckedInOn,
+                    r.TicketTypeName))
                 .ToListAsync(ct);
 
             return new PaginatedResponse<EventRegistrationDto>(total, rows, page, size);
@@ -764,6 +794,7 @@ namespace Application.Services
                 ["email"]           = e.Email ?? "",
                 ["paymentMethod"]   = e.PaymentMethod,
                 ["amount"]          = e.Amount.ToString("0.##"),
+                ["ticketType"]      = e.TicketTypeName ?? "",
                 ["currency"]        = e.Currency,
             };
 

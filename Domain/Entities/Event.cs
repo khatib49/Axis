@@ -43,6 +43,15 @@ namespace Domain.Entities
         [Column(TypeName = "numeric(18,2)")] public decimal Price { get; set; }
         [Required][MaxLength(10)] public string Currency { get; set; } = "USD";
 
+        /// <summary>
+        /// Ticket types (Standard $15, VIP $25 …) as a JSON array of
+        /// {key,name,price,description,capacity,isActive}. Null/empty = one
+        /// ticket at <see cref="Price"/>. When present, Price holds the lowest
+        /// active type's price so listings can say "From $15".
+        /// See db-migrations/2026-10-event-ticket-types.sql.
+        /// </summary>
+        public string? TicketTypesJson { get; set; }
+
         // ── Payment method toggles (per event) ───────────────────────
         public bool EnableVisa { get; set; } = true;
         public bool EnableWhish { get; set; } = true;

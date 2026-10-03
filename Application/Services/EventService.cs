@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using Application.DTOs;
 using Application.IServices;
+using Application.Services.Events;
 using Application.Services.Payments;
 using Domain.Entities;
 using Infrastructure.IRepositories;
@@ -15,6 +16,7 @@ namespace Application.Services
         private readonly IBaseRepository<EventRegistration> _regRepo;
         private readonly IMediaStorageService _media;
         private readonly StripeGateway _stripe;
+        private readonly IOnlinePaymentService _onlinePayments;
         private readonly WhishGateway _whish;
         private readonly IUnitOfWork _uow;
         private readonly ILogger<EventService> _logger;
@@ -31,8 +33,10 @@ namespace Application.Services
             StripeGateway stripe,
             WhishGateway whish,
             IUnitOfWork uow,
-            ILogger<EventService> logger)
+            ILogger<EventService> logger,
+            IOnlinePaymentService onlinePayments)
         {
+            _onlinePayments = onlinePayments;
             _repo = repo;
             _regRepo = regRepo;
             _media = media;
@@ -61,11 +65,53 @@ namespace Application.Services
                 })
                 .ToDictionaryAsync(x => x.EventId, ct);
 
+            var typeCounts = await TypeCountsAsync(keys, ct);
+
             return events.Select(e =>
             {
                 counts.TryGetValue(e.Id, out var c);
-                return ToDto(e, c?.Total ?? 0, c?.Paid ?? 0);
+                return ToDto(e, c?.Total ?? 0, c?.Paid ?? 0, typeCounts);
             }).ToList();
+        }
+
+        /// <summary>Paid / pending registrations per (event, ticket type) — feeds the admin's per-type counters.</summary>
+        private async Task<Dictionary<(int EventId, string Key), (int Paid, int Pending)>> TypeCountsAsync(
+            IReadOnlyCollection<int> eventIds, CancellationToken ct)
+        {
+            var rows = await _regRepo.Query()
+                .Where(r => r.EventId != null && eventIds.Contains(r.EventId.Value) && r.TicketTypeKey != null)
+                .GroupBy(r => new { EventId = r.EventId!.Value, r.TicketTypeKey })
+                .Select(g => new
+                {
+                    g.Key.EventId, g.Key.TicketTypeKey,
+                    Paid = g.Count(x => x.PaymentStatus == "Paid"),
+                    Pending = g.Count(x => x.PaymentStatus == "Pending"),
+                })
+                .ToListAsync(ct);
+            return rows.ToDictionary(r => (r.EventId, r.TicketTypeKey!), r => (r.Paid, r.Pending));
+        }
+
+        /// <summary>
+        /// Applies the ticket types from the form (when sent) and keeps
+        /// Event.Price on the cheapest active type so listings read "From $X".
+        /// </summary>
+        private async Task ApplyTicketTypesAsync(Event e, EventUpsertDto dto, CancellationToken ct)
+        {
+            if (dto.TicketTypes is not null)
+            {
+                var existing = EventTicketTypes.Parse(e.TicketTypesJson);
+                var inUse = e.Id == 0
+                    ? new HashSet<string>()
+                    : (await _regRepo.Query()
+                        .Where(r => r.EventId == e.Id && r.TicketTypeKey != null)
+                        .Select(r => r.TicketTypeKey!)
+                        .Distinct()
+                        .ToListAsync(ct)).ToHashSet();
+                e.TicketTypesJson = EventTicketTypes.Serialize(EventTicketTypes.Normalize(dto.TicketTypes, existing, inUse));
+            }
+
+            var active = EventTicketTypes.Active(e.TicketTypesJson);
+            if (active.Count > 0) e.Price = active.Min(t => t.Price);
         }
 
         public async Task<EventDto?> GetAsync(int id, CancellationToken ct = default)
@@ -73,7 +119,7 @@ namespace Application.Services
             var e = await _repo.Query().FirstOrDefaultAsync(x => x.Id == id, ct);
             if (e is null) return null;
             var (total, paid) = await CountsAsync(e.Id, ct);
-            return ToDto(e, total, paid);
+            return ToDto(e, total, paid, await TypeCountsAsync(new[] { e.Id }, ct));
         }
 
         public async Task<EventDto> CreateAsync(EventUpsertDto dto, string? actor, CancellationToken ct = default)
@@ -94,12 +140,13 @@ namespace Application.Services
                 CreatedOn = DateTime.UtcNow,
             };
             ApplyUpsert(e, dto);
+            await ApplyTicketTypesAsync(e, dto, ct);
 
             await _repo.AddAsync(e, ct);
             await _uow.SaveChangesAsync(ct);
             InvalidatePublishedCache();
             _logger.LogInformation("Event '{Key}' created by {Actor}", key, actor ?? "system");
-            return ToDto(e, 0, 0);
+            return ToDto(e, 0, 0, null);
         }
 
         public async Task<EventDto> UpdateAsync(int id, EventUpsertDto dto, CancellationToken ct = default)
@@ -116,12 +163,13 @@ namespace Application.Services
             }
 
             ApplyUpsert(e, dto);
+            await ApplyTicketTypesAsync(e, dto, ct);
             e.ModifiedOn = DateTime.UtcNow;
             await _uow.SaveChangesAsync(ct);
             InvalidatePublishedCache();
 
             var (total, paid) = await CountsAsync(e.Id, ct);
-            return ToDto(e, total, paid);
+            return ToDto(e, total, paid, await TypeCountsAsync(new[] { e.Id }, ct));
         }
 
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
@@ -250,12 +298,34 @@ namespace Application.Services
 
             // A method is offered only when the admin enabled it AND the
             // gateway actually has credentials. Cash needs no gateway.
-            var stripeOk = await _stripe.IsConfiguredAsync(ct);
+            // Cards go through MontyPay (Online Payments) or, legacy, Stripe — the
+            // same rule EventRegistrationService.GetPublicConfigAsync applies.
+            // Checking Stripe alone hid the card option on every event page.
+            var stripeOk = await _stripe.IsConfiguredAsync(ct) || await _onlinePayments.IsProviderReadyAsync(ct);
             var whishOk = await _whish.IsConfiguredAsync(ct);
 
             var paidCount = await _regRepo.Query()
                 .CountAsync(r => r.EventId == e.Id && r.PaymentStatus == "Paid", ct);
             var soldOut = e.Capacity.HasValue && paidCount >= e.Capacity.Value;
+
+            // Ticket types: a type is sold out when its own cap is reached or the
+            // whole event is full. Seats left are shown only when a cap applies.
+            var types = EventTicketTypes.Active(e.TicketTypesJson);
+            var publicTypes = new List<EventPublicTicketTypeDto>();
+            if (types.Count > 0)
+            {
+                var typeCounts = await TypeCountsAsync(new[] { e.Id }, ct);
+                int? eventLeft = e.Capacity.HasValue ? Math.Max(0, e.Capacity.Value - paidCount) : null;
+                foreach (var t in types)
+                {
+                    var sold = typeCounts.TryGetValue((e.Id, t.Key!), out var c) ? c.Paid : 0;
+                    int? left = t.Capacity.HasValue ? Math.Max(0, t.Capacity.Value - sold) : null;
+                    if (eventLeft.HasValue) left = left.HasValue ? Math.Min(left.Value, eventLeft.Value) : eventLeft;
+                    publicTypes.Add(new EventPublicTicketTypeDto(t.Key!, t.Name, t.Price, t.Description,
+                        IsSoldOut: soldOut || left == 0, Remaining: left));
+                }
+                if (publicTypes.All(t => t.IsSoldOut)) soldOut = true;
+            }
 
             return new EventPublicDto(
                 Key: e.Key,
@@ -275,7 +345,8 @@ namespace Application.Services
                 // plain payment link — offer it if EITHER is available.
                 WhishAvailable: e.EnableWhish && (whishOk || !string.IsNullOrWhiteSpace(e.WhishPaymentLink)),
                 CashAvailable: e.EnableCash,
-                IsSoldOut: soldOut);
+                IsSoldOut: soldOut,
+                TicketTypes: publicTypes);
         }
 
         // The website's event list rarely changes; keep it in memory briefly and
@@ -331,7 +402,8 @@ namespace Application.Services
                     Currency: e.Currency,
                     HeroImageUrl: string.IsNullOrWhiteSpace(e.HeroImagePath) ? null : "/" + e.HeroImagePath.TrimStart('/'),
                     Capacity: e.Capacity,
-                    IsSoldOut: e.Capacity.HasValue && paid >= e.Capacity.Value);
+                    IsSoldOut: e.Capacity.HasValue && paid >= e.Capacity.Value,
+                    PriceMax: EventTicketTypes.Active(e.TicketTypesJson) is { Count: > 0 } tt ? tt.Max(t => t.Price) : null);
             }).ToList();
         }
 
@@ -372,7 +444,8 @@ namespace Application.Services
             e.Type = string.IsNullOrWhiteSpace(dto.Type) ? "Other" : dto.Type.Trim();
         }
 
-        private EventDto ToDto(Event e, int total, int paid) => new(
+        private EventDto ToDto(Event e, int total, int paid,
+            IReadOnlyDictionary<(int EventId, string Key), (int Paid, int Pending)>? typeCounts) => new(
             e.Id, e.Key, e.Title, e.Subtitle, e.Description, e.EventDate, e.Location,
             ParseFeatures(e.FeaturesJson),
             e.VideoPath, e.VideoYoutubeId, e.HeroImagePath,
@@ -382,7 +455,12 @@ namespace Application.Services
             e.WhatsAppNumber, e.WhatsAppTemplate,
             e.IsPublished, e.IsActive, e.Capacity, e.CreatedOn,
             total, paid,
-            Type: e.Type);
+            Type: e.Type,
+            TicketTypes: EventTicketTypes.Parse(e.TicketTypesJson).Select(t =>
+            {
+                var c = typeCounts is not null && typeCounts.TryGetValue((e.Id, t.Key!), out var v) ? v : (Paid: 0, Pending: 0);
+                return new EventTicketTypeStatsDto(t.Key!, t.Name, t.Price, t.Description, t.Capacity, t.IsActive, c.Paid, c.Pending);
+            }).ToList());
 
         private static List<EventFeatureDto> ParseFeatures(string? json)
         {

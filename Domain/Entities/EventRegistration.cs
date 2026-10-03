@@ -46,6 +46,11 @@ namespace Domain.Entities
         // ── Ticket ───────────────────────────────────────────────────────
         /// <summary>Unguessable code on the ticket + QR ("TK-XXXXXXXXXX"). Opens /tickets/{code}.</summary>
         [MaxLength(24)] public string? TicketCode { get; set; }
+
+        /// <summary>Which ticket type was bought (Event.TicketTypesJson key). Null for single-price events.</summary>
+        [MaxLength(40)] public string? TicketTypeKey { get; set; }
+        /// <summary>The type's name at purchase time — kept even if the admin renames or hides it later.</summary>
+        [MaxLength(80)] public string? TicketTypeName { get; set; }
         /// <summary>Website account that bought the ticket (null when anonymous).</summary>
         public int? UserId { get; set; }
         /// <summary>Stamped by the till when the QR is scanned at the door.</summary>
