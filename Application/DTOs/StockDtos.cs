@@ -84,7 +84,9 @@ namespace Application.DTOs
         DateTime? From,
         DateTime? To,
         int Page = 1,
-        int PageSize = 50
+        int PageSize = 50,
+        // Free text: ingredient, notes, waste reason, created by, or the reference (e.g. "Purchase 42").
+        string? Search = null
     );
 
     // ─── Recipes ──────────────────────────────────────────────────────────

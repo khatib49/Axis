@@ -293,6 +293,20 @@ namespace Application.Services
                 var toExclusive = filter.To.Value.Date.AddDays(1);
                 q = q.Where(m => m.CreatedOn < toExclusive);
             }
+            // Case-insensitive "contains" over every movement in the filters,
+            // so the count and paging include it. lower() LIKE on Postgres.
+            // The reference matches its id ("18001") or type ("purchase").
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var term = filter.Search.Trim().ToLower();
+                q = q.Where(m =>
+                    m.Ingredient.Name.ToLower().Contains(term) ||
+                    (m.Notes != null && m.Notes.ToLower().Contains(term)) ||
+                    (m.WasteReason != null && m.WasteReason.ToLower().Contains(term)) ||
+                    (m.CreatedBy != null && m.CreatedBy.ToLower().Contains(term)) ||
+                    (m.ReferenceType != null && m.ReferenceType.ToLower().Contains(term)) ||
+                    (m.ReferenceId != null && m.ReferenceId.Value.ToString().Contains(term)));
+            }
 
             var totalCount = await q.CountAsync(ct);
 

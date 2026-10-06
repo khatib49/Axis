@@ -43,9 +43,10 @@ namespace AxisAPI.Controllers
             [FromQuery] DateTime? to,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 25,
+            [FromQuery] string? search = null,
             CancellationToken ct = default)
         {
-            var filter = new PurchaseFilterDto(supplierId, ingredientId, from, to, page, pageSize);
+            var filter = new PurchaseFilterDto(supplierId, ingredientId, from, to, page, pageSize, search);
             return Ok(await _svc.ListAsync(filter, ct));
         }
 

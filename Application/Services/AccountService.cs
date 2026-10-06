@@ -558,10 +558,15 @@ namespace Application.Services
         {
             try
             {
-                // ✅ FIX: Ensure date is UTC
+                // "As of" a day includes that whole day: the page sends a plain
+                // date ("2026-10-06" = midnight), so entries posted later that
+                // day used to be left out. Cut off at the start of the next day.
                 var cutoffDate = asOfDate.HasValue
                     ? DateTime.SpecifyKind(asOfDate.Value, DateTimeKind.Utc)
                     : DateTime.UtcNow;
+                var cutoffExclusive = asOfDate.HasValue
+                    ? DateTime.SpecifyKind(asOfDate.Value.Date.AddDays(1), DateTimeKind.Utc)
+                    : DateTime.UtcNow.AddTicks(1);
 
                 var accounts = await _accountRepo.Query()
                     .Include(a => a.AccountType)
@@ -569,21 +574,25 @@ namespace Application.Services
                     .OrderBy(a => a.AccountNumber)
                     .ToListAsync(ct);
 
+                // One grouped query instead of one query (and every line loaded
+                // into memory) per account.
+                var sums = await _journalLineRepo.Query()
+                    .Where(l => l.JournalEntry.IsPosted &&
+                               !l.JournalEntry.IsVoided &&
+                               l.JournalEntry.EntryDate < cutoffExclusive)
+                    .GroupBy(l => l.AccountId)
+                    .Select(g => new { AccountId = g.Key, Debit = g.Sum(l => l.DebitAmount), Credit = g.Sum(l => l.CreditAmount) })
+                    .ToDictionaryAsync(x => x.AccountId, x => (x.Debit, x.Credit), ct);
+
                 var lines = new List<TrialBalanceLineDto>();
                 decimal totalDebits = 0;
                 decimal totalCredits = 0;
 
                 foreach (var account in accounts)
                 {
-                    var journalLines = await _journalLineRepo.Query()
-                        .Where(l => l.AccountId == account.Id &&
-                                   l.JournalEntry.IsPosted &&
-                                   !l.JournalEntry.IsVoided &&
-                                   l.JournalEntry.EntryDate <= cutoffDate)
-                        .ToListAsync(ct);
-
-                    var debitSum = journalLines.Sum(l => l.DebitAmount);
-                    var creditSum = journalLines.Sum(l => l.CreditAmount);
+                    sums.TryGetValue(account.Id, out var s);
+                    var debitSum = s.Debit;
+                    var creditSum = s.Credit;
 
                     var balance = account.AccountType.NormalBalance == "Debit"
                         ? debitSum - creditSum
@@ -661,6 +670,12 @@ namespace Application.Services
                 var endDate = toDate.HasValue
                     ? DateTime.SpecifyKind(toDate.Value, DateTimeKind.Utc)
                     : DateTime.UtcNow;
+                // The page sends plain dates ("2026-10-31" = midnight); the "to"
+                // day must be included, so the cut-off is the start of the next
+                // day. (Before, the whole last day of every range was missing.)
+                var endExclusive = toDate.HasValue
+                    ? DateTime.SpecifyKind(toDate.Value.Date.AddDays(1), DateTimeKind.Utc)
+                    : endDate;
 
                 // OPTIMIZED: Single query with conditional aggregation
                 var allLines = await _journalLineRepo.Query()
@@ -668,7 +683,7 @@ namespace Application.Services
                     .Where(l => l.AccountId == accountId &&
                                l.JournalEntry.IsPosted &&
                                !l.JournalEntry.IsVoided &&
-                               l.JournalEntry.EntryDate < endDate)
+                               l.JournalEntry.EntryDate < endExclusive)
                     .OrderBy(l => l.JournalEntry.EntryDate)
                     .ThenBy(l => l.JournalEntry.EntryNumber)
                     .ToListAsync(linkedCts.Token);
@@ -716,7 +731,7 @@ namespace Application.Services
                                !l.JournalEntry.IsVoided &&
                                l.JournalEntry.ReferenceType == "Expense" &&
                                l.JournalEntry.EntryDate >= startDate &&
-                               l.JournalEntry.EntryDate < endDate &&
+                               l.JournalEntry.EntryDate < endExclusive &&
                                l.DebitAmount > 0)
                     .OrderBy(l => l.JournalEntry.EntryDate)
                     .ThenBy(l => l.JournalEntry.EntryNumber)

@@ -166,6 +166,20 @@ namespace Application.Services
                 var toExclusive = filter.To.Value.Date.AddDays(1);
                 q = q.Where(p => p.PurchaseDate < toExclusive);
             }
+            // Case-insensitive "contains" across the same fields the page
+            // used to search on the loaded page only — now over every match,
+            // so the count and paging include it. lower() LIKE on Postgres.
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var term = filter.Search.Trim().ToLower();
+                q = q.Where(p =>
+                    p.Id.ToString().Contains(term) ||
+                    (p.Supplier != null && p.Supplier.Name.ToLower().Contains(term)) ||
+                    (p.InvoiceNumber != null && p.InvoiceNumber.ToLower().Contains(term)) ||
+                    (p.Notes != null && p.Notes.ToLower().Contains(term)) ||
+                    (p.CreatedBy != null && p.CreatedBy.ToLower().Contains(term)) ||
+                    p.Lines.Any(l => l.Ingredient.Name.ToLower().Contains(term)));
+            }
 
             var totalCount = await q.CountAsync(ct);
             var page = filter.Page < 1 ? 1 : filter.Page;

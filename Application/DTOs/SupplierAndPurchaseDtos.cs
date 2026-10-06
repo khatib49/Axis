@@ -61,7 +61,9 @@ namespace Application.DTOs
         DateTime? From,
         DateTime? To,
         int Page = 1,
-        int PageSize = 25
+        int PageSize = 25,
+        // Free text: purchase #, supplier, invoice #, notes, created by, or any line's ingredient.
+        string? Search = null
     );
 
     // ─── Price trend (per ingredient) ─────────────────────────────────────

@@ -113,9 +113,10 @@ namespace AxisAPI.Controllers
             [FromQuery] DateTime? to,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 50,
+            [FromQuery] string? search = null,
             CancellationToken ct = default)
         {
-            var filter = new StockMovementFilterDto(ingredientId, type, from, to, page, pageSize);
+            var filter = new StockMovementFilterDto(ingredientId, type, from, to, page, pageSize, search);
             return Ok(await _svc.GetMovementsAsync(filter, ct));
         }
     }
