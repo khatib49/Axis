@@ -33,7 +33,10 @@ namespace Application.Services
             CancellationToken ct)
         {
             await EnsureCategoryExists(dto.CategoryId, ct);
-            ValidateDates(dto.FromDate, dto.ToDate);
+            // Picked dates are Beirut calendar days — see BusinessDate.
+            var fromDay = BusinessDate.ToDay(dto.FromDate);
+            var toDay = BusinessDate.ToDay(dto.ToDate);
+            ValidateDates(fromDay, toDay);
             if (dto.Amount <= 0)
                 throw new ArgumentException("Amount must be greater than 0.");
 
@@ -43,8 +46,8 @@ namespace Application.Services
                 Amount = dto.Amount,
                 PaymentMethod = dto.PaymentMethod,
                 Comment = dto.Comment,
-                FromDate = dto.FromDate.Date,
-                ToDate = dto.ToDate.Date,
+                FromDate = fromDay,
+                ToDate = toDay,
                 CreatedBy = createdBy,
                 CreatedOn = DateTime.UtcNow,
             };
@@ -90,7 +93,9 @@ namespace Application.Services
         public async Task<ExpenseDto> UpdateAsync(int id, ExpenseUpdateDto dto, CancellationToken ct)
         {
             await EnsureCategoryExists(dto.CategoryId, ct);
-            ValidateDates(dto.FromDate, dto.ToDate);
+            var fromDay = BusinessDate.ToDay(dto.FromDate);
+            var toDay = BusinessDate.ToDay(dto.ToDate);
+            ValidateDates(fromDay, toDay);
             if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
 
             var entity = await _expenseRepo.Query().FirstOrDefaultAsync(e => e.Id == id, ct)
@@ -100,8 +105,8 @@ namespace Application.Services
             entity.Amount = dto.Amount;
             entity.PaymentMethod = dto.PaymentMethod;
             entity.Comment = dto.Comment;
-            entity.FromDate = dto.FromDate.Date;
-            entity.ToDate = dto.ToDate.Date;
+            entity.FromDate = fromDay;
+            entity.ToDate = toDay;
 
             _expenseRepo.Update(entity);
 

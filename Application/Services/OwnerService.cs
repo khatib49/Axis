@@ -302,7 +302,7 @@ namespace Application.Services
                 {
                     OwnerId = owner.Id,
                     Amount = Math.Round(dto.Amount, 2),
-                    DrawingDate = Utc(dto.DrawingDate.Date),
+                    DrawingDate = BusinessDate.ToDay(dto.DrawingDate),
                     PaymentMethod = Clean(dto.PaymentMethod, 50),
                     Comment = Clean(dto.Comment),
                     CreatedBy = userId,
@@ -353,7 +353,7 @@ namespace Application.Services
 
                 drawing.OwnerId = owner.Id;
                 drawing.Amount = Math.Round(dto.Amount, 2);
-                drawing.DrawingDate = Utc(dto.DrawingDate.Date);
+                drawing.DrawingDate = BusinessDate.ToDay(dto.DrawingDate);
                 drawing.PaymentMethod = Clean(dto.PaymentMethod, 50);
                 drawing.Comment = Clean(dto.Comment);
                 drawing.ModifiedOn = DateTime.UtcNow;
@@ -973,7 +973,7 @@ namespace Application.Services
                 throw new ArgumentException("Amount must be greater than zero.");
             if (date == default)
                 throw new ArgumentException("Date is required.");
-            if (date.Date > DateTime.UtcNow.Date.AddDays(1))
+            if (BusinessDate.ToDay(date) > BusinessDate.ToDay(DateTime.UtcNow))
                 throw new ArgumentException("A drawing cannot be dated in the future.");
         }
 
