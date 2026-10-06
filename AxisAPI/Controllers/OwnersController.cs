@@ -103,5 +103,14 @@ namespace AxisAPI.Controllers
         [HttpGet("drawings-summary")]
         public async Task<ActionResult<OwnerDrawingsSummaryDto>> Summary([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
             => Ok(await _svc.GetSummaryAsync(from, to, ct));
+
+        /// <summary>The journal lines behind one summary row, with where each came from.</summary>
+        [HttpGet("drawings-ledger")]
+        public async Task<ActionResult<OwnerDrawingsLedgerDto>> Ledger([FromQuery] int accountId, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+        {
+            try { return Ok(await _svc.GetAccountLedgerAsync(accountId, from, to, ct)); }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+        }
     }
 }

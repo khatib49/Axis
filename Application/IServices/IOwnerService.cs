@@ -21,6 +21,9 @@ namespace Application.IServices
         // Report
         Task<OwnerDrawingsSummaryDto> GetSummaryAsync(DateTime? from, DateTime? to, CancellationToken ct = default);
 
+        /// <summary>The journal lines behind one summary row (an account under the Owners' Drawings header).</summary>
+        Task<OwnerDrawingsLedgerDto> GetAccountLedgerAsync(int accountId, DateTime? from, DateTime? to, CancellationToken ct = default);
+
         /// <summary>Cash paid out as drawings through this page, all time (non-voided).</summary>
         Task<decimal> GetLifetimeDrawingsCashOutAsync(CancellationToken ct = default);
     }

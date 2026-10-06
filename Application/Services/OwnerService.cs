@@ -552,6 +552,151 @@ namespace Application.Services
                 await GetUnlinkedEquityCategoriesAsync(headerTree, ct));
         }
 
+        public async Task<OwnerDrawingsLedgerDto> GetAccountLedgerAsync(int accountId, DateTime? from, DateTime? to, CancellationToken ct = default)
+        {
+            var header = await FindHeaderAsync(ct)
+                ?? throw new KeyNotFoundException("The Owners' Drawings header account does not exist yet.");
+
+            var accounts = await _accountRepo.Query()
+                .Select(a => new { a.Id, a.ParentAccountId, a.AccountNumber, a.AccountName })
+                .ToListAsync(ct);
+            var account = accounts.FirstOrDefault(a => a.Id == accountId)
+                ?? throw new KeyNotFoundException("Account not found.");
+
+            var childrenOf = accounts
+                .Where(a => a.ParentAccountId.HasValue)
+                .GroupBy(a => a.ParentAccountId!.Value)
+                .ToDictionary(g => g.Key, g => g.Select(a => a.Id).ToList());
+            HashSet<int> Subtree(int rootId)
+            {
+                var set = new HashSet<int>();
+                var stack = new Stack<int>();
+                stack.Push(rootId);
+                while (stack.Count > 0)
+                {
+                    var id = stack.Pop();
+                    if (!set.Add(id)) continue;
+                    if (childrenOf.TryGetValue(id, out var kids))
+                        foreach (var k in kids) stack.Push(k);
+                }
+                return set;
+            }
+
+            // Only accounts under the header — this is not a general ledger
+            // endpoint. Same scope as the summary row: an owner's account
+            // with anything below it; the header itself = its direct postings.
+            if (!Subtree(header.Id).Contains(accountId))
+                throw new ArgumentException($"Account {account.AccountNumber} is not under {header.AccountNumber} {header.AccountName}.");
+            var ids = (accountId == header.Id ? new HashSet<int> { header.Id } : Subtree(accountId)).ToList();
+
+            var q = _journalLineRepo.Query()
+                .Where(l => ids.Contains(l.AccountId) && l.JournalEntry.IsPosted && !l.JournalEntry.IsVoided);
+            if (from.HasValue)
+            {
+                var f = Utc(from.Value.Date);
+                q = q.Where(l => l.JournalEntry.EntryDate >= f);
+            }
+            if (to.HasValue)
+            {
+                var t = Utc(to.Value.Date.AddDays(1));
+                q = q.Where(l => l.JournalEntry.EntryDate < t);
+            }
+
+            var rows = await q
+                .OrderBy(l => l.JournalEntry.EntryDate)
+                .ThenBy(l => l.JournalEntry.EntryNumber)
+                .ThenBy(l => l.LineNumber)
+                .Select(l => new
+                {
+                    l.JournalEntryId,
+                    l.JournalEntry.EntryNumber,
+                    l.JournalEntry.EntryDate,
+                    EntryDescription = l.JournalEntry.Description,
+                    LineDescription = l.Description,
+                    l.JournalEntry.ReferenceType,
+                    l.JournalEntry.ReferenceId,
+                    l.DebitAmount,
+                    l.CreditAmount
+                })
+                .ToListAsync(ct);
+
+            // Where each entry came from.
+            var drawingIds = rows.Where(r => r.ReferenceType == ReferenceType && r.ReferenceId.HasValue)
+                .Select(r => r.ReferenceId!.Value).Distinct().ToList();
+            var drawings = await _drawingRepo.Query()
+                .Where(d => drawingIds.Contains(d.Id))
+                .Select(d => new { d.Id, d.PaymentMethod, d.Comment })
+                .ToDictionaryAsync(d => d.Id, ct);
+
+            var expenseIds = rows.Where(r => r.ReferenceType == "Expense" && r.ReferenceId.HasValue)
+                .Select(r => r.ReferenceId!.Value).Distinct().ToList();
+            var expenses = await _expenseRepo.Query()
+                .Where(e => expenseIds.Contains(e.Id))
+                .Select(e => new { e.Id, Category = e.Category.Name, e.Amount, e.FromDate, e.ToDate, e.PaymentMethod, e.Comment })
+                .ToDictionaryAsync(e => e.Id, ct);
+
+            static string Join(params string?[] parts) => string.Join(" · ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+            var running = 0m;
+            var lines = new List<OwnerDrawingsLedgerLineDto>(rows.Count);
+            foreach (var r in rows)
+            {
+                running += r.DebitAmount - r.CreditAmount;
+                string source;
+                string? detail = null;
+                int? drawingId = null, expenseId = null;
+
+                if (r.ReferenceType == ReferenceType)
+                {
+                    source = "Drawings page";
+                    drawingId = r.ReferenceId;
+                    if (r.ReferenceId.HasValue && drawings.TryGetValue(r.ReferenceId.Value, out var d))
+                        detail = Join(d.PaymentMethod, d.Comment);
+                }
+                else if (r.ReferenceType == "Expense")
+                {
+                    source = "Entry category";
+                    expenseId = r.ReferenceId;
+                    if (r.ReferenceId.HasValue && expenses.TryGetValue(r.ReferenceId.Value, out var e))
+                    {
+                        // A multi-month entry is booked as one journal entry per month.
+                        var spread = e.FromDate.Date == e.ToDate.Date
+                            ? null
+                            : $"part of {e.Amount:#,0.00} spread {e.FromDate:dd MMM yyyy} – {e.ToDate:dd MMM yyyy}";
+                        detail = Join(e.Category, e.PaymentMethod, e.Comment, spread);
+                    }
+                }
+                else if (string.Equals(r.ReferenceType, "Adjustment", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(r.ReferenceType))
+                {
+                    source = "Manual journal entry";
+                    detail = r.LineDescription;
+                }
+                else
+                {
+                    source = r.ReferenceType;
+                    detail = r.LineDescription;
+                }
+
+                lines.Add(new OwnerDrawingsLedgerLineDto(
+                    r.JournalEntryId, r.EntryNumber, r.EntryDate, r.EntryDescription, source, detail,
+                    r.DebitAmount, r.CreditAmount, Math.Round(running, 2), drawingId, expenseId));
+            }
+
+            var owner = await _ownerRepo.Query()
+                .Where(o => o.DrawingsAccountId == accountId)
+                .Select(o => new { o.Id, o.Name })
+                .FirstOrDefaultAsync(ct);
+
+            var totalDebit = Math.Round(rows.Sum(r => r.DebitAmount), 2);
+            var totalCredit = Math.Round(rows.Sum(r => r.CreditAmount), 2);
+            return new OwnerDrawingsLedgerDto(
+                account.Id, account.AccountNumber, account.AccountName,
+                owner?.Id, owner?.Name, from, to,
+                totalDebit, totalCredit, Math.Round(totalDebit - totalCredit, 2),
+                rows.Select(r => r.JournalEntryId).Distinct().Count(),
+                lines);
+        }
+
         private async Task<List<UnlinkedEquityCategoryDto>> GetUnlinkedEquityCategoriesAsync(HashSet<int> headerTree, CancellationToken ct)
         {
             var cats = (await _expenseCategoryRepo.Query()

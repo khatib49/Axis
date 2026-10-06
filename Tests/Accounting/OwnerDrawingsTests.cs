@@ -231,6 +231,46 @@ namespace Tests.Accounting
         }
 
         [Fact]
+        public async Task Ledger_lists_every_entry_behind_the_summary_row_with_its_source()
+        {
+            var o = await SeedPartnersAsync();
+            var omar = o["Omar"];
+            await _svc.CreateDrawingAsync(new OwnerDrawingCreateDto(omar.Id, 400m, Day, "Cash", "Rent at home"), 1);
+
+            // Legacy route: an "Omar cash out" entry posted through the expense pipeline.
+            _db.Set<ExpenseCategory>().Add(new ExpenseCategory { Id = 8, Name = "Omar cash out", AccountId = omar.DrawingsAccountId });
+            _db.Expenses.Add(new Expense { Id = 80, FK_CategoryId = 8, Amount = 150m, FromDate = Day.AddDays(1), ToDate = Day.AddDays(1), Comment = "Fuel" });
+            _db.JournalEntries.Add(new JournalEntry
+            {
+                EntryNumber = "JE-T-90000", EntryDate = Day.AddDays(1), Description = "Fuel", ReferenceType = "Expense", ReferenceId = 80,
+                TotalAmount = 150m, IsPosted = true,
+                Lines =
+                {
+                    new JournalEntryLine { AccountId = omar.DrawingsAccountId, DebitAmount = 150m, LineNumber = 1 },
+                    new JournalEntryLine { AccountId = 10, CreditAmount = 150m, LineNumber = 2 },
+                },
+            });
+            _db.SaveChanges();
+
+            var from = Day;
+            var to = Day.AddMonths(1).AddDays(-1);
+            var ledger = await _svc.GetAccountLedgerAsync(omar.DrawingsAccountId, from, to);
+            var row = (await _svc.GetSummaryAsync(from, to)).Owners.Single(x => x.Name == "Omar");
+
+            ledger.OwnerName.Should().Be("Omar");
+            ledger.Drawn.Should().Be(550m).And.Be(row.Drawn);
+            ledger.EntryCount.Should().Be(row.EntryCount);
+            ledger.Lines.Select(l => l.Source).Should().Equal("Drawings page", "Entry category");
+            ledger.Lines[0].SourceDetail.Should().Be("Cash · Rent at home");
+            ledger.Lines[1].SourceDetail.Should().Be("Omar cash out · Fuel");
+            ledger.Lines.Last().RunningTotal.Should().Be(550m);
+
+            // Not a general-ledger backdoor: only accounts under the header.
+            var outside = () => _svc.GetAccountLedgerAsync(10, from, to);
+            await outside.Should().ThrowAsync<ArgumentException>();
+        }
+
+        [Fact]
         public async Task Hidden_owner_cannot_take_new_drawings()
         {
             var o = await SeedPartnersAsync();

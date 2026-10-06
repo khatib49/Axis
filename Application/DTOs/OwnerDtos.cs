@@ -131,6 +131,40 @@ namespace Application.DTOs
         decimal LifetimeDrawn
     );
 
+    /// <summary>
+    /// Every posted, non-voided journal line behind one row of the summary:
+    /// what was drawn, when, and where it came from.
+    /// </summary>
+    public record OwnerDrawingsLedgerDto(
+        int AccountId,
+        string AccountNumber,
+        string AccountName,
+        int? OwnerId,
+        string? OwnerName,
+        DateTime? From,
+        DateTime? To,
+        decimal TotalDebit,
+        decimal TotalCredit,
+        decimal Drawn,                 // TotalDebit − TotalCredit
+        int EntryCount,
+        List<OwnerDrawingsLedgerLineDto> Lines
+    );
+
+    public record OwnerDrawingsLedgerLineDto(
+        int JournalEntryId,
+        string EntryNumber,
+        DateTime EntryDate,
+        string Description,
+        // "Drawings page" | "Entry category" | "Manual journal entry" | other ReferenceType
+        string Source,
+        string? SourceDetail,
+        decimal Debit,
+        decimal Credit,
+        decimal RunningTotal,
+        int? OwnerDrawingId,
+        int? ExpenseId
+    );
+
     public record UnlinkedEquityCategoryDto(
         int CategoryId,
         string CategoryName,
