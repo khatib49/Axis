@@ -32,7 +32,10 @@
         // Cash on Hand (Rami, 2026-09): Baseline + ALL-TIME revenue − ALL-TIME
         // expenses. Not affected by the date filter. Computed once here so
         // the main dashboard and the accounting dashboard can never disagree.
-        CashOnHandDto? CashOnHand = null
+        CashOnHandDto? CashOnHand = null,
+        // Owners' drawings in the period (ledger, Owners' Drawings header
+        // rollup). Equity, not an expense: never part of Net Income.
+        decimal? OwnerDrawings = null
     );
 
     /// <summary>
@@ -45,10 +48,10 @@
         decimal Revenue,           // all-time
         decimal OperatingExpenses, // unused (kept for shape compatibility)
         decimal CapitalExpenses,   // unused
-        decimal OtherCashOut,      // unused
+        decimal OtherCashOut,      // all-time owner drawings (cash out, not an expense)
         decimal StockPurchases,    // unused
         decimal TotalExpenses,     // all-time, = Expenses page "Total Expenses (All)"
-        decimal Amount             // Baseline + Revenue − TotalExpenses
+        decimal Amount             // Baseline + Revenue − TotalExpenses − OtherCashOut
     );
 
     public record AccountTypeBreakdownDto(

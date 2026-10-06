@@ -236,7 +236,13 @@ namespace Application.Services
         {
             var q = from e in _expenseRepo.Query()
                     join c in _catRepo.Query() on e.FK_CategoryId equals c.Id
-                    select new { e, c.Name };
+                    select new
+                    {
+                        e,
+                        c.Name,
+                        // Mapped to an Equity account = owner drawing, not an expense.
+                        IsDrawing = c.Account != null && c.Account.AccountType.TypeName == "Equity"
+                    };
 
             if (filter.From.HasValue)
                 q = q.Where(x => x.e.ToDate >= filter.From.Value.Date);  // overlaps range
@@ -248,7 +254,8 @@ namespace Application.Services
                 q = q.Where(x => x.e.FK_CategoryId == filter.CategoryId.Value);
 
             var totalCount = await q.CountAsync(ct);
-            var totalAmountAll = await q.SumAsync(x => (decimal?)x.e.Amount, ct) ?? 0m;
+            var totalAmountAll = await q.Where(x => !x.IsDrawing).SumAsync(x => (decimal?)x.e.Amount, ct) ?? 0m;
+            var totalDrawingsAll = await q.Where(x => x.IsDrawing).SumAsync(x => (decimal?)x.e.Amount, ct) ?? 0m;
 
             var itemsQ = q
                 .OrderByDescending(x => x.e.FromDate)
@@ -265,7 +272,7 @@ namespace Application.Services
             var totalAmountPage = items.Sum(i => i.Amount);
 
             return new PagedExpensesResult(
-                filter.Page, filter.PageSize, totalCount, totalAmountPage, totalAmountAll, items
+                filter.Page, filter.PageSize, totalCount, totalAmountPage, totalAmountAll, items, totalDrawingsAll
             );
         }
 

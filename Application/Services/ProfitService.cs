@@ -241,7 +241,10 @@ namespace Application.Services
             List<int> filterCategoryIds,
             CancellationToken ct)
         {
-            var expenseQuery = _expenseRepo.Query();
+            // Entries mapped to an Equity account are owner drawings — cash
+            // out, not an expense — so they never reduce profit.
+            var expenseQuery = _expenseRepo.Query()
+                .Where(e => e.Category.Account == null || e.Category.Account.AccountType.TypeName != "Equity");
 
             if (from.HasValue)
                 expenseQuery = expenseQuery.Where(e => e.ToDate >= from.Value);

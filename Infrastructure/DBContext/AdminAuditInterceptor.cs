@@ -40,6 +40,8 @@ namespace Infrastructure.Persistence
             nameof(Expense),
             nameof(Account),
             nameof(AccountType),
+            nameof(Owner),
+            nameof(OwnerDrawing),
             nameof(AppUser),                // user create / update / delete by admin
             // Notably NOT audited (their own audit/history covers them):
             //   TransactionRecord / TransactionItem  → TransactionAuditLog

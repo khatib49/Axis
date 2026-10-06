@@ -123,6 +123,8 @@ namespace Application.Security
                 new[] { "AccountingController", "JournalController", "AccountsController" }, None),
             new PageDefinition("accounting-item-revenue", "Item Revenue", "Accounting", "/accounting/item-revenue",
                 new[] { "ItemRevenueReportController" }, None),
+            new PageDefinition("owners-drawings", "Owners' Drawings", "Accounting", "/accounting/owners-drawings",
+                new[] { "OwnersController", "AccountsController" }, None),
             new PageDefinition("accounting-accounts", "Chart of Accounts", "Accounting", "/accounting/accounts",
                 new[] { "AccountsController" }, None),
             new PageDefinition("accounting-trial-balance", "Trial Balance", "Accounting", "/accounting/trial-balance",

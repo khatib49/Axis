@@ -91,6 +91,8 @@ namespace Infrastructure.Persistence
         public DbSet<TransactionAuditLog> TransactionAuditLogs => Set<TransactionAuditLog>();
         public DbSet<Printer> Printers => Set<Printer>();
         public DbSet<Channel> Channels => Set<Channel>();
+        public DbSet<Owner> Owners => Set<Owner>();
+        public DbSet<OwnerDrawing> OwnerDrawings => Set<OwnerDrawing>();
         public DbSet<Ingredient> Ingredients => Set<Ingredient>();
         public DbSet<RecipeLine> RecipeLines => Set<RecipeLine>();
         public DbSet<StockMovement> StockMovements => Set<StockMovement>();
@@ -560,6 +562,35 @@ namespace Infrastructure.Persistence
                 entity.HasOne(e => e.AccountType)
                     .WithMany(at => at.Accounts)
                     .HasForeignKey(e => e.AccountTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Owners' drawings. Tables are created by
+            // db-migrations/2026-10-owners-drawings.sql; this keeps EF aware of
+            // the mapping. Restrict everywhere: an owner, their account or a
+            // drawing's journal entry must never disappear under the history.
+            b.Entity<Owner>(entity =>
+            {
+                entity.ToTable("Owners");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.DrawingsAccountId).IsUnique();
+                entity.Property(e => e.OwnershipPercent).HasPrecision(5, 2);
+                entity.HasOne(e => e.DrawingsAccount)
+                    .WithMany()
+                    .HasForeignKey(e => e.DrawingsAccountId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            b.Entity<OwnerDrawing>(entity =>
+            {
+                entity.ToTable("OwnerDrawings");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.OwnerId);
+                entity.HasIndex(e => e.DrawingDate);
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.HasOne(e => e.Owner)
+                    .WithMany(o => o.Drawings)
+                    .HasForeignKey(e => e.OwnerId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

@@ -81,7 +81,7 @@ namespace Application.Services.Ai
                     }")),
 
                 Tool("get_expense_summary",
-                    "Sum of expenses grouped by category for a date range.",
+                    "Sum of expenses grouped by category for a date range. Owner drawings (cash the owners took out) are not expenses: they are returned separately per owner and are excluded from grand_total.",
                     JsonDoc(@"{
                         ""type"": ""object"",
                         ""properties"": {

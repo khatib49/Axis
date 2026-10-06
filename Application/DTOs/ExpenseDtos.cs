@@ -50,8 +50,9 @@
         int PageSize,
         int TotalCount,
         decimal TotalAmount,                // sum of page items
-        decimal TotalAmountAll,             // sum of all filtered items (ignore paging)
-        IReadOnlyList<ExpenseDto> Items
+        decimal TotalAmountAll,             // sum of all filtered items (ignore paging), owner drawings excluded
+        IReadOnlyList<ExpenseDto> Items,
+        decimal TotalOwnerDrawingsAll = 0m  // filtered items whose category maps to an Equity account
     );
     public record ExpenseCategoryCreateDto(
     string Name,

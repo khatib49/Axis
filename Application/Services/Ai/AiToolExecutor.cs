@@ -277,8 +277,11 @@ namespace Application.Services.Ai
             var from = ParseDate(input, "from") ?? DateTime.UtcNow.Date.AddDays(-30);
             var to   = (ParseDate(input, "to")  ?? DateTime.UtcNow.Date).Date.AddDays(1);
 
+            // Entries mapped to an Equity account are owner drawings, not
+            // expenses — kept out of the expense total and reported apart.
             var rows = await _db.Set<Expense>().AsNoTracking()
                 .Where(e => e.FromDate < to && e.ToDate >= from)
+                .Where(e => e.Category!.Account == null || e.Category.Account.AccountType.TypeName != "Equity")
                 .GroupBy(e => e.Category!.Name)
                 .Select(g => new {
                     category = g.Key,
@@ -288,11 +291,22 @@ namespace Application.Services.Ai
                 .OrderByDescending(x => x.total)
                 .ToListAsync(ct);
 
+            var fromUtc = DateTime.SpecifyKind(from, DateTimeKind.Utc);
+            var toUtc = DateTime.SpecifyKind(to, DateTimeKind.Utc);
+            var drawings = await _db.Set<OwnerDrawing>().AsNoTracking()
+                .Where(d => !d.IsVoided && d.DrawingDate >= fromUtc && d.DrawingDate < toUtc)
+                .GroupBy(d => d.Owner.Name)
+                .Select(g => new { owner = g.Key, total = g.Sum(x => x.Amount), count = g.Count() })
+                .OrderByDescending(x => x.total)
+                .ToListAsync(ct);
+
             return JsonSerializer.Serialize(new {
                 from = from.ToString("yyyy-MM-dd"),
                 to   = to.AddDays(-1).ToString("yyyy-MM-dd"),
                 categories = rows,
-                grand_total = rows.Sum(r => r.total)
+                grand_total = rows.Sum(r => r.total),
+                owner_drawings_not_expenses = drawings,
+                owner_drawings_total = drawings.Sum(d => d.total)
             }, _jsonOut);
         }
 

@@ -3,6 +3,7 @@ using Application.IServices;
 using Domain.Entities;
 using Infrastructure.IRepositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services
 {
@@ -23,6 +24,9 @@ namespace Application.Services
         private readonly IBaseRepository<Ingredient> _ingredientRepo;
         private readonly IItemRevenueReportService _itemReport;
         private readonly IBaseRepository<RecipeLine> _recipeRepo;
+        private readonly IBaseRepository<OwnerDrawing> _drawingRepo;
+        private readonly IOwnerService _owners;
+        private readonly ILogger<AccountingReportService> _logger;
 
         // TCG category IDs — items whose Category.Name contains "TCG" or "Card"
         // We identify TCG items by checking Item.Category name at query time
@@ -51,8 +55,14 @@ namespace Application.Services
             IBaseRepository<IntegrationSetting> settingsRepo,
             IBaseRepository<Ingredient> ingredientRepo,
             IItemRevenueReportService itemReport,
-            IBaseRepository<RecipeLine> recipeRepo)
+            IBaseRepository<RecipeLine> recipeRepo,
+            IBaseRepository<OwnerDrawing> drawingRepo,
+            IOwnerService owners,
+            ILogger<AccountingReportService> logger)
         {
+            _drawingRepo = drawingRepo;
+            _owners = owners;
+            _logger = logger;
             _recipeRepo = recipeRepo;
             _purchaseRepo = purchaseRepo;
             _settingsRepo = settingsRepo;
@@ -66,6 +76,21 @@ namespace Application.Services
             _accountRepo = accountRepo;
             _movementRepo = movementRepo;
             _eventRegRepo = eventRegRepo;
+        }
+
+        /// <summary>
+        /// The Owners / OwnerDrawings tables come from a hand-run SQL script
+        /// (db-migrations/2026-10-owners-drawings.sql). If the API is deployed
+        /// before it runs, the dashboard must still load — drawings read as 0.
+        /// </summary>
+        private async Task<T> OwnersSafeAsync<T>(Func<Task<T>> read, T fallback)
+        {
+            try { return await read(); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Owners' drawings unavailable (has 2026-10-owners-drawings.sql been run?); dashboard shows 0");
+                return fallback;
+            }
         }
 
         public async Task<AccountingDashboardDto> GetDashboardAsync(DateTime? from, DateTime? to, CancellationToken ct = default)
@@ -496,8 +521,19 @@ namespace Application.Services
                 .SumAsync(r => (decimal?)r.Amount, ct) ?? 0m;
             var lifetimeRevenue = Math.Round(lifetimeSales + lifetimeTickets, 2);
 
+            // Owner drawings are cash out but NOT expenses, so they leave the
+            // till on their own line: Owners' Drawings page rows + legacy
+            // entry categories mapped to an Equity account.
             var lifetimeExpenses = Math.Round(
-                await _expenseRepo.Query().SumAsync(e => (decimal?)e.Amount, ct) ?? 0m, 2);
+                await _expenseRepo.Query()
+                    .Where(e => e.Category.Account == null || e.Category.Account.AccountType.TypeName != "Equity")
+                    .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m, 2);
+            var lifetimeEquityEntries = Math.Round(
+                await _expenseRepo.Query()
+                    .Where(e => e.Category.Account != null && e.Category.Account.AccountType.TypeName == "Equity")
+                    .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m, 2);
+            var lifetimeDrawings = Math.Round(
+                lifetimeEquityEntries + await OwnersSafeAsync(() => _owners.GetLifetimeDrawingsCashOutAsync(ct), 0m), 2);
 
             var baselineRaw = await _settingsRepo.Query()
                 .Where(x => x.Key == "Accounting.CashOnHandBaseline")
@@ -511,10 +547,14 @@ namespace Application.Services
                 Revenue: lifetimeRevenue,
                 OperatingExpenses: 0m,
                 CapitalExpenses: 0m,
-                OtherCashOut: 0m,
+                OtherCashOut: lifetimeDrawings,
                 StockPurchases: 0m,
                 TotalExpenses: lifetimeExpenses,
-                Amount: Math.Round(baseline + lifetimeRevenue - lifetimeExpenses, 2));
+                Amount: Math.Round(baseline + lifetimeRevenue - lifetimeExpenses - lifetimeDrawings, 2));
+
+            // Owners' drawings for the period, read from the ledger (every
+            // owner's drawings account under the Owners' Drawings header).
+            var ownerDrawings = await OwnersSafeAsync(async () => (await _owners.GetSummaryAsync(from, to, ct)).TotalDrawings, 0m);
 
             // ── 4. Net Income ────────────────────────────────────────────
             // Note: operatingExpenses.Total now excludes Equity/Revenue
@@ -547,7 +587,8 @@ namespace Application.Services
                 NetMarginPercent: netMargin,
                 ByAccountType: byAccountType,
                 ByAccountNumberRange: byRange,
-                CashOnHand: cashOnHand
+                CashOnHand: cashOnHand,
+                OwnerDrawings: ownerDrawings
             );
         }
 
@@ -628,18 +669,43 @@ namespace Application.Services
                 {
                     var c = dash.CashOnHand!;
                     var expByCat = await _expenseRepo.Query()
-                        .GroupBy(e => e.Category.Name)
-                        .Select(g => new { Cat = g.Key, Amt = g.Sum(x => x.Amount), Cnt = g.Count() })
+                        .GroupBy(e => new
+                        {
+                            e.Category.Name,
+                            IsDrawing = e.Category.Account != null && e.Category.Account.AccountType.TypeName == "Equity"
+                        })
+                        .Select(g => new { Cat = g.Key.Name, g.Key.IsDrawing, Amt = g.Sum(x => x.Amount), Cnt = g.Count() })
                         .ToListAsync(ct);
+                    var drawByOwner = await OwnersSafeAsync(() => _drawingRepo.Query()
+                        .Where(d => !d.IsVoided)
+                        .GroupBy(d => d.Owner.Name)
+                        .Select(g => new { Owner = g.Key, Amt = g.Sum(x => x.Amount), Cnt = g.Count() })
+                        .ToListAsync(ct), new());
                     var rows = new List<BreakdownRowDto>
                     {
                         new("Baseline (till reading you set)", c.Baseline),
                         new("+ Total revenue — all paid sales & sessions (all time)", await _txRepo.Query().Where(t => t.StatusId == 6).SumAsync(t => (decimal?)t.TotalPrice, ct) ?? 0m),
                         new("+ Total revenue — paid event tickets (all time)", await _eventRegRepo.Query().Where(r => r.PaymentStatus == "Paid").SumAsync(r => (decimal?)r.Amount, ct) ?? 0m),
                     };
-                    rows.AddRange(expByCat.OrderByDescending(x => x.Amt).Select(x => new BreakdownRowDto($"− Expenses · {x.Cat}", -x.Amt, x.Cnt)));
+                    rows.AddRange(expByCat.Where(x => !x.IsDrawing).OrderByDescending(x => x.Amt).Select(x => new BreakdownRowDto($"− Expenses · {x.Cat}", -x.Amt, x.Cnt)));
+                    rows.AddRange(drawByOwner.OrderByDescending(x => x.Amt).Select(x => new BreakdownRowDto($"− Owner drawings · {x.Owner}", -x.Amt, x.Cnt)));
+                    rows.AddRange(expByCat.Where(x => x.IsDrawing).OrderByDescending(x => x.Amt).Select(x => new BreakdownRowDto($"− Owner drawings · {x.Cat} (entry category)", -x.Amt, x.Cnt)));
                     return new MetricBreakdownDto("cash", "Cash on Hand — how it is built", c.Amount, rows,
-                        "All time, not affected by the date filter. Expenses = every entry on the Expenses page.", CountLabel: "entries");
+                        "All time, not affected by the date filter. Expenses = entries on the Expenses page. Owner drawings are cash out but not expenses.", CountLabel: "entries");
+                }
+                case "drawings":
+                {
+                    var s = await _owners.GetSummaryAsync(from, to, ct);
+                    var rows = s.Owners.Concat(s.OtherAccounts)
+                        .Select(o => new BreakdownRowDto(
+                            $"{o.AccountNumber} · {o.Name}" + (o.OwnerId.HasValue ? $" ({o.OwnershipPercent:0.##}% owner)" : ""),
+                            o.Drawn, o.EntryCount,
+                            $"{o.ShareOfDrawingsPercent:0.##}% of drawings",
+                            o.OwnerId.HasValue ? o.EntitledAmount : null))
+                        .ToList();
+                    return new MetricBreakdownDto("drawings", $"Owners' Drawings ({s.HeaderAccountNumber}) by owner", s.TotalDrawings, rows,
+                        "Cash the owners took out. Booked against equity, not an expense, so it does not reduce Net Income. Fair share = total drawings × ownership %.",
+                        SecondaryLabel: "Fair share", CountLabel: "entries");
                 }
                 case "revenue":
                 {
