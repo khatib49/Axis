@@ -95,8 +95,9 @@ namespace Tests.Promotions
             _db.Add(new HappyHourRule { Id = 1, Name = "Coffee hour", DaysOfWeekCsv = "", StartTime = new TimeOnly(0, 0), EndTime = new TimeOnly(0, 0), DiscountPercent = 50m, CategoryIdsCsv = "1", IsActive = true });
             await _db.SaveChangesAsync();
 
-            var svc = new HappyHourService(_db, new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
-                new FakeUser(), NullLogger<HappyHourService>.Instance);
+            var adjuster = new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance);
+            var auto = new PromotionAutoApplyService(_db, adjuster, new FakeUser(), NullLogger<PromotionAutoApplyService>.Instance);
+            var svc = new HappyHourService(_db, auto, new FakeUser(), NullLogger<HappyHourService>.Instance);
 
             (await svc.ActiveNowAsync()).Rules.Should().HaveCount(1);
             var preview = await svc.PricePreviewAsync(1);

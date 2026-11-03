@@ -189,6 +189,12 @@ namespace Application.Services.Promotions
             return (Math.Round(amount, 2), matched, top);
         }
 
+        /// <summary>Active rules at <paramref name="local"/>, best first (priority, then discount).</summary>
+        public static List<HappyHourRule> ActiveRules(IEnumerable<HappyHourRule> rules, DateTime local)
+            => rules.Where(r => IsActiveAt(r, local))
+                    .OrderByDescending(r => r.Priority).ThenByDescending(r => r.DiscountPercent)
+                    .ToList();
+
         public static bool TryParseTime(string? s, out TimeOnly t)
         {
             t = default;
@@ -214,5 +220,28 @@ namespace Application.Services.Promotions
             var delta = Math.Round(comboPrice - itemsTotal, 2);
             return delta < 0 ? delta : 0m;
         }
+
+        /// <summary>
+        /// How many WHOLE sets of the combo the given quantities contain:
+        /// min over the combo's items of floor(available / needed). 0 when an
+        /// item is missing or the combo has no items.
+        /// </summary>
+        public static int CountSets(IEnumerable<(int ItemId, int Quantity)> comboItems, IReadOnlyDictionary<int, int> availableByItem)
+        {
+            var sets = int.MaxValue; var any = false;
+            foreach (var (itemId, needed) in comboItems)
+            {
+                any = true;
+                if (needed <= 0) continue;
+                availableByItem.TryGetValue(itemId, out var have);
+                sets = Math.Min(sets, have / needed);
+                if (sets == 0) return 0;
+            }
+            return any && sets != int.MaxValue ? sets : 0;
+        }
+
+        /// <summary>Saving for <paramref name="sets"/> whole sets (0 when the combo is not cheaper than its parts).</summary>
+        public static decimal Saving(int sets, decimal comboPrice, decimal itemsTotalPerSet)
+            => sets <= 0 ? 0m : Math.Round(sets * Math.Max(0m, itemsTotalPerSet - comboPrice), 2);
     }
 }

@@ -144,11 +144,11 @@
                 new[] { "ExpenseCategoryController" }, None),
 
             // ── Food & beverage till ────────────────────────────────────
-            new PageDefinition("cashier-items", "Items (till)", "Till", "/cashier/items", FoodTill, new[] { "cashier" }),
+            new PageDefinition("cashier-items", "Items (till)", "Till", "/cashier/items", FoodTill.Concat(new[] { "PromotionsAutoApplyController", "DisplaysController" }).ToArray(), new[] { "cashier" }),
             new PageDefinition("cashier-orders", "Orders (till)", "Till", "/cashier/orders",
                 new[] { "TransactionsController", "KitchenController" }, new[] { "cashier" }),
             new PageDefinition("open-invoices", "Open Items Invoice", "Till", "/cashier/open-invoices",
-                new[] { "TransactionsController" }, new[] { "cashier", "gamecashier" }),
+                new[] { "TransactionsController", "PromotionsAutoApplyController", "WhishPaymentsController", "DisplaysController", "TendersController", "CouponsController", "GiftCardsController" }, new[] { "cashier", "gamecashier" }),
             new PageDefinition("clients", "Clients", "Till", "/gamecashier/clients",
                 new[] { "WalletsController", "LoyaltyController", "UsersController", "UserCardController" }, new[] { "cashier", "gamecashier", "admin_fnb" }),
             new PageDefinition("cashier-events", "Events Board", "Till", "/cashier/events",
@@ -202,6 +202,8 @@
             new PageDefinition("till-void-reasons", "Void Reasons", "Transactions", "/admin/till/void-reasons", new[] { "VoidReasonsController" }, None),
             new PageDefinition("currencies", "Currencies & Rates", "Accounting", "/admin/currencies", new[] { "CurrenciesController" }, None),
             new PageDefinition("offline-status", "Offline Status", "Till", "/offline", new[] { "OfflineController" }, TillRoles),
+            new PageDefinition("till-displays", "Customer Displays", "Till", "/admin/till/displays", new[] { "DisplaysController" }, None),
+            new PageDefinition("whish-payments", "Whish Payments", "Till", "/cashier/open-invoices", new[] { "WhishPaymentsController", "DisplaysController" }, TillRoles),
 
             // ── Delivery, self-order & kiosk ───────────────────────────
             new PageDefinition("delivery-board", "Delivery & Takeaway", "Till", "/delivery/board", new[] { "DeliveryOrdersController", "DeliveryZonesController", "DeliveryDriversController" }, TillRoles),
@@ -217,6 +219,7 @@
             new PageDefinition("acctplus-vat", "VAT Report", "Accounting", "/accounting-plus/vat-report", new[] { "TaxController" }, None),
             new PageDefinition("acctplus-assets", "Fixed Assets", "Accounting", "/accounting-plus/fixed-assets", new[] { "FixedAssetsController" }, None),
             new PageDefinition("acctplus-periods", "Accounting Periods", "Accounting", "/accounting-plus/periods", new[] { "AccountingPeriodsController" }, None),
+            new PageDefinition("menu-engineering", "Menu Engineering", "Accounting", "/accounting/menu-engineering", new[] { "MenuEngineeringController" }, new[] { "admin_fnb" }),
 
             // ── HR ─────────────────────────────────────────────────────
             new PageDefinition("hr-employees", "Employees", "People", "/hr/employees", new[] { "HrEmployeesController" }, None),
@@ -231,7 +234,7 @@
             new PageDefinition("promo-coupons", "Coupons", "Promotions", "/admin/promotions/coupons", new[] { "CouponsController" }, None),
             new PageDefinition("promo-happyhours", "Happy Hours", "Promotions", "/admin/promotions/happy-hours", new[] { "HappyHourController" }, None),
             new PageDefinition("promo-combos", "Combos", "Promotions", "/admin/promotions/combos", new[] { "CombosController" }, None),
-            new PageDefinition("till-coupon-apply", "Apply Coupon", "Till", "/cashier/coupon", new[] { "CouponsController", "GiftCardsController", "HappyHourController", "CombosController" }, TillRoles),
+            new PageDefinition("till-coupon-apply", "Apply Coupon", "Till", "/cashier/coupon", new[] { "CouponsController", "GiftCardsController", "HappyHourController", "CombosController", "PromotionsAutoApplyController" }, TillRoles),
 
             // ── Branches & BI ──────────────────────────────────────────
             new PageDefinition("branches", "Branches", "Venue", "/admin/branches", new[] { "BranchesController" }, None),

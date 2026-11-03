@@ -128,4 +128,33 @@ namespace Application.DTOs
         int ComboId, string ComboName, int TransactionId, bool CreatedNewInvoice,
         decimal ItemsTotal, decimal ComboPrice, decimal AdjustmentApplied,
         decimal InvoiceTotalAfter, TransactionDto? Invoice);
+
+    // ───────────────────────── Automatic apply (phase 2) ─────────────────────
+    /// <summary>Happy-hour state on an invoice after an evaluation. Delta is the signed change booked by THIS call (0 = unchanged).</summary>
+    public record AutoApplyHappyHourDto(int RuleId, string RuleName, decimal Amount, decimal Delta, int MatchedLines);
+
+    /// <summary>Combo state on an invoice after an evaluation: Quantity whole sets, Amount total saving, Delta booked by THIS call.</summary>
+    public record AutoApplyComboDto(int ComboId, string ComboName, int Quantity, decimal Amount, decimal Delta);
+
+    public record AutoApplyRequestDto(int TransactionId);
+
+    public record AutoApplyResultDto(
+        int TransactionId,
+        AutoApplyHappyHourDto? HappyHour,
+        List<AutoApplyComboDto> Combos,
+        decimal TotalBefore,
+        decimal TotalAfter,
+        List<string> Messages);
+
+    public record AppliedCouponDto(int CouponId, string Code, string Name, decimal Amount);
+
+    /// <summary>What is currently booked on an invoice (read-only view, no evaluation).</summary>
+    public record AppliedPromotionsDto(
+        int TransactionId,
+        bool IsOpen,
+        decimal InvoiceTotal,
+        AutoApplyHappyHourDto? HappyHour,
+        List<AutoApplyComboDto> Combos,
+        List<AppliedCouponDto> Coupons,
+        decimal TotalDiscount);
 }

@@ -12,16 +12,16 @@ namespace Application.Services.Promotions
     {
         private readonly ApplicationDbContext _db;
         private readonly ITransactionRecordService _transactions;
-        private readonly IPromotionInvoiceAdjuster _adjuster;
+        private readonly IPromotionAutoApplyService _autoApply;
         private readonly ICurrentUserAccessor _user;
         private readonly ILogger<ComboService> _logger;
 
         public ComboService(ApplicationDbContext db, ITransactionRecordService transactions,
-            IPromotionInvoiceAdjuster adjuster, ICurrentUserAccessor user, ILogger<ComboService> logger)
+            IPromotionAutoApplyService autoApply, ICurrentUserAccessor user, ILogger<ComboService> logger)
         {
             _db = db;
             _transactions = transactions;
-            _adjuster = adjuster;
+            _autoApply = autoApply;
             _user = user;
             _logger = logger;
         }
@@ -141,7 +141,6 @@ namespace Application.Services.Promotions
                 return new BaseResponse<ComboSellResultDto>(false, "Invalid combo", "One of the combo's items no longer exists.");
 
             var itemsTotal = ComboEngine.ItemsTotal(combo.Items.Select(i => (prices[i.ItemId], i.Quantity)));
-            var delta = ComboEngine.PriceDelta(combo.Price, itemsTotal);
             var actor = _user.UserName;
             var request = combo.Items.Select(i => new OrderItemRequest(i.ItemId, i.Quantity)).ToList();
 
@@ -166,35 +165,22 @@ namespace Application.Services.Promotions
                 return new BaseResponse<ComboSellResultDto>(false, orderResult.Error ?? "Order failed", orderResult.Message);
 
             var txId = orderResult.Data.Id;
-            decimal applied = 0m;
-            var totalAfter = orderResult.Data.TotalPrice;
 
-            // 2) Book the combo saving once per sale (a combo may legitimately be
-            //    sold twice on one invoice, so the key carries a sequence number).
-            if (delta < 0)
+            // 2) Phase 2: the automatic pass re-counts every combo set on the
+            //    invoice (and happy hour) and books only the difference, so selling
+            //    the same combo twice or mixing it with loose lines never double-books.
+            var auto = await _autoApply.ApplyAsync(txId, actor, ct);
+            if (!auto.Success || auto.Data is null)
             {
-                var prefix = PromotionInvoiceAdjuster.KeyPrefix($"combo:{combo.Id}:tx{txId}#");
-                var prefixNoBracket = prefix.TrimEnd(']');
-                var seq = await _db.Set<TransactionAuditLog>()
-                    .CountAsync(a => a.TransactionId == txId && a.Action == PromotionInvoiceAdjuster.AuditAction
-                                     && a.Notes != null && a.Notes.StartsWith(prefixNoBracket), ct) + 1;
-
-                var adj = await _adjuster.ApplyAsync(txId, delta, $"combo:{combo.Id}:tx{txId}#{seq}",
-                    $"Combo '{combo.Name}' sold for {combo.Price:F2} (items {itemsTotal:F2})", ct);
-                if (adj.Success)
-                {
-                    await _db.SaveChangesAsync(ct);
-                    applied = adj.AppliedDelta;
-                    totalAfter = adj.NewTotal;
-                }
-                else
-                {
-                    // Lines are already on the invoice; report the problem rather than hide it.
-                    _logger.LogWarning("Combo {ComboId} lines added to invoice {TxId} but price delta not applied: {Err}", combo.Id, txId, adj.Error);
-                    return new BaseResponse<ComboSellResultDto>(false, "Partial", $"Items were added but the combo price could not be applied: {adj.Error}",
-                        new ComboSellResultDto(combo.Id, combo.Name, txId, createdNew, itemsTotal, combo.Price, 0m, totalAfter, orderResult.Data));
-                }
+                // Lines are already on the invoice; report the problem rather than hide it.
+                _logger.LogWarning("Combo {ComboId} lines added to invoice {TxId} but promotions not applied: {Err}", combo.Id, txId, auto.Message);
+                return new BaseResponse<ComboSellResultDto>(false, "Partial", $"Items were added but the combo price could not be applied: {auto.Message}",
+                    new ComboSellResultDto(combo.Id, combo.Name, txId, createdNew, itemsTotal, combo.Price, 0m, orderResult.Data.TotalPrice, orderResult.Data));
             }
+
+            var booked = auto.Data.Combos.FirstOrDefault(c => c.ComboId == combo.Id);
+            var applied = booked?.Delta ?? 0m;
+            var totalAfter = auto.Data.TotalAfter;
 
             _logger.LogInformation("Combo {ComboId} sold on invoice {TxId}; delta {Delta}", combo.Id, txId, applied);
             return new BaseResponse<ComboSellResultDto>(true, null, "Combo sold",

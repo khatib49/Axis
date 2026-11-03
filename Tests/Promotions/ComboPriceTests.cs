@@ -26,6 +26,10 @@ namespace Tests.Promotions
         private readonly ApplicationDbContext _db = PromoDb.New();
         public void Dispose() => _db.Dispose();
 
+        private PromotionAutoApplyService AutoApply() => new(_db,
+            new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
+            new FakeUser(), NullLogger<PromotionAutoApplyService>.Instance);
+
         private static TransactionDto Dto(int id, decimal total) => new(
             id, null, "", null, "", null, "", null, "", 0, total, 7, DateTime.UtcNow, null, "seed",
             new List<TransactionItemDto>(), null, "", null, null, null, 1, false, null, null, null);
@@ -47,14 +51,20 @@ namespace Tests.Promotions
               {
                   sent = items;
                   // Mimic the real service: lines land on the invoice at full price.
-                  var trx = _db.Transactions.Single(t => t.Id == 10);
+                  var trx = _db.Transactions.Include(t => t.TransactionItems).Single(t => t.Id == 10);
+                  foreach (var it in items)
+                  {
+                      var line = trx.TransactionItems.FirstOrDefault(l => l.ItemId == it.ItemId);
+                      if (line is null) trx.TransactionItems.Add(new TransactionItem { TransactionRecordId = 10, ItemId = it.ItemId, Quantity = it.Quantity });
+                      else line.Quantity += it.Quantity;
+                  }
                   trx.TotalPrice += 14m;
                   _db.SaveChanges();
               })
               .ReturnsAsync(() => new BaseResponse<TransactionDto>(true, null, "ok", Dto(10, 34m)));
 
             var svc = new ComboService(_db, tx.Object,
-                new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
+                AutoApply(),
                 new FakeUser(), NullLogger<ComboService>.Instance);
 
             var r = await svc.SellAsync(new ComboSellDto(1, 10));
@@ -68,8 +78,12 @@ namespace Tests.Promotions
             // Selling the same combo again on the same invoice books a second saving (new sequence key).
             var r2 = await svc.SellAsync(new ComboSellDto(1, 10));
             r2.Success.Should().BeTrue(r2.Message);
+            r2.Data!.AdjustmentApplied.Should().Be(-2m);
             (await _db.Transactions.FindAsync(10))!.TotalPrice.Should().Be(44m);
             (await _db.TransactionAuditLogs.CountAsync(a => a.TransactionId == 10 && a.Action == "PromotionAdjust")).Should().Be(2);
+            var app = await _db.Set<ComboApplication>().SingleAsync(a => a.TransactionId == 10 && a.ComboId == 1);
+            app.Quantity.Should().Be(2);
+            app.Amount.Should().Be(4m);
         }
 
         [Fact]
@@ -85,7 +99,7 @@ namespace Tests.Promotions
 
             var tx = new Mock<ITransactionRecordService>(MockBehavior.Strict);
             var svc = new ComboService(_db, tx.Object,
-                new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
+                AutoApply(),
                 new FakeUser(), NullLogger<ComboService>.Instance);
 
             (await svc.SellAsync(new ComboSellDto(1, 20))).Message.Should().Contain("open invoice");
@@ -100,7 +114,7 @@ namespace Tests.Promotions
             PromoDb.SeedCatalogAndInvoices(_db);
             var tx = new Mock<ITransactionRecordService>();
             var svc = new ComboService(_db, tx.Object,
-                new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
+                AutoApply(),
                 new FakeUser(), NullLogger<ComboService>.Instance);
 
             (await svc.CreateAsync(new ComboUpsertDto("Empty", null, 5m))).Message.Should().Contain("at least one item");

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
 {
@@ -28,6 +28,6 @@ namespace Domain.Entities
     public static class TenderMethods
     {
         public const string Cash = "Cash";
-        public static readonly string[] All = { "Cash", "Card", "Wallet", "Transfer", "GiftCard", "Other" };
+        public static readonly string[] All = { "Cash", "Card", "Wallet", "Transfer", "GiftCard", "Other", "Whish" };
     }
 }

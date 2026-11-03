@@ -41,8 +41,11 @@ namespace Domain.Entities
     }
 
     /// <summary>
-    /// Record that happy hour has been applied to an invoice — one per
-    /// invoice (unique TransactionId) so a double click can't discount twice.
+    /// Record of the happy-hour discount currently booked on an invoice — one
+    /// per invoice (unique TransactionId) so a double click can't discount
+    /// twice. The automatic promotion pass re-evaluates it whenever the lines
+    /// change: Amount / RuleId hold the LATEST state and Version is bumped on
+    /// every change (it is part of the adjuster idempotency key).
     /// </summary>
     [Table("Promo_HappyHourApplications")]
     public class HappyHourApplication
@@ -56,6 +59,9 @@ namespace Domain.Entities
         public int TransactionId { get; set; }
 
         [Column(TypeName = "numeric(18,2)")] public decimal Amount { get; set; }
+
+        /// <summary>Incremented on every re-evaluation that changed Amount (phase 2).</summary>
+        public int Version { get; set; }
 
         public DateTime On { get; set; } = DateTime.UtcNow;
         [MaxLength(200)] public string By { get; set; } = "system";

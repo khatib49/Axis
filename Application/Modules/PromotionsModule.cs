@@ -13,6 +13,7 @@ namespace Application.Modules
         public static IServiceCollection AddPromotionsModule(this IServiceCollection services)
         {
             services.AddScoped<IPromotionInvoiceAdjuster, PromotionInvoiceAdjuster>();
+            services.AddScoped<IPromotionAutoApplyService, PromotionAutoApplyService>();
             services.AddScoped<IGiftCardService, GiftCardService>();
             services.AddScoped<ICouponService, CouponService>();
             services.AddScoped<IHappyHourService, HappyHourService>();

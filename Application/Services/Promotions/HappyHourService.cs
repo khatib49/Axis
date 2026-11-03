@@ -11,16 +11,16 @@ namespace Application.Services.Promotions
     public class HappyHourService : IHappyHourService
     {
         private readonly ApplicationDbContext _db;
-        private readonly IPromotionInvoiceAdjuster _adjuster;
+        private readonly IPromotionAutoApplyService _autoApply;
         private readonly ICurrentUserAccessor _user;
         private readonly ILogger<HappyHourService> _logger;
         private readonly TimeZoneInfo _tz = HappyHourEngine.VenueTimeZone();
 
-        public HappyHourService(ApplicationDbContext db, IPromotionInvoiceAdjuster adjuster,
+        public HappyHourService(ApplicationDbContext db, IPromotionAutoApplyService autoApply,
             ICurrentUserAccessor user, ILogger<HappyHourService> logger)
         {
             _db = db;
-            _adjuster = adjuster;
+            _autoApply = autoApply;
             _user = user;
             _logger = logger;
         }
@@ -137,6 +137,12 @@ namespace Application.Services.Promotions
                     HappyHourEngine.DiscountedPrice(item.Price, pct), rule?.Id, rule?.Name, rule != null));
         }
 
+        /// <summary>
+        /// Manual "apply happy hour" from the till. Phase 2: delegates to the
+        /// automatic, re-evaluating pass (which also books combos) and keeps the
+        /// phase-1 response contract: Success=false + AlreadyApplied when nothing
+        /// changed because the discount was already booked.
+        /// </summary>
         public async Task<BaseResponse<HappyHourApplyResultDto>> ApplyAsync(HappyHourApplyDto dto, CancellationToken ct = default)
         {
             var trx = await _db.Set<TransactionRecord>().AsNoTracking().FirstOrDefaultAsync(t => t.Id == dto.TransactionId, ct);
@@ -144,47 +150,25 @@ namespace Application.Services.Promotions
             if (trx.StatusId != PromotionInvoiceAdjuster.OpenInvoiceStatusId)
                 return new BaseResponse<HappyHourApplyResultDto>(false, "Invoice not open", "Happy hour can only be applied to an open invoice.");
 
-            var existing = await _db.Set<HappyHourApplication>().AsNoTracking().Include(a => a.Rule)
-                .FirstOrDefaultAsync(a => a.TransactionId == trx.Id, ct);
-            if (existing != null)
-                return new BaseResponse<HappyHourApplyResultDto>(false, "Already applied", "Happy hour was already applied to this invoice.",
-                    new HappyHourApplyResultDto(trx.Id, existing.RuleId, existing.Rule?.Name ?? "", existing.Amount, trx.TotalPrice, trx.TotalPrice, 0, AlreadyApplied: true));
-
             var (_, _, active) = await ActiveRulesAsync(null, ct);
             if (active.Count == 0)
                 return new BaseResponse<HappyHourApplyResultDto>(false, "No happy hour", "No happy hour rule is in effect right now.");
 
-            var lines = await _db.Set<TransactionItem>().AsNoTracking()
-                .Where(ti => ti.TransactionRecordId == trx.Id && !ti.IsIncluded)
-                .Select(ti => new PromoLine(ti.ItemId, ti.Item.CategoryId, ti.Item.Price, ti.Quantity))
-                .ToListAsync(ct);
+            var auto = await _autoApply.ApplyAsync(trx.Id, _user.UserName, ct);
+            if (!auto.Success || auto.Data is null)
+                return new BaseResponse<HappyHourApplyResultDto>(false, auto.Error ?? "Cannot apply", auto.Message);
 
-            var (amount, matched, top) = HappyHourEngine.DiscountFor(active, lines);
-            if (matched == 0 || amount <= 0 || top is null)
+            var hh = auto.Data.HappyHour;
+            if (hh is null || hh.Amount <= 0)
                 return new BaseResponse<HappyHourApplyResultDto>(false, "Nothing to discount", "No line on this invoice is covered by the current happy hour.");
 
-            amount = Math.Min(amount, trx.TotalPrice);
-            if (amount <= 0)
-                return new BaseResponse<HappyHourApplyResultDto>(false, "Nothing to discount", "The invoice has nothing left to discount.");
+            if (hh.Delta == 0m)
+                return new BaseResponse<HappyHourApplyResultDto>(false, "Already applied", "Happy hour was already applied to this invoice.",
+                    new HappyHourApplyResultDto(trx.Id, hh.RuleId, hh.RuleName, hh.Amount, auto.Data.TotalBefore, auto.Data.TotalAfter, hh.MatchedLines, AlreadyApplied: true));
 
-            var adj = await _adjuster.ApplyAsync(trx.Id, -amount, $"happyhour:tx{trx.Id}",
-                $"Happy hour '{top.Name}' discount {amount:F2} over {matched} line(s)", ct);
-            if (!adj.Success)
-                return new BaseResponse<HappyHourApplyResultDto>(false, adj.AlreadyApplied ? "Already applied" : "Cannot apply", adj.Error ?? "Could not apply happy hour.");
-
-            _db.Add(new HappyHourApplication
-            {
-                RuleId = top.Id,
-                TransactionId = trx.Id,
-                Amount = amount,
-                On = DateTime.UtcNow,
-                By = _user.UserName,
-            });
-            await _db.SaveChangesAsync(ct);
-
-            _logger.LogInformation("Happy hour rule {RuleId} applied to invoice {TxId}: {Amount}", top.Id, trx.Id, amount);
+            _logger.LogInformation("Happy hour rule {RuleId} applied to invoice {TxId}: {Amount}", hh.RuleId, trx.Id, hh.Amount);
             return new BaseResponse<HappyHourApplyResultDto>(true, null, "Happy hour applied",
-                new HappyHourApplyResultDto(trx.Id, top.Id, top.Name, amount, adj.OldTotal, adj.NewTotal, matched));
+                new HappyHourApplyResultDto(trx.Id, hh.RuleId, hh.RuleName, hh.Amount, auto.Data.TotalBefore, auto.Data.TotalAfter, hh.MatchedLines));
         }
     }
 }
