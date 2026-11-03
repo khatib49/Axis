@@ -256,6 +256,19 @@ Hangfire.RecurringJob.AddOrUpdate<Application.Services.Shipping.ShippingJobs>(
     j => j.PollTrackingAsync(CancellationToken.None),
     "*/30 * * * *");                  // every 30 minutes
 
+// Stock batches: daily expiry alert (writes Notification rows for admin/stock/chef).
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.StockOps.StockOpsJobs>(
+    "stockops-expiry-alert",
+    j => j.ExpiryAlertAsync(),
+    "0 7 * * *");                     // daily 07:00 UTC
+
+// BI: hourly pass that sends scheduled reports whose RunAtHourUtc matches.
+// No-op until a ScheduledReport row is active and SMTP/WhatsApp is configured.
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Bi.BiReportJobs>(
+    "bi-scheduled-reports",
+    j => j.RunDueReportsAsync(CancellationToken.None),
+    "5 * * * *");                     // hourly at :05 UTC
+
 app.UseHttpsRedirection();
 //app.UseForce403ForUnauthorized();
 app.UseSerilogRequestEnricher();

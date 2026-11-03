@@ -1,4 +1,4 @@
-namespace Application.Security
+﻿namespace Application.Security
 {
     /// <summary>
     /// A dashboard page that can be granted to a role.
@@ -25,6 +25,7 @@ namespace Application.Security
 
         private static readonly string[] None = Array.Empty<string>();
         private static readonly string[] Stock = { "chef", "admin_fnb", "stock" };
+        private static readonly string[] TillRoles = { "cashier", "gamecashier", "admin_fnb" };
         private static readonly string[] GameTill = {
             "GameSessionController", "TransactionsController", "RoomController", "SettingController", "GameController",
             "KitchenController", "DiscountController", "WalletsController", "LoyaltyController", "ChannelController", "UserCardController" };
@@ -180,6 +181,63 @@ namespace Application.Security
                 new[] { "KitchenController" }, new[] { "chef" }),
             new PageDefinition("bar-display", "Bar Orders", "Kitchen & Bar", "/bartender/bar-display",
                 new[] { "KitchenController", "KitchenBarOrderController" }, new[] { "bartender" }),
+
+            // ── Stock operations ───────────────────────────────────────
+            new PageDefinition("stockops-locations", "Stock Locations", "Stock Management", "/stock/locations", new[] { "StockLocationsController" }, Stock),
+            new PageDefinition("stockops-counts", "Stocktakes", "Stock Management", "/stock/counts", new[] { "StockCountsController" }, Stock),
+            new PageDefinition("stockops-transfers", "Stock Transfers", "Stock Management", "/stock/transfers", new[] { "StockTransfersController" }, Stock),
+            new PageDefinition("stockops-reorder", "Reorder Suggestions", "Stock Management", "/stock/reorder", new[] { "ReorderController" }, Stock),
+            new PageDefinition("stockops-batches", "Batches & Expiry", "Stock Management", "/stock/batches", new[] { "StockBatchesController" }, Stock),
+
+            // ── Floor, tables & reservations ───────────────────────────
+            new PageDefinition("floor-plan", "Floor Plan", "Venue", "/admin/floor-plan", new[] { "FloorController" }, None),
+            new PageDefinition("floor-view", "Floor", "Till", "/cashier/floor", new[] { "FloorController", "TableSessionController" }, TillRoles),
+            new PageDefinition("floor-reservations", "Reservations", "Venue", "/floor/reservations", new[] { "ReservationController", "FloorController" }, TillRoles),
+
+            // ── Till controls & currency ───────────────────────────────
+            new PageDefinition("till-shift", "My Shift", "Till", "/till/shift", new[] { "ShiftsController", "CurrenciesController" }, TillRoles),
+            new PageDefinition("till-void-requests", "Void / Refund Requests", "Till", "/till/void-requests", new[] { "VoidRequestsController", "VoidReasonsController" }, TillRoles),
+            new PageDefinition("till-tenders", "Tenders (multi-currency)", "Till", "/till/tenders", new[] { "TendersController", "CurrenciesController" }, TillRoles),
+            new PageDefinition("till-shifts-admin", "Cashier Shifts & Z Reports", "Transactions", "/admin/till/shifts", new[] { "ShiftsController", "CurrenciesController" }, None),
+            new PageDefinition("till-void-reasons", "Void Reasons", "Transactions", "/admin/till/void-reasons", new[] { "VoidReasonsController" }, None),
+            new PageDefinition("currencies", "Currencies & Rates", "Accounting", "/admin/currencies", new[] { "CurrenciesController" }, None),
+            new PageDefinition("offline-status", "Offline Status", "Till", "/offline", new[] { "OfflineController" }, TillRoles),
+
+            // ── Delivery, self-order & kiosk ───────────────────────────
+            new PageDefinition("delivery-board", "Delivery & Takeaway", "Till", "/delivery/board", new[] { "DeliveryOrdersController", "DeliveryZonesController", "DeliveryDriversController" }, TillRoles),
+            new PageDefinition("delivery-new", "New Delivery Order", "Till", "/delivery/new", new[] { "DeliveryOrdersController", "DeliveryZonesController" }, TillRoles),
+            new PageDefinition("delivery-zones", "Zones & Drivers", "F&B Admin", "/admin/delivery/zones-drivers", new[] { "DeliveryZonesController", "DeliveryDriversController" }, None),
+            new PageDefinition("selforder-tables", "Self-Order Tables (QR)", "F&B Admin", "/admin/selforder/tables", new[] { "SelfOrderTablesController" }, None),
+            new PageDefinition("kiosk-devices", "Kiosk Devices", "F&B Admin", "/admin/kiosk/devices", new[] { "KioskDevicesController" }, None),
+
+            // ── Accounting depth ───────────────────────────────────────
+            new PageDefinition("acctplus-bank", "Bank Reconciliation", "Accounting", "/accounting-plus/bank-reconciliation", new[] { "BankReconciliationController" }, None),
+            new PageDefinition("acctplus-bills", "Supplier Bills", "Accounting", "/accounting-plus/supplier-bills", new[] { "SupplierBillsController" }, None),
+            new PageDefinition("acctplus-aging", "AP / AR Aging", "Accounting", "/accounting-plus/aging", new[] { "SupplierBillsController", "ReceivablesController" }, None),
+            new PageDefinition("acctplus-vat", "VAT Report", "Accounting", "/accounting-plus/vat-report", new[] { "TaxController" }, None),
+            new PageDefinition("acctplus-assets", "Fixed Assets", "Accounting", "/accounting-plus/fixed-assets", new[] { "FixedAssetsController" }, None),
+            new PageDefinition("acctplus-periods", "Accounting Periods", "Accounting", "/accounting-plus/periods", new[] { "AccountingPeriodsController" }, None),
+
+            // ── HR ─────────────────────────────────────────────────────
+            new PageDefinition("hr-employees", "Employees", "People", "/hr/employees", new[] { "HrEmployeesController" }, None),
+            new PageDefinition("hr-schedule", "Shift Schedule", "People", "/hr/schedule", new[] { "HrScheduleController" }, None),
+            new PageDefinition("hr-attendance", "Attendance", "People", "/hr/attendance", new[] { "HrAttendanceController", "HrEmployeesController" }, None),
+            new PageDefinition("hr-leave", "Leave", "People", "/hr/leave", new[] { "HrLeaveController", "HrEmployeesController" }, None),
+            new PageDefinition("hr-tips", "Tip Pools", "People", "/hr/tips", new[] { "HrTipsController", "HrEmployeesController" }, TillRoles),
+            new PageDefinition("hr-clock", "Clock In / Out", "Till", "/hr/clock", new[] { "HrAttendanceController" }, new[] { "cashier", "gamecashier", "admin_fnb", "chef", "bartender" }),
+
+            // ── Promotions ─────────────────────────────────────────────
+            new PageDefinition("promo-giftcards", "Gift Cards", "Promotions", "/admin/promotions/gift-cards", new[] { "GiftCardsController" }, None),
+            new PageDefinition("promo-coupons", "Coupons", "Promotions", "/admin/promotions/coupons", new[] { "CouponsController" }, None),
+            new PageDefinition("promo-happyhours", "Happy Hours", "Promotions", "/admin/promotions/happy-hours", new[] { "HappyHourController" }, None),
+            new PageDefinition("promo-combos", "Combos", "Promotions", "/admin/promotions/combos", new[] { "CombosController" }, None),
+            new PageDefinition("till-coupon-apply", "Apply Coupon", "Till", "/cashier/coupon", new[] { "CouponsController", "GiftCardsController", "HappyHourController", "CombosController" }, TillRoles),
+
+            // ── Branches & BI ──────────────────────────────────────────
+            new PageDefinition("branches", "Branches", "Venue", "/admin/branches", new[] { "BranchesController" }, None),
+            new PageDefinition("branches-consolidated", "Consolidated Dashboard", "Overview", "/admin/branches/consolidated", new[] { "BranchesController" }, None),
+            new PageDefinition("bi-scheduled-reports", "Scheduled Reports", "Tools", "/admin/bi/reports", new[] { "BiReportsController" }, None),
+            new PageDefinition("bi-owner-view", "Owner View", "Overview", "/owner", new[] { "BiOwnerSummaryController" }, new[] { "admin_fnb" }),
         };
 
         /// <summary>Pages the social media manager role starts with.</summary>
