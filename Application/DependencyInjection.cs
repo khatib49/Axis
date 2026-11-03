@@ -3,6 +3,8 @@ using Application.Mapping;
 using Application.Services;
 using Application.Services.HangFire;
 using Application.Services.SignalR;
+using Application.Modules;
+using Application.Common;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application
@@ -111,6 +113,19 @@ namespace Application
             services.AddScoped<Application.Services.Shipping.IAramexClient, Application.Services.Shipping.AramexClient>();
             services.AddScoped<IShippingService, Application.Services.Shipping.ShippingService>();
             services.AddScoped<Application.Services.Shipping.ShippingJobs>();
+
+            services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
+
+            // ── Gap-closing modules (each registers only its own services) ──
+            services.AddFloorModule();
+            services.AddTillControlsModule();
+            services.AddOrderingChannelsModule();
+            services.AddStockOpsModule();
+            services.AddAccountingPlusModule();
+            services.AddHrModule();
+            services.AddPromotionsModule();
+            services.AddBranchesModule();
+            services.AddOfflineModule();
 
             return services;
         }

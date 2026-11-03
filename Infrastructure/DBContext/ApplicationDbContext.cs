@@ -1099,6 +1099,13 @@ namespace Infrastructure.Persistence
                     .HasForeignKey(e => e.CustomerPhone)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+            // New modules (floor, shifts, currency, reservations, delivery,
+            // stock ops, accounting+, HR, promotions, branches, offline sync,
+            // self-order, BI) keep their mappings in
+            // Infrastructure/Configurations/*Configuration.cs so this file
+            // stays untouched when a module is added.
+            b.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
         }
     }
 }
