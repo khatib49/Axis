@@ -63,3 +63,58 @@ admin_fnb; stock pages to chef, stock and admin_fnb; everything else is admin.
   variable and the password rotated.
 - `Directory.Build.rsp` disables MSBuild node reuse and the shared compiler server so parallel
   builds on one machine never hold file locks; harmless for CI.
+
+---
+
+# Phase 2 (branch `claude/gallant-dijkstra-tgdb1l-phase2`)
+
+Builds on phase 1. Run **after** `20261103_GapModules.sql`:
+
+```bash
+psql "$POSTGRES_CONNECTION" -v ON_ERROR_STOP=1 -f docs/sql/20261103_Phase2.sql
+```
+
+The script creates `Pay_WhishRequests`, `Till_DisplayStates`, `Promo_ComboApplications`, adds
+`SeatNumber`/`Quantity` to `Floor_OrderCourses` (unique index now includes the seat),
+`ReminderSentOn`/`ConfirmationSentOn` to `Floor_Reservations`, `Version` to
+`Promo_HappyHourApplications`, and the **only change to an existing table**: nullable
+`transactions.BranchId` with an index. Nothing is dropped.
+
+## What phase 2 adds
+
+| Item | Where |
+|---|---|
+| Ordering from the table with seat and course per line, bill and split by seat | Floor view → table → Order / Bill by seat |
+| Handheld waiter mode (phone) | `/waiter` (cashier, game cashier, F&B admin, admin) |
+| Happy hour and combos applied automatically, re-evaluated as lines change | till pages call `POST api/promotions/auto-apply`; chips show what is booked |
+| Branch on every new sale (header → user default → default branch) | interceptor; `POST api/branches/backfill-transactions` once for legacy rows |
+| Customer-facing display with USD/LBP totals and Whish QR | Admin → Till Controls → Customer Displays; open `/display?token=…` on the second screen; cashier picks "Use on this till" |
+| Whish payment for invoices (till, self-order, kiosk) | `POST api/payments/whish/start`, status polling, tender "Whish" and auto-close when fully paid |
+| WhatsApp reservation reminders | daily job `reservation-reminders` + Remind button |
+| Menu engineering with recipe costing | Accounting → Menu Engineering |
+| Automated smoke suite and dark-mode check | `npm run test:e2e`, `npm run e2e:capture`, `npm run e2e:contrast` (see UI `docs/testing.md`) |
+
+## Settings to add (Admin → Integrations)
+
+| Key | Purpose |
+|---|---|
+| `Whish.Channel`, `Whish.Secret` (secret), optional `Whish.WebsiteUrl`, `Whish.BaseUrl` | same keys the events module already uses |
+| `Reservations.WhatsAppReminderTemplate`, optional `Reservations.WhatsAppConfirmTemplate` | Meta template names, 3 body params: name, date/time, table/room |
+
+## Steps after deploy
+
+1. Run the Phase2 SQL script.
+2. Press "Backfill legacy transactions" on Admin → Branches → Consolidated (or call the endpoint) once.
+3. Create a customer display per register and open its link on the second screen.
+4. Set the Whish keys to enable QR payments; without them every Whish button reports "Whish not configured".
+
+## Verified on the local build
+
+519 backend tests pass; the UI type-checks and builds; the Playwright smoke suite loads every route per role; the phase-2 flows were exercised live (auto-apply booked a happy hour and a combo and was idempotent, seat bill and split, display push and anonymous view, branch backfill of 75 rows, menu engineering report).
+
+## Known follow-ups
+
+- Pre-existing bug fixed in passing: `/admin/cards` crashed because the card list is paginated.
+- Pre-existing dark-mode issues on legacy admin pages (black headings) are listed in the e2e contrast report; new pages were fixed.
+- Hard-coded Azure SignalR hub URLs in the UI produce console noise when running locally.
+- Gift-card liability accounting, payroll and barcode scanning remain open (see the comparison PDF).
