@@ -349,10 +349,12 @@ namespace Application.Services.OrderingChannels
         {
             var since = TodayStartUtc();
             var active = new[] { DeliveryStatuses.Pending, DeliveryStatuses.Preparing, DeliveryStatuses.Ready, DeliveryStatuses.OutForDelivery };
-            var orders = await OrdersQuery()
-                .Where(o => active.Contains(o.Status) || o.CreatedOn >= since)
-                .OrderBy(o => o.CreatedOn)
-                .ToListAsync(ct);
+            var q = OrdersQuery().Where(o => active.Contains(o.Status) || o.CreatedOn >= since);
+            // Phase 2 (branches): when the dashboard sends X-Branch-Id, show that
+            // branch's orders plus rows that were never stamped with a branch.
+            var branchId = _user.BranchId;
+            if (branchId.HasValue) q = q.Where(o => o.BranchId == null || o.BranchId == branchId.Value);
+            var orders = await q.OrderBy(o => o.CreatedOn).ToListAsync(ct);
             var dtos = await MapAsync(orders, ct);
             var columns = DeliveryStatuses.All
                 .Select(s => new DeliveryBoardColumnDto(s, dtos.Where(d => d.Status == s).ToList()))

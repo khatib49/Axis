@@ -16,6 +16,8 @@ namespace Infrastructure
             // Interceptor needs HttpContext to read the current user's
             // identity. Register it as scoped (one per request).
             services.AddScoped<AdminAuditInterceptor>();
+            // Phase 2: stamps TransactionRecord.BranchId on insert (header > user default > default branch).
+            services.AddScoped<BranchStampInterceptor>();
 
             services.AddDbContext<ApplicationDbContext>((sp, opt) =>
             {
@@ -26,7 +28,9 @@ namespace Infrastructure
                 // AdminAuditLog rows for every Create/Update/Delete on the
                 // allow-listed entities. Runs inside the same DB transaction
                 // as the actual change, so audits are atomic with the work.
-                opt.AddInterceptors(sp.GetRequiredService<AdminAuditInterceptor>());
+                opt.AddInterceptors(
+                    sp.GetRequiredService<AdminAuditInterceptor>(),
+                    sp.GetRequiredService<BranchStampInterceptor>());
             });
 
 

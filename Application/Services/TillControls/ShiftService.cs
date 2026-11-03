@@ -125,6 +125,10 @@ namespace Application.Services.TillControls
             if (!string.IsNullOrWhiteSpace(filter.Status)) q = q.Where(s => s.Status == filter.Status.Trim());
             if (filter.From.HasValue) q = q.Where(s => s.OpenedOn >= filter.From.Value);
             if (filter.To.HasValue) q = q.Where(s => s.OpenedOn <= filter.To.Value);
+            // Phase 2 (branches): when the dashboard sends X-Branch-Id, show that
+            // branch's shifts plus rows that were never stamped with a branch.
+            var branchId = _user.BranchId;
+            if (branchId.HasValue) q = q.Where(s => s.BranchId == null || s.BranchId == branchId.Value);
 
             var page = Math.Max(1, filter.Page);
             var size = Math.Clamp(filter.PageSize, 1, 200);

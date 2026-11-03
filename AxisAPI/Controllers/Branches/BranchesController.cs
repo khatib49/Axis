@@ -97,5 +97,18 @@ namespace AxisAPI.Controllers.Branches
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Consolidated([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct) =>
             Ok(await _svc.GetConsolidatedAsync(from, to, ct));
+
+        /// <summary>
+        /// Admin one-off: stamp BranchId on every legacy transaction that has none.
+        /// ?branchId= (default: the default branch). Returns BaseResponse&lt;int&gt; with the count.
+        /// </summary>
+        [HttpPost("backfill-transactions")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> BackfillTransactions([FromQuery] int? branchId, CancellationToken ct)
+        {
+            var r = await _svc.BackfillTransactionsAsync(branchId, ct);
+            if (r.Success) return Ok(r);
+            return r.Message == "Not found" ? NotFound(r) : BadRequest(r);
+        }
     }
 }

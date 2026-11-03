@@ -49,8 +49,9 @@ namespace Application.DTOs
     public record BranchSettingUpsertDto(string Key, string? Value);
 
     /// <summary>
-    /// Per-branch KPIs. Attribution: "branch" once transactions carry a BranchId,
-    /// "default-branch" while legacy data is attributed to the default branch.
+    /// Per-branch KPIs. Attribution: "transaction" once at least one transaction
+    /// carries a BranchId (legacy rows without one still count towards the default
+    /// branch), "default-branch" while nothing has been stamped yet.
     /// </summary>
     public record BranchKpiDto(
         int BranchId,

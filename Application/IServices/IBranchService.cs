@@ -21,5 +21,8 @@ namespace Application.IServices
         Task<BaseResponse<IReadOnlyList<BranchSettingDto>>> SetSettingsAsync(int branchId, IEnumerable<BranchSettingUpsertDto> settings, CancellationToken ct = default);
 
         Task<ConsolidatedDashboardDto> GetConsolidatedAsync(DateTime? from, DateTime? to, CancellationToken ct = default);
+
+        /// <summary>Sets BranchId on every transaction that has none (default: the default branch). Returns the row count.</summary>
+        Task<BaseResponse<int>> BackfillTransactionsAsync(int? branchId, CancellationToken ct = default);
     }
 }

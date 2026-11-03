@@ -73,5 +73,13 @@ namespace Domain.Entities
         // see the ALTER script delivered alongside the code change.
         public int? ChannelId { get; set; }
         public Channel? Channel { get; set; }
+
+        /// <summary>
+        /// Branch the sale belongs to (Branch_Branches.Id; plain nullable int,
+        /// no FK / navigation). Null on legacy rows, which reporting attributes
+        /// to the default branch. Stamped on insert by BranchStampInterceptor
+        /// (X-Branch-Id header → caller's default branch → system default).
+        /// </summary>
+        public int? BranchId { get; set; }
     }
 }

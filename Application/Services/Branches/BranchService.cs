@@ -279,10 +279,10 @@ namespace Application.Services.Branches
         private sealed record BranchFact(int? BranchId, decimal Sales, int Orders, int OpenInvoices, decimal OpenInvoicesValue);
 
         /// <summary>
-        /// The only place that knows how transactions map to branches. TransactionRecord
-        /// has no BranchId today, so every fact comes back with BranchId = null and is
-        /// attributed to the default branch. When transactions get a BranchId, change the
-        /// GroupBy key to t.BranchId here and nothing else.
+        /// The only place that knows how transactions map to branches. Facts are
+        /// grouped by TransactionRecord.BranchId; BranchId = null is legacy data
+        /// (inserted before BranchStampInterceptor existed) and is attributed to
+        /// the default branch by GetConsolidatedAsync.
         /// </summary>
         private async Task<List<BranchFact>> LoadFactsAsync(DateTime from, DateTime toExclusive, CancellationToken ct)
         {
@@ -290,11 +290,11 @@ namespace Application.Services.Branches
 
             var paid = await tx
                 .Where(t => t.StatusId == 6 && (t.PaidOn ?? t.CreatedOn) >= from && (t.PaidOn ?? t.CreatedOn) < toExclusive)
-                .Select(t => new { Key = (int?)null, t.TotalPrice })
+                .Select(t => new { Key = t.BranchId, t.TotalPrice })
                 .ToListAsync(ct);
             var open = await tx
                 .Where(t => t.StatusId == 7)
-                .Select(t => new { Key = (int?)null, t.TotalPrice })
+                .Select(t => new { Key = t.BranchId, t.TotalPrice })
                 .ToListAsync(ct);
 
             var keys = paid.Select(p => p.Key).Concat(open.Select(o => o.Key)).Distinct().ToList();
@@ -304,6 +304,46 @@ namespace Application.Services.Branches
                 paid.Count(p => p.Key == k),
                 open.Count(o => o.Key == k),
                 open.Where(o => o.Key == k).Sum(o => o.TotalPrice))).ToList();
+        }
+
+        /// <summary>
+        /// Admin one-off: give every transaction without a branch the given branch
+        /// (default: the default branch). Uses a set-based update on relational
+        /// providers so the DbContext's PaidOn stamping and the audit interceptor
+        /// are not involved; falls back to a tracked loop on non-relational
+        /// providers (tests).
+        /// </summary>
+        public async Task<BaseResponse<int>> BackfillTransactionsAsync(int? branchId, CancellationToken ct = default)
+        {
+            Branch? target;
+            if (branchId.HasValue)
+            {
+                target = await _db.Set<Branch>().AsNoTracking().FirstOrDefaultAsync(b => b.Id == branchId.Value, ct);
+                if (target is null) return new(false, "Branch not found.", "Not found", 0);
+            }
+            else
+            {
+                target = await _db.Set<Branch>().AsNoTracking()
+                    .OrderByDescending(b => b.IsDefault).ThenBy(b => b.Id)
+                    .FirstOrDefaultAsync(b => b.IsDefault, ct);
+                if (target is null) return new(false, "No default branch exists; create one or pass branchId.", "Validation failed", 0);
+            }
+
+            var q = _db.Set<TransactionRecord>().Where(t => t.BranchId == null);
+            int count;
+            if (_db.Database.IsRelational())
+            {
+                count = await q.ExecuteUpdateAsync(s => s.SetProperty(t => t.BranchId, target.Id), ct);
+            }
+            else
+            {
+                var rows = await q.ToListAsync(ct);
+                foreach (var t in rows) t.BranchId = target.Id;
+                await _db.SaveChangesAsync(ct);
+                count = rows.Count;
+            }
+            _logger.LogInformation("Backfilled BranchId={BranchId} on {Count} transaction(s) by {User}", target.Id, count, _user.UserName);
+            return new(true, null, $"{count} transaction(s) attributed to branch '{target.Name}'.", count);
         }
 
         public async Task<ConsolidatedDashboardDto> GetConsolidatedAsync(DateTime? from, DateTime? to, CancellationToken ct = default)
@@ -337,12 +377,28 @@ namespace Application.Services.Branches
                 tSales, tOrders, tOrders == 0 ? 0 : Math.Round(tSales / tOrders, 2),
                 facts.Sum(f => f.OpenInvoices), facts.Sum(f => f.OpenInvoicesValue));
 
-            var attribution = legacy ? "default-branch" : "branch";
-            var note = legacy
-                ? (defaultBranch is null
+            // "transaction" as soon as at least one transaction carries a BranchId
+            // (legacy null rows still land on the default branch); "default-branch"
+            // while nothing has been stamped yet.
+            var stamped = facts.Any(f => f.BranchId is not null);
+            var attribution = stamped ? "transaction" : "default-branch";
+            string note;
+            if (!stamped)
+            {
+                note = defaultBranch is null
                     ? "Transactions carry no branch yet and no branch exists; totals are unattributed."
-                    : $"Transactions carry no branch yet; all totals are attributed to the default branch '{defaultBranch.Name}'.")
-                : "Totals are grouped by the branch recorded on each transaction.";
+                    : $"Transactions carry no branch yet; all totals are attributed to the default branch '{defaultBranch.Name}'. Use 'Backfill legacy transactions' to stamp them.";
+            }
+            else if (legacy)
+            {
+                note = defaultBranch is null
+                    ? "Totals are grouped by the branch recorded on each transaction; rows without a branch are unattributed."
+                    : $"Totals are grouped by the branch recorded on each transaction; legacy rows without a branch count towards the default branch '{defaultBranch.Name}'.";
+            }
+            else
+            {
+                note = "Totals are grouped by the branch recorded on each transaction.";
+            }
             return new ConsolidatedDashboardDto(fromDay, toDay, attribution, note, rows, total);
         }
     }

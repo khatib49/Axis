@@ -11,9 +11,10 @@ namespace AxisAPI.Controllers.Bi
         private readonly IOwnerSummaryService _svc;
         public BiOwnerSummaryController(IOwnerSummaryService svc) => _svc = svc;
 
-        /// <summary>Compact mobile owner view. ?day=yyyy-MM-dd (default today).</summary>
+        /// <summary>Compact mobile owner view. ?day=yyyy-MM-dd (default today), ?branchId= (default all branches).</summary>
         [HttpGet]
         [Authorize(Roles = "admin,admin_fnb")]
-        public async Task<IActionResult> Get([FromQuery] DateTime? day, CancellationToken ct) => Ok(await _svc.BuildAsync(day, ct));
+        public async Task<IActionResult> Get([FromQuery] DateTime? day, [FromQuery] int? branchId, CancellationToken ct) =>
+            Ok(await _svc.BuildAsync(day, branchId, ct));
     }
 }
