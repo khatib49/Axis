@@ -956,6 +956,50 @@ namespace Infrastructure.Migrations
                     b.ToTable("Promo_Combos", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.ComboApplication", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("By")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("ComboId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("On")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TransactionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionId");
+
+                    b.HasIndex("ComboId", "TransactionId")
+                        .IsUnique();
+
+                    b.ToTable("Promo_ComboApplications", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.ComboItem", b =>
                 {
                     b.Property<int>("Id")
@@ -1440,6 +1484,69 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Discounts");
+                });
+
+            modelBuilder.Entity("Domain.Entities.DisplayState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CartJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("RateLbp")
+                        .HasColumnType("numeric(18,6)");
+
+                    b.Property<string>("RegisterName")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<decimal>("TotalLbp")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalUsd")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("TransactionId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("WhishRequestId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RegisterName")
+                        .IsUnique();
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("TransactionId");
+
+                    b.HasIndex("WhishRequestId");
+
+                    b.ToTable("Till_DisplayStates");
                 });
 
             modelBuilder.Entity("Domain.Entities.Driver", b =>
@@ -2221,6 +2328,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("TransactionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Version")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -3476,6 +3586,14 @@ namespace Infrastructure.Migrations
                     b.Property<int>("ItemId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int?>("SeatNumber")
+                        .HasColumnType("integer");
+
                     b.Property<int>("TransactionId")
                         .HasColumnType("integer");
 
@@ -3483,7 +3601,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ItemId");
 
-                    b.HasIndex("TransactionId", "ItemId")
+                    b.HasIndex("TransactionId", "ItemId", "SeatNumber")
                         .IsUnique();
 
                     b.ToTable("Floor_OrderCourses", (string)null);
@@ -4042,6 +4160,9 @@ namespace Infrastructure.Migrations
                     b.Property<int?>("BranchId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("ConfirmationSentOn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("ConfirmedOn")
                         .HasColumnType("timestamp with time zone");
 
@@ -4075,6 +4196,9 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("ReminderSentOn")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ResourceType")
                         .IsRequired()
@@ -5726,6 +5850,9 @@ namespace Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("CardId")
                         .HasColumnType("integer");
 
@@ -5799,6 +5926,8 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("CardId");
 
@@ -6139,6 +6268,82 @@ namespace Infrastructure.Migrations
                     b.HasIndex("Status", "QueuedOn");
 
                     b.ToTable("WhatsAppMessages", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.WhishRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CollectUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime?>("LastCheckedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PaidOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RawCallback")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReturnUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("TransactionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("ExternalId")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TransactionId");
+
+                    b.ToTable("Pay_WhishRequests");
                 });
 
             modelBuilder.Entity("Domain.Identity.AppRole", b =>
@@ -6719,6 +6924,23 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Domain.Entities.ComboApplication", b =>
+                {
+                    b.HasOne("Domain.Entities.Combo", "Combo")
+                        .WithMany()
+                        .HasForeignKey("ComboId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.TransactionRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Combo");
+                });
+
             modelBuilder.Entity("Domain.Entities.ComboItem", b =>
                 {
                     b.HasOne("Domain.Entities.Combo", "Combo")
@@ -6810,6 +7032,19 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Area");
+                });
+
+            modelBuilder.Entity("Domain.Entities.DisplayState", b =>
+                {
+                    b.HasOne("Domain.Entities.TransactionRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Domain.Entities.WhishRequest", null)
+                        .WithMany()
+                        .HasForeignKey("WhishRequestId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Domain.Entities.Employee", b =>
@@ -7863,6 +8098,15 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("PendingAction");
+                });
+
+            modelBuilder.Entity("Domain.Entities.WhishRequest", b =>
+                {
+                    b.HasOne("Domain.Entities.TransactionRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Domain.Identity.AppUser", b =>
