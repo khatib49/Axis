@@ -43,6 +43,10 @@ namespace Domain.Entities
         public DateTime? ConfirmedOn { get; set; }
         /// <summary>TransactionRecord opened when the party was seated (no navigation).</summary>
         public int? SeatedTransactionId { get; set; }
+        /// <summary>When the WhatsApp "see you tomorrow" reminder was sent (null = not yet).</summary>
+        public DateTime? ReminderSentOn { get; set; }
+        /// <summary>When the WhatsApp confirmation message was sent (null = not sent).</summary>
+        public DateTime? ConfirmationSentOn { get; set; }
         public int? BranchId { get; set; }
     }
 }

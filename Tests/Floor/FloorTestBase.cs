@@ -20,6 +20,37 @@ namespace Tests.Floor
         public bool IsInRole(string role) => Roles.Contains(role);
     }
 
+    /// <summary>Records every WhatsApp send; <see cref="FailNext"/> makes the next send fail.</summary>
+    public sealed class FakeWhatsApp : IWhatsAppService
+    {
+        public readonly List<(string Phone, string Template, List<string> Params)> Sent = new();
+        public bool FailNext;
+        public Task<WhatsAppBlastResult> SendBlastAsync(int? pendingActionId, IEnumerable<WhatsAppRecipient> recipients, string templateName,
+            IEnumerable<string> templateParams, CancellationToken ct = default)
+        {
+            if (FailNext)
+            {
+                FailNext = false;
+                return Task.FromResult(new WhatsAppBlastResult(0, 1, new[] { "HTTP 500" }));
+            }
+            var list = recipients.ToList();
+            foreach (var r in list) Sent.Add((r.Phone, templateName, (r.PerRecipientParams ?? templateParams).ToList()));
+            return Task.FromResult(new WhatsAppBlastResult(list.Count, 0, Array.Empty<string>()));
+        }
+    }
+
+    public sealed class FakeSettings : IIntegrationSettingsService
+    {
+        public readonly Dictionary<string, string?> Values = new();
+        public Task<IReadOnlyList<IntegrationSettingDto>> ListAsync(CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<IntegrationSettingDto>>(Array.Empty<IntegrationSettingDto>());
+        public Task<string?> GetRawAsync(string key, CancellationToken ct = default)
+            => Task.FromResult(Values.TryGetValue(key, out var v) ? v : null);
+        public Task UpsertAsync(string key, string? value, string? actor, CancellationToken ct = default) { Values[key] = value; return Task.CompletedTask; }
+        public Task<IntegrationTestResultDto> TestAnthropicAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IntegrationTestResultDto> TestWhatsAppAsync(CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
     /// <summary>Shared in-memory context + service wiring for the Floor tests.</summary>
     public abstract class FloorTestBase : IDisposable
     {
@@ -29,6 +60,9 @@ namespace Tests.Floor
         protected readonly FloorBillingService Billing;
         protected readonly ReservationService Reservations;
         protected readonly FloorService Floor;
+        protected readonly FakeWhatsApp WhatsApp = new();
+        protected readonly FakeSettings Settings = new();
+        protected readonly ReservationNotificationService Notifications;
 
         protected FloorTestBase()
         {
@@ -49,7 +83,8 @@ namespace Tests.Floor
             var user = new FakeUser();
             Sessions = new TableSessionService(Db, Trx.Object, user, NullLogger<TableSessionService>.Instance);
             Billing = new FloorBillingService(Db, user, NullLogger<FloorBillingService>.Instance);
-            Reservations = new ReservationService(Db, Sessions, user, NullLogger<ReservationService>.Instance);
+            Notifications = new ReservationNotificationService(Db, WhatsApp, Settings, NullLogger<ReservationNotificationService>.Instance);
+            Reservations = new ReservationService(Db, Sessions, user, NullLogger<ReservationService>.Instance, Notifications);
             Floor = new FloorService(Db, user, NullLogger<FloorService>.Instance);
         }
 

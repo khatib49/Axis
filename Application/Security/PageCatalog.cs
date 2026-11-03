@@ -193,6 +193,7 @@
             new PageDefinition("floor-plan", "Floor Plan", "Venue", "/admin/floor-plan", new[] { "FloorController" }, None),
             new PageDefinition("floor-view", "Floor", "Till", "/cashier/floor", new[] { "FloorController", "TableSessionController" }, TillRoles),
             new PageDefinition("floor-reservations", "Reservations", "Venue", "/floor/reservations", new[] { "ReservationController", "FloorController" }, TillRoles),
+            new PageDefinition("waiter", "Waiter", "Till", "/waiter", new[] { "FloorController", "TableSessionController", "ReservationController" }, TillRoles),
 
             // ── Till controls & currency ───────────────────────────────
             new PageDefinition("till-shift", "My Shift", "Till", "/till/shift", new[] { "ShiftsController", "CurrenciesController" }, TillRoles),

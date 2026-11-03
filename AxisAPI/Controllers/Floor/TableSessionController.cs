@@ -74,6 +74,25 @@ namespace AxisAPI.Controllers.Floor
         public async Task<IActionResult> FireCourse(int transactionId, int courseNumber, CancellationToken ct)
             => FromResponse(await _billing.FireCourseAsync(transactionId, courseNumber, ct));
 
+        // ── Seat lines / bill by seat ────────────────────────────────
+        /// <summary>Bulk seat + course assignment for invoice lines (Append=true adds to the seat, false sets, 0 removes).</summary>
+        [HttpPut("{transactionId:int}/lines")]
+        public async Task<IActionResult> SetLines(int transactionId, [FromBody] SetLinesRequestDto dto, CancellationToken ct)
+            => FromResponse(await _billing.SetLinesAsync(transactionId, dto, ct));
+
+        /// <summary>Invoice lines grouped by seat with per-seat subtotals. bySeat=false returns the same payload (one "Table" group when nothing is assigned).</summary>
+        [HttpGet("{transactionId:int}/bill")]
+        public async Task<IActionResult> Bill(int transactionId, [FromQuery] bool bySeat = true, CancellationToken ct = default)
+        {
+            var r = await _billing.GetBillBySeatAsync(transactionId, ct);
+            return r.Success ? Ok(r) : NotFound(r);
+        }
+
+        /// <summary>One split per seat with the seat's net amount (replaces unpaid splits).</summary>
+        [HttpPost("splits/{transactionId:int}/by-seat")]
+        public async Task<IActionResult> SplitBySeat(int transactionId, CancellationToken ct)
+            => FromResponse(await _billing.CreateSeatSplitsAsync(transactionId, ct));
+
         // ── Bill splits ──────────────────────────────────────────────
         [HttpGet("splits/{transactionId:int}")]
         public async Task<IActionResult> ListSplits(int transactionId, CancellationToken ct)

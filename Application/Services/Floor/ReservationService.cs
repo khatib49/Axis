@@ -19,14 +19,16 @@ namespace Application.Services.Floor
         private readonly ITableSessionService _sessions;
         private readonly ICurrentUserAccessor _user;
         private readonly ILogger<ReservationService> _logger;
+        private readonly IReservationNotificationService? _notifications;
 
         public ReservationService(ApplicationDbContext db, ITableSessionService sessions, ICurrentUserAccessor user,
-            ILogger<ReservationService> logger)
+            ILogger<ReservationService> logger, IReservationNotificationService? notifications = null)
         {
             _db = db;
             _sessions = sessions;
             _user = user;
             _logger = logger;
+            _notifications = notifications;
         }
 
         // ── Queries ──────────────────────────────────────────────────
@@ -196,7 +198,8 @@ namespace Application.Services.Floor
             r.Status = Reservation.StatusConfirmed;
             r.ConfirmedOn = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
-            return Ok(await ToDtoAsync(r, ct), "Confirmed");
+            var sentConfirmation = await TrySendConfirmationAsync(r.Id, ct);
+            return Ok(await ToDtoAsync(r, ct), sentConfirmation ? "Confirmed — WhatsApp confirmation sent" : "Confirmed");
         }
 
         public async Task<BaseResponse<ReservationDto>> SeatAsync(int id, SeatReservationRequestDto dto, CancellationToken ct = default)
@@ -293,6 +296,25 @@ namespace Application.Services.Floor
         }
 
         // ── helpers ──────────────────────────────────────────────────
+        /// <summary>Optional WhatsApp confirmation: only when the template key is configured; never fails the confirm.</summary>
+        private async Task<bool> TrySendConfirmationAsync(int reservationId, CancellationToken ct)
+        {
+            if (_notifications is null) return false;
+            try
+            {
+                var r = await _notifications.SendConfirmationAsync(reservationId, ct);
+                if (!r.Success && r.Message?.Contains("not configured") == false)
+                    _logger.LogWarning("Reservation #{Id} confirmation message not sent: {Message}", reservationId, r.Message);
+                return r.Success;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reservation #{Id} confirmation message failed", reservationId);
+                return false;
+            }
+        }
+
         private async Task<string?> ValidateAsync(string? name, string? phone, string resourceType, DateTime start, DateTime end,
             int partySize, int? tableId, int? roomId, int? gameId, CancellationToken ct, bool requireResource = true)
         {
@@ -365,7 +387,7 @@ namespace Application.Services.Floor
                 };
                 return new ReservationDto(r.Id, r.CustomerName, r.Phone, r.UserId, r.ResourceType, r.TableId, t?.Code, r.RoomId, r.GameId,
                     resourceName, r.StartOn, r.EndOn, r.PartySize, r.Status, r.Notes, r.Source, r.CreatedOn, r.CreatedBy, r.ConfirmedOn,
-                    r.SeatedTransactionId, r.BranchId);
+                    r.SeatedTransactionId, r.BranchId, r.ReminderSentOn, r.ConfirmationSentOn);
             }).ToList();
         }
 

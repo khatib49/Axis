@@ -10,6 +10,14 @@ namespace Application.IServices
         Task<BaseResponse<List<OrderCourseDto>>> SetCoursesAsync(int transactionId, SetCoursesRequestDto dto, CancellationToken ct = default);
         Task<BaseResponse<List<OrderCourseDto>>> FireCourseAsync(int transactionId, int courseNumber, CancellationToken ct = default);
 
+        // Seat lines / bill by seat
+        /// <summary>Bulk seat + course assignment of invoice lines (one row per item × seat).</summary>
+        Task<BaseResponse<BillBySeatDto>> SetLinesAsync(int transactionId, SetLinesRequestDto dto, CancellationToken ct = default);
+        /// <summary>Invoice lines grouped by seat with per-seat subtotals (item price × qty + stored add-on/variant snapshots).</summary>
+        Task<BaseResponse<BillBySeatDto>> GetBillBySeatAsync(int transactionId, CancellationToken ct = default);
+        /// <summary>Replaces unpaid splits with one split per seat (seat net amount), through the custom-split rules.</summary>
+        Task<BaseResponse<BillSplitListDto>> CreateSeatSplitsAsync(int transactionId, CancellationToken ct = default);
+
         // Splits
         Task<BaseResponse<BillSplitListDto>> ListSplitsAsync(int transactionId, CancellationToken ct = default);
         Task<BaseResponse<BillSplitListDto>> CreateEqualSplitsAsync(int transactionId, int ways, CancellationToken ct = default);

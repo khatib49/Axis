@@ -61,6 +61,11 @@ namespace AxisAPI.Controllers.Floor
         [HttpPost("{id:int}/cancel")]
         public async Task<IActionResult> Cancel(int id, CancellationToken ct) => FromResponse(await _svc.CancelAsync(id, ct));
 
+        /// <summary>Manual WhatsApp reminder (template from IntegrationSettings "Reservations.WhatsAppReminderTemplate").</summary>
+        [HttpPost("{id:int}/send-reminder")]
+        public async Task<IActionResult> SendReminder(int id, [FromServices] IReservationNotificationService notifications, CancellationToken ct)
+            => FromResponse(await notifications.SendReminderAsync(id, ct));
+
         [HttpPost("{id:int}/complete")]
         public async Task<IActionResult> Complete(int id, CancellationToken ct) => FromResponse(await _svc.CompleteAsync(id, ct));
 

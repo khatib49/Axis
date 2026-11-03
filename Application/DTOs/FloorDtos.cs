@@ -34,6 +34,18 @@ namespace Application.DTOs
     public record CourseAssignmentDto(int ItemId, int CourseNumber);
     public record SetCoursesRequestDto(List<CourseAssignmentDto> Assignments);
 
+    // ── Seat lines & bill by seat (phase 2) ──────────────────────────
+    /// <summary>One portion of an invoice line: item × quantity for a seat (null seat = shared by the table).</summary>
+    public record LineAssignmentDto(int ItemId, int? SeatNumber, int Quantity = 1, int? CourseNumber = null);
+    /// <summary>Append=true adds the quantities to what the seat already has (what "Send" uses); false sets them (0 removes).</summary>
+    public record SetLinesRequestDto(List<LineAssignmentDto> Lines, bool Append = true);
+    public record SeatLineDto(int ItemId, string ItemName, int? SeatNumber, int Quantity, int CourseNumber, decimal UnitPrice,
+        decimal ExtrasPerUnit, decimal LineTotal, DateTime? FiredOn);
+    /// <summary>Subtotal is before the invoice discount, Net after it (what a split for this seat should be).</summary>
+    public record SeatBillDto(int? SeatNumber, string Label, List<SeatLineDto> Lines, decimal Subtotal, decimal Net);
+    public record BillBySeatDto(int TransactionId, decimal TotalPrice, decimal DiscountPercentage, int GuestCount,
+        List<SeatBillDto> Seats, decimal AssignedTotal, decimal UnassignedTotal);
+
     // ── Bill splits ──────────────────────────────────────────────────
     public record BillSplitDto(int Id, int TransactionId, int SplitNumber, decimal Amount, string Method, DateTime? PaidOn,
         string? PaidBy, string? Note);
@@ -55,7 +67,12 @@ namespace Application.DTOs
     public record ReservationDto(int Id, string CustomerName, string Phone, int? UserId, string ResourceType, int? TableId,
         string? TableCode, int? RoomId, int? GameId, string? ResourceName, DateTime StartOn, DateTime EndOn, int PartySize, string Status,
         string? Notes, string Source, DateTime CreatedOn, string CreatedBy, DateTime? ConfirmedOn, int? SeatedTransactionId,
-        int? BranchId);
+        int? BranchId, DateTime? ReminderSentOn = null, DateTime? ConfirmationSentOn = null);
+    /// <summary>Outcome of one WhatsApp send for a reservation (reminder or confirmation).</summary>
+    public record ReservationNotificationResultDto(int ReservationId, string Kind, bool Sent, DateTime? SentOn, string? Detail);
+    /// <summary>Summary of one run of the "tomorrow" reminder job.</summary>
+    public record ReminderRunResultDto(DateTime WindowStartUtc, DateTime WindowEndUtc, bool TemplateConfigured, int Candidates,
+        int Sent, int Failed, int SkippedNoPhone);
     public record ReservationUpsertDto(string CustomerName, string Phone, string ResourceType, DateTime StartOn, DateTime EndOn,
         int PartySize = 1, int? TableId = null, int? RoomId = null, int? GameId = null, int? UserId = null, string? Notes = null,
         string Source = "Phone", bool ConfirmNow = false);

@@ -17,6 +17,8 @@ namespace Application.Modules
             services.AddScoped<ITableSessionService, TableSessionService>();
             services.AddScoped<IFloorBillingService, FloorBillingService>();
             services.AddScoped<IReservationService, ReservationService>();
+            services.AddScoped<IReservationNotificationService, ReservationNotificationService>();
+            services.AddScoped<ReservationReminderJobs>();
             return services;
         }
     }

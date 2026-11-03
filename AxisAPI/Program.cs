@@ -269,6 +269,12 @@ Hangfire.RecurringJob.AddOrUpdate<Application.Services.Bi.BiReportJobs>(
     j => j.RunDueReportsAsync(CancellationToken.None),
     "5 * * * *");                     // hourly at :05 UTC
 
+// Reservations: WhatsApp reminder for tomorrow's confirmed bookings (no-op until the template key is set).
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Floor.ReservationReminderJobs>(
+    "reservation-reminders",
+    j => j.SendTomorrowRemindersAsync(CancellationToken.None),
+    "0 7 * * *");                     // daily 07:00 UTC = 10:00 Beirut (summer 09:00)
+
 app.UseHttpsRedirection();
 //app.UseForce403ForUnauthorized();
 app.UseSerilogRequestEnricher();
