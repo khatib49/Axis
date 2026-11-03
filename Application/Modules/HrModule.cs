@@ -1,3 +1,5 @@
+using Application.IServices;
+using Application.Services.Hr;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application.Modules
@@ -10,6 +12,11 @@ namespace Application.Modules
     {
         public static IServiceCollection AddHrModule(this IServiceCollection services)
         {
+            services.AddScoped<IHrEmployeeService, HrEmployeeService>();
+            services.AddScoped<IHrScheduleService, HrScheduleService>();
+            services.AddScoped<IHrAttendanceService, HrAttendanceService>();
+            services.AddScoped<IHrLeaveService, HrLeaveService>();
+            services.AddScoped<IHrTipService, HrTipService>();
             return services;
         }
     }
