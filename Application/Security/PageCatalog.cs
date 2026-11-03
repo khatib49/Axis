@@ -228,6 +228,8 @@
             new PageDefinition("hr-attendance", "Attendance", "People", "/hr/attendance", new[] { "HrAttendanceController", "HrEmployeesController" }, None),
             new PageDefinition("hr-leave", "Leave", "People", "/hr/leave", new[] { "HrLeaveController", "HrEmployeesController" }, None),
             new PageDefinition("hr-tips", "Tip Pools", "People", "/hr/tips", new[] { "HrTipsController", "HrEmployeesController" }, TillRoles),
+            new PageDefinition("hr-payroll", "Payroll", "People", "/hr/payroll", new[] { "HrPayrollController", "HrEmployeesController" }, None),
+            new PageDefinition("hr-pay-components", "Pay Components", "People", "/hr/pay-components", new[] { "HrPayrollController", "HrEmployeesController" }, None),
             new PageDefinition("hr-clock", "Clock In / Out", "Till", "/hr/clock", new[] { "HrAttendanceController" }, new[] { "cashier", "gamecashier", "admin_fnb", "chef", "bartender" }),
 
             // ── Promotions ─────────────────────────────────────────────
@@ -242,6 +244,10 @@
             new PageDefinition("branches-consolidated", "Consolidated Dashboard", "Overview", "/admin/branches/consolidated", new[] { "BranchesController" }, None),
             new PageDefinition("bi-scheduled-reports", "Scheduled Reports", "Tools", "/admin/bi/reports", new[] { "BiReportsController" }, None),
             new PageDefinition("bi-owner-view", "Owner View", "Overview", "/owner", new[] { "BiOwnerSummaryController" }, new[] { "admin_fnb" }),
+
+            // ── Marketing ──────────────────────────────────────────────
+            new PageDefinition("marketing-segments", "Segments", "Marketing", "/admin/marketing/segments", new[] { "MarketingSegmentsController" }, None),
+            new PageDefinition("marketing-campaigns", "Campaigns", "Marketing", "/admin/marketing/campaigns", new[] { "MarketingCampaignsController", "MarketingSegmentsController", "MarketingUnsubscribesController" }, None),
         };
 
         /// <summary>Pages the social media manager role starts with.</summary>

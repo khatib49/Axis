@@ -128,6 +128,7 @@ namespace Application
             services.AddOfflineModule();
             services.AddPaymentsModule();          // phase 2: Whish invoice payments + customer displays
             services.AddMenuEngineeringModule();   // phase 2: recipe costing / menu engineering
+            services.AddMarketingModule();         // phase 3: segments and campaigns
 
             return services;
         }

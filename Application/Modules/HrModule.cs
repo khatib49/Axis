@@ -17,6 +17,7 @@ namespace Application.Modules
             services.AddScoped<IHrAttendanceService, HrAttendanceService>();
             services.AddScoped<IHrLeaveService, HrLeaveService>();
             services.AddScoped<IHrTipService, HrTipService>();
+            services.AddScoped<IHrPayrollService, PayrollService>();
             return services;
         }
     }

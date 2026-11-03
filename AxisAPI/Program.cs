@@ -275,6 +275,12 @@ Hangfire.RecurringJob.AddOrUpdate<Application.Services.Floor.ReservationReminder
     j => j.SendTomorrowRemindersAsync(CancellationToken.None),
     "0 7 * * *");                     // daily 07:00 UTC = 10:00 Beirut (summer 09:00)
 
+// Marketing: send scheduled campaigns that are due (no-op when none).
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Marketing.MarketingJobs>(
+    "marketing-send-due-campaigns",
+    j => j.SendDueCampaignsAsync(CancellationToken.None),
+    "*/5 * * * *");
+
 app.UseHttpsRedirection();
 //app.UseForce403ForUnauthorized();
 app.UseSerilogRequestEnricher();
