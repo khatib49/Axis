@@ -53,7 +53,7 @@ namespace Application.Services.Phase5
         public async Task<List<BookableStationDto>> StationsAsync(CancellationToken ct = default)
         {
             var rooms = OwnerNotifier.SplitList(await _settings.GetRawAsync("Booking.RoomIds", ct)).Select(x => int.TryParse(x, out var v) ? v : 0).Where(v => v > 0).ToList();
-            var q = _db.Set<Set>().AsNoTracking().Where(s => s.StatusId == null || s.StatusId == 1);
+            var q = _db.Set<Set>().AsNoTracking().Where(s => s.StatusId == null || (s.StatusId != 2 && s.StatusId != 3));
             if (rooms.Count > 0) q = q.Where(s => rooms.Contains(s.RoomId));
             return await q.OrderBy(s => s.Room.Name).ThenBy(s => s.Name).Select(s => new BookableStationDto(s.Id, s.Name, s.RoomId, s.Room.Name)).ToListAsync(ct);
         }
@@ -188,7 +188,7 @@ namespace Application.Services.Phase5
         }
 
         public async Task<List<BookingDto>> ListAsync(DateTime from, DateTime to, CancellationToken ct = default)
-            => await Query(_db.Set<StationBooking>().AsNoTracking().Where(b => b.StartsOn < to && b.EndsOn > from)).OrderBy(b => b.StartsOn).ToListAsync(ct);
+            => (await Query(_db.Set<StationBooking>().AsNoTracking().Where(b => b.StartsOn < to && b.EndsOn > from)).ToListAsync(ct)).OrderBy(b => b.StartsOn).ToList(); // sort after load: EF cannot order on the projected record
 
         public async Task<BaseResponse<BookingDto>> SetStatusAsync(int id, string status, CancellationToken ct = default)
         {

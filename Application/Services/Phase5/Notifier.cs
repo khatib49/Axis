@@ -26,6 +26,9 @@ namespace Application.Services.Phase5
 
     public class OwnerNotifier : IOwnerNotifier
     {
+        /// <summary>Fixed-length JSON body (no chunked transfer encoding).</summary>
+        private static StringContent Json(object o) => new(System.Text.Json.JsonSerializer.Serialize(o), System.Text.Encoding.UTF8, "application/json");
+
         public const string TelegramTokenKey = "Telegram.BotToken";
         public const string AllowedTelegramKey = "OwnerBot.AllowedTelegramChatIds";
         public const string AllowedWhatsAppKey = "OwnerBot.AllowedWhatsAppNumbers";
@@ -94,7 +97,7 @@ namespace Application.Services.Phase5
                 using var http = _http.CreateClient();
                 http.Timeout = TimeSpan.FromSeconds(15);
                 var baseUrl = (await _settings.GetRawAsync("Telegram.ApiBaseUrl", ct))?.TrimEnd('/') ?? "https://api.telegram.org";
-                using var resp = await http.PostAsJsonAsync($"{baseUrl}/bot{token.Trim()}/sendMessage", new { chat_id = chatId, text = Trunc(text, 4000) }, ct);
+                using var resp = await http.PostAsync($"{baseUrl}/bot{token.Trim()}/sendMessage", Json(new { chat_id = chatId, text = Trunc(text, 4000) }), ct);
                 if (!resp.IsSuccessStatusCode) _log.LogWarning("Telegram sendMessage to {Chat} failed: HTTP {Code}", chatId, (int)resp.StatusCode);
                 return resp.IsSuccessStatusCode;
             }
@@ -122,7 +125,7 @@ namespace Application.Services.Phase5
                 http.Timeout = TimeSpan.FromSeconds(15);
                 http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Trim());
                 var baseUrl = (await _settings.GetRawAsync("WhatsApp.ApiBaseUrl", ct))?.TrimEnd('/') ?? "https://graph.facebook.com/v19.0";
-                using var resp = await http.PostAsJsonAsync($"{baseUrl}/{phoneId.Trim()}/messages", body, ct);
+                using var resp = await http.PostAsync($"{baseUrl}/{phoneId.Trim()}/messages", Json(body), ct);
                 return resp.IsSuccessStatusCode;
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { _log.LogWarning(ex, "WhatsApp send failed"); return false; }

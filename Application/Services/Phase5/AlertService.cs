@@ -134,7 +134,7 @@ namespace Application.Services.Phase5
                     var v2 = await _db.Set<CashierShift>().AsNoTracking().Where(s => s.ClosedOn >= since && s.Variance != null).Select(s => s.Variance!.Value).ToListAsync(ct);
                     return v2.Count == 0 ? 0 : v2.Max(Math.Abs);
                 case AlertMetrics.StationsBusyPercent:
-                    var total = await _db.Set<Set>().AsNoTracking().CountAsync(s => s.StatusId == null || s.StatusId == 1, ct);
+                    var total = await _db.Set<Set>().AsNoTracking().CountAsync(s => s.StatusId == null || (s.StatusId != 2 && s.StatusId != 3), ct);
                     return total == 0 ? 0 : Math.Round((await StationBusy.RunningSetIdsAsync(_db, ct)).Count * 100m / total, 0);
                 default: return 0;
             }

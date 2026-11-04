@@ -398,7 +398,7 @@ namespace Application.Services
             if (_parentGuard is not null)
             {
                 var (allowed, why) = await _parentGuard.CheckAsync(userId, amount, ct);
-                if (!allowed) return new BaseResponse<decimal>(false, "Parent limit", why ?? "Daily limit reached.", wallet.Balance);
+                if (!allowed) return new BaseResponse<decimal>(false, why ?? "Daily limit reached.", why ?? "Daily limit reached.", wallet.Balance); // checkout shows Error to the cashier
             }
 
             wallet.Balance -= amount;

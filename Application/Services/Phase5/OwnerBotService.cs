@@ -35,6 +35,9 @@ namespace Application.Services.Phase5
     /// </summary>
     public class OwnerBotService : IOwnerBotService
     {
+        /// <summary>Fixed-length JSON body (no chunked transfer encoding).</summary>
+        private static StringContent Json(object o) => new(System.Text.Json.JsonSerializer.Serialize(o), System.Text.Encoding.UTF8, "application/json");
+
         public const string TelegramSecretKey = "Telegram.WebhookSecret";
         public const string WhatsAppVerifyKey = "WhatsApp.VerifyToken";
         public const string WhatsAppAppSecretKey = "WhatsApp.AppSecret";
@@ -221,7 +224,7 @@ namespace Application.Services.Phase5
             {
                 using var http = _http.CreateClient();
                 var baseUrl = (await _settings.GetRawAsync("Telegram.ApiBaseUrl", ct))?.TrimEnd('/') ?? "https://api.telegram.org";
-                using var resp = await http.PostAsJsonAsync($"{baseUrl}/bot{token.Trim()}/setWebhook", new { url, secret_token = secret.Trim(), allowed_updates = new[] { "message" } }, ct);
+                using var resp = await http.PostAsync($"{baseUrl}/bot{token.Trim()}/setWebhook", Json(new { url, secret_token = secret.Trim(), allowed_updates = new[] { "message" } }), ct);
                 var body = await resp.Content.ReadAsStringAsync(ct);
                 return resp.IsSuccessStatusCode ? new(true, null, "Telegram webhook set.", url) : new(false, "Provider", $"Telegram refused: {body}");
             }

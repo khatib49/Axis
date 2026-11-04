@@ -152,7 +152,8 @@ namespace Tests.Phase5
             _svc = new BookingService(_db, P5.Settings(new() { ["Booking.OpenHour"] = "0", ["Booking.CloseHour"] = "24", ["Venue.TimeZone"] = "UTC" }).Object, User().Object, _notify, NullLogger<BookingService>.Instance);
         }
         public void Dispose() => _db.Dispose();
-        private static DateTime At(int hoursFromNow) { var n = DateTime.UtcNow.AddHours(hoursFromNow); return new DateTime(n.Year, n.Month, n.Day, n.Hour, 0, 0, DateTimeKind.Utc); }
+        /// <summary>Future times are pinned to tomorrow 10:00 + h so a test never crosses midnight; negative = hours ago.</summary>
+        private static DateTime At(int h) => h > 0 ? DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(1).AddHours(10 + h), DateTimeKind.Utc) : DateTime.UtcNow.AddHours(h);
 
         [Fact]
         public async Task Overlapping_bookings_are_refused_and_free_slots_reflect_them()
@@ -168,12 +169,21 @@ namespace Tests.Phase5
         }
 
         [Fact]
+        public async Task Free_stations_use_the_legacy_status_9_and_disabled_ones_are_hidden()
+        {
+            foreach (var st in _db.Set<Set>()) st.StatusId = 9;
+            _db.Set<Set>().First(x => x.Id == 2).StatusId = 2;
+            _db.SaveChanges();
+            (await _svc.StationsAsync()).Select(x => x.SetId).Should().Equal(1);
+        }
+
+        [Fact]
         public async Task Validation_past_times_phone_and_running_session()
         {
             (await _svc.CreateAsync(new BookingCreateDto(1, At(-2), 60, "Rami", "70123456"), false)).Error.Should().Be("Validation");
             (await _svc.CreateAsync(new BookingCreateDto(1, At(3), 60, "Rami", "12"), false)).Error.Should().Be("Validation");
             (await _svc.CreateAsync(new BookingCreateDto(99, At(3), 60, "Rami", "70123456"), false)).Error.Should().Be("NotFound");
-            _db.Add(new TransactionRecord { Id = 500, SetId = 2, GameId = 1, StatusId = 4, CreatedBy = "c", ExpectedEndOn = At(5) }); _db.SaveChanges();
+            _db.Add(new TransactionRecord { Id = 500, SetId = 2, GameId = 1, StatusId = 4, CreatedBy = "c", ExpectedEndOn = At(5) }); _db.SaveChanges(); // runs until tomorrow 15:00
             (await _svc.CreateAsync(new BookingCreateDto(2, At(3), 60, "Rami", "70123456"), false)).Error.Should().Be("Taken");
             (await _svc.CreateAsync(new BookingCreateDto(2, At(6), 60, "Rami", "70123456"), false)).Success.Should().BeTrue();
         }
@@ -181,7 +191,7 @@ namespace Tests.Phase5
         [Fact]
         public async Task Check_in_window_cancel_rules_and_no_show_job()
         {
-            var soon = (await _svc.CreateAsync(new BookingCreateDto(1, DateTime.UtcNow.AddMinutes(20), 60, "Soon", "70000011"), false)).Data!;
+            var soon = (await _svc.CreateAsync(new BookingCreateDto(1, DateTime.UtcNow.AddMinutes(20), 60, "Soon", "70000011"), true)).Data!; // staff booking: no opening-hours check near midnight
             var later = (await _svc.CreateAsync(new BookingCreateDto(2, At(5), 60, "Later", "70000012"), false)).Data!;
             (await _svc.CheckInPublicAsync(later.Token)).Success.Should().BeFalse();
             (await _svc.CheckInPublicAsync(soon.Token)).Data!.Status.Should().Be("CheckedIn");

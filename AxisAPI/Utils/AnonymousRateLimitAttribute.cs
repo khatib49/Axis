@@ -32,7 +32,11 @@ namespace AxisAPI.Utils
             var now = DateTime.UtcNow.Ticks;
             var window = TimeSpan.FromSeconds(WindowSeconds).Ticks;
 
-            var bucket = Buckets.GetOrAdd(ip, _ => new Bucket { WindowStartTicks = now, Count = 0 });
+            // One counter per client IP *and endpoint*: browsing one guest page must not
+            // use up another endpoint's allowance (a shared counter blocked bookings after
+            // a few availability look-ups, and guests on one venue Wi-Fi share an IP).
+            var key = $"{ip}|{context.ActionDescriptor.DisplayName}";
+            var bucket = Buckets.GetOrAdd(key, _ => new Bucket { WindowStartTicks = now, Count = 0 });
             bool limited;
             lock (bucket)
             {
