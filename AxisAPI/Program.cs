@@ -212,7 +212,11 @@ builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
 
 var app = builder.Build();
 
-app.UseStaticFiles();
+// 3D menu models: the default provider does not know .glb / .usdz and would 404 them.
+var staticTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+staticTypes.Mappings[".glb"] = "model/gltf-binary";
+staticTypes.Mappings[".usdz"] = "model/vnd.usdz+zip";
+app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = staticTypes });
 
 
 // 🔧 Serve Swagger ALWAYS (dev & prod)
@@ -280,6 +284,18 @@ Hangfire.RecurringJob.AddOrUpdate<Application.Services.Marketing.MarketingJobs>(
     "marketing-send-due-campaigns",
     j => j.SendDueCampaignsAsync(CancellationToken.None),
     "*/5 * * * *");
+
+// Upsells: relearn "often ordered together" pairs nightly (AI pitches only when Anthropic.ApiKey is set).
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase4.UpsellJobs>(
+    "upsell-rebuild-pairs",
+    j => j.RebuildAsync(CancellationToken.None),
+    "30 1 * * *");                    // daily 01:30 UTC
+
+// Delivery apps: push order status changes back to connected apps (no-op without a callback URL).
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase4.DeliveryPlatformJobs>(
+    "delivery-platform-status-push",
+    j => j.PushStatusesAsync(CancellationToken.None),
+    "* * * * *");                     // every minute
 
 app.UseHttpsRedirection();
 //app.UseForce403ForUnauthorized();

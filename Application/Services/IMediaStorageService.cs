@@ -24,5 +24,7 @@ namespace Application.Services
     {
         Video,
         Image,
+        /// <summary>3D models for the menu: .glb (web / Android) and .usdz (iPhone AR).</summary>
+        Model3D,
     }
 }

@@ -19,13 +19,16 @@ namespace AxisAPI.Controllers.OrderingChannels
     {
         public const string SecretHeader = "X-Webhook-Secret";
         private readonly IDeliveryService _svc;
-        public DeliveryWebhookController(IDeliveryService svc) { _svc = svc; }
+        private readonly IDeliveryPlatformService _platforms;
+        public DeliveryWebhookController(IDeliveryService svc, IDeliveryPlatformService platforms) { _svc = svc; _platforms = platforms; }
 
         [HttpPost("{source}")]
         public async Task<IActionResult> Receive(string source, [FromBody] WebhookOrderPayload payload, CancellationToken ct)
         {
             var secret = Request.Headers[SecretHeader].FirstOrDefault();
             var r = await _svc.IngestWebhookAsync(source, secret, payload, ct);
+            if (r.Success && r.Data is { Duplicate: false } d)
+                await _platforms.OnOrderIngestedAsync(source, d.Order.Id, ct);
             if (r.Success) return Ok(r);
             return r.Error switch
             {

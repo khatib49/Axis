@@ -19,6 +19,10 @@ namespace AxisAPI.Utils
         private static readonly HashSet<string> ImageExt = new(StringComparer.OrdinalIgnoreCase)
             { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
 
+        private static readonly HashSet<string> ModelExt = new(StringComparer.OrdinalIgnoreCase)
+            { ".glb", ".usdz" };
+
+        private const long MaxModelBytes = 30L * 1024 * 1024;  // 30 MB
         private const long MaxVideoBytes = 200L * 1024 * 1024; // 200 MB
         private const long MaxImageBytes = 10L * 1024 * 1024;  // 10 MB
 
@@ -34,12 +38,12 @@ namespace AxisAPI.Utils
                 throw new ArgumentException("No file was uploaded.");
 
             var ext = Path.GetExtension(file.FileName);
-            var allowed = kind == MediaKind.Video ? VideoExt : ImageExt;
+            var allowed = kind switch { MediaKind.Video => VideoExt, MediaKind.Model3D => ModelExt, _ => ImageExt };
             if (string.IsNullOrWhiteSpace(ext) || !allowed.Contains(ext))
                 throw new ArgumentException(
                     $"Unsupported file type '{ext}'. Allowed: {string.Join(", ", allowed)}");
 
-            var maxBytes = kind == MediaKind.Video ? MaxVideoBytes : MaxImageBytes;
+            var maxBytes = kind switch { MediaKind.Video => MaxVideoBytes, MediaKind.Model3D => MaxModelBytes, _ => MaxImageBytes };
             if (file.Length > maxBytes)
                 throw new ArgumentException(
                     $"File is too large ({file.Length / 1024 / 1024} MB). Maximum is {maxBytes / 1024 / 1024} MB.");

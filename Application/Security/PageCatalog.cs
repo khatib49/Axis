@@ -144,7 +144,7 @@
                 new[] { "ExpenseCategoryController" }, None),
 
             // ── Food & beverage till ────────────────────────────────────
-            new PageDefinition("cashier-items", "Items (till)", "Till", "/cashier/items", FoodTill.Concat(new[] { "PromotionsAutoApplyController", "DisplaysController", "BarcodesController", "SerialsController" }).ToArray(), new[] { "cashier" }),
+            new PageDefinition("cashier-items", "Items (till)", "Till", "/cashier/items", FoodTill.Concat(new[] { "PromotionsAutoApplyController", "DisplaysController", "BarcodesController", "SerialsController", "UpsellController", "CardTerminalsController" }).ToArray(), new[] { "cashier" }),
             new PageDefinition("cashier-orders", "Orders (till)", "Till", "/cashier/orders",
                 new[] { "TransactionsController", "KitchenController" }, new[] { "cashier" }),
             new PageDefinition("open-invoices", "Open Items Invoice", "Till", "/cashier/open-invoices",
@@ -241,6 +241,10 @@
             new PageDefinition("promo-coupons", "Coupons", "Promotions", "/admin/promotions/coupons", new[] { "CouponsController" }, None),
             new PageDefinition("promo-happyhours", "Happy Hours", "Promotions", "/admin/promotions/happy-hours", new[] { "HappyHourController" }, None),
             new PageDefinition("promo-combos", "Combos", "Promotions", "/admin/promotions/combos", new[] { "CombosController" }, None),
+            new PageDefinition("menu-3d", "3D Menu", "Inventory Management", "/admin/menu-3d", new[] { "Menu3DController" }, None),
+            new PageDefinition("upsells", "Upsells", "Promotions", "/admin/upsells", new[] { "UpsellController" }, None),
+            new PageDefinition("delivery-platforms", "Delivery Apps", "F&B Admin", "/admin/delivery/platforms", new[] { "DeliveryPlatformsController" }, None),
+            new PageDefinition("card-terminals", "Card Terminals", "Till", "/admin/payments/terminals", new[] { "CardTerminalsController" }, None),
             new PageDefinition("promo-accounting", "Promotion Accounting", "Promotions", "/admin/promotions/accounting", new[] { "PromotionAccountingController" }, None),
             new PageDefinition("till-coupon-apply", "Apply Coupon", "Till", "/cashier/coupon", new[] { "CouponsController", "GiftCardsController", "HappyHourController", "CombosController", "PromotionsAutoApplyController" }, TillRoles),
 

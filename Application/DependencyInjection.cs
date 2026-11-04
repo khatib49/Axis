@@ -131,6 +131,7 @@ namespace Application
             services.AddMarketingModule();         // phase 3: segments and campaigns
             services.AddRetailModule();            // phase 3: barcodes and serial numbers
             services.AddShop2Module();             // phase 3: storefront catalog endpoints
+            services.AddPhase4Module();            // phase 4: 3D menu, upsells, delivery apps, card terminals
 
             return services;
         }

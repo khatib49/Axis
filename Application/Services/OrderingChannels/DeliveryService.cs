@@ -537,8 +537,10 @@ namespace Application.Services.OrderingChannels
                 if (itemId is null)
                 {
                     if (string.IsNullOrWhiteSpace(li.Sku)) return new(false, "Validation", "Each item needs itemId or sku.");
+                    // Connected app: its own item id (mapping) or "axis-{id}" from the menu feed, then the item name.
+                    itemId = await Application.Services.Phase4.DeliveryPlatformService.ResolveExternalItemAsync(_db, src, li.Sku, ct);
                     var sku = li.Sku.Trim().ToLower();
-                    itemId = await _db.Set<Item>().AsNoTracking()
+                    itemId ??= await _db.Set<Item>().AsNoTracking()
                         .Where(i => i.Name.ToLower() == sku).Select(i => (int?)i.Id).FirstOrDefaultAsync(ct);
                     if (itemId is null) return new(false, "Validation", $"Unknown item '{li.Sku}'.");
                 }
