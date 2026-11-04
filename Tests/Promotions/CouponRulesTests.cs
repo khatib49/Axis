@@ -93,9 +93,7 @@ namespace Tests.Promotions
         private readonly ApplicationDbContext _db = PromoDb.New();
         public void Dispose() => _db.Dispose();
 
-        private CouponService Svc()
-            => new(_db, new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
-                new FakeUser(), NullLogger<CouponService>.Instance);
+        private CouponService Svc() => PromoAccounting.Coupons(_db);
 
         [Fact]
         public async Task Redeem_recomputes_from_the_open_invoice_applies_once_and_counts_the_use()

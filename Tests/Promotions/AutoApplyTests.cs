@@ -20,9 +20,7 @@ namespace Tests.Promotions
         public AutoApplyTests()
         {
             PromoDb.SeedCatalogAndInvoices(_db); // invoice #10: 2 lattes (5) + 1 burger (10) = 20; #20 paid
-            _svc = new PromotionAutoApplyService(_db,
-                new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
-                new FakeUser(), NullLogger<PromotionAutoApplyService>.Instance);
+            _svc = PromoAccounting.AutoApply(_db);
         }
 
         public void Dispose() => _db.Dispose();

@@ -21,10 +21,15 @@ namespace Application.Services.StockOps
 
         public async Task<List<StockLocationDto>> ListAsync(bool includeInactive = false, CancellationToken ct = default)
         {
-            await StockOpsSupport.EnsureDefaultLocationAsync(_db, _user.BranchId, ct);
+            await StockOpsSupport.EnsureDefaultLocationAsync(_db, null, ct);
+            var branchId = _user.BranchId;
+            if (branchId.HasValue) await StockOpsSupport.GetDefaultLocationAsync(_db, branchId, ct);
+
             var q = _db.Set<StockLocation>().AsNoTracking();
             if (!includeInactive) q = q.Where(l => l.IsActive);
-            var list = await q.OrderByDescending(l => l.IsDefault).ThenBy(l => l.Name).ToListAsync(ct);
+            // X-Branch-Id => that branch's locations plus the shared (BranchId null) ones; no header => everything.
+            if (branchId.HasValue) q = q.Where(l => l.BranchId == null || l.BranchId == branchId.Value);
+            var list = await q.OrderByDescending(l => l.IsDefault).ThenBy(l => l.BranchId == null ? 0 : 1).ThenBy(l => l.Name).ToListAsync(ct);
             return list.Select(StockOpsSupport.ToDto).ToList();
         }
 
@@ -34,8 +39,9 @@ namespace Application.Services.StockOps
             return l == null ? null : StockOpsSupport.ToDto(l);
         }
 
+        /// <summary>Default location for the caller's branch (X-Branch-Id), else the global default.</summary>
         public async Task<StockLocationDto> GetOrCreateDefaultAsync(CancellationToken ct = default)
-            => StockOpsSupport.ToDto(await StockOpsSupport.EnsureDefaultLocationAsync(_db, _user.BranchId, ct));
+            => StockOpsSupport.ToDto(await StockOpsSupport.GetDefaultLocationAsync(_db, _user.BranchId, ct));
 
         public async Task<BaseResponse<StockLocationDto>> CreateAsync(StockLocationUpsertDto dto, CancellationToken ct = default)
         {
@@ -46,7 +52,7 @@ namespace Application.Services.StockOps
             if (await _db.Set<StockLocation>().AnyAsync(l => l.Code == code, ct))
                 return new(false, "Code already in use.", "Code already in use.");
 
-            await StockOpsSupport.EnsureDefaultLocationAsync(_db, _user.BranchId, ct);
+            await StockOpsSupport.EnsureDefaultLocationAsync(_db, null, ct);
 
             var loc = new StockLocation
             {
@@ -117,7 +123,7 @@ namespace Application.Services.StockOps
             }
             var ings = await ingQ.OrderBy(i => i.Name).Select(i => new { i.Id, i.Name, i.Unit, i.QuantityOnHand }).ToListAsync(ct);
 
-            if (loc.IsDefault)
+            if (StockOpsSupport.MirrorsIngredient(loc))
                 return ings.Select(i => new LocationStockDto(i.Id, i.Name, i.Unit, i.QuantityOnHand)).ToList();
 
             var ids = ings.Select(i => i.Id).ToList();
@@ -127,9 +133,12 @@ namespace Application.Services.StockOps
 
         private async Task MakeDefaultAsync(StockLocation loc, CancellationToken ct)
         {
-            // Changing the default only re-points which location mirrors
-            // Ingredient.QuantityOnHand; it does not move any quantities.
-            var others = await _db.Set<StockLocation>().Where(l => l.IsDefault && l.Id != loc.Id).ToListAsync(ct);
+            // Changing the default only re-points which location is "Main" for
+            // its scope (the global one mirrors Ingredient.QuantityOnHand, a
+            // branch one holds its own rows); it does not move any quantities.
+            // Defaults are per scope: only the same branch (or the shared scope)
+            // loses its flag.
+            var others = await _db.Set<StockLocation>().Where(l => l.IsDefault && l.Id != loc.Id && l.BranchId == loc.BranchId).ToListAsync(ct);
             foreach (var o in others) o.IsDefault = false;
             loc.IsDefault = true;
             loc.IsActive = true;

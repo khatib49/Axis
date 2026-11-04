@@ -11,7 +11,8 @@ using Microsoft.Extensions.Logging;
 namespace Application.Services.Offline
 {
     /// <summary>
-    /// Replays a till's offline queue against the EXISTING order services.
+    /// Replays a till's offline queue against the EXISTING order and game
+    /// session services.
     /// Idempotency: a successful op is stored under its client opId and any
     /// later replay of that key returns the stored response without
     /// re-executing. A key reused with a different payload is a 409 conflict.
@@ -195,15 +196,35 @@ namespace Application.Services.Offline
                     var invoiceId = await ResolveInvoiceIdAsync(req.InvoiceId, req.InvoiceOpId, createdInBatch, ct);
                     return await _transactions.CloseOpenInvoice(invoiceId, createdBy, ct, req.WalletAmount);
                 }
+                case OfflineOpTypes.CreateGameSession:
+                {
+                    var req = Deserialize<CreateGameSessionPayload>(payload);
+                    if (req.GameId <= 0) throw new ArgumentException("gameId must be positive.");
+                    if (req.GameSettingId <= 0) throw new ArgumentException("gameSettingId must be positive.");
+                    if (req.Hours < 0) throw new ArgumentException("hours cannot be negative.");
+                    if (req.SetId < 0) throw new ArgumentException("setId cannot be negative (use 0 for open-set rooms).");
+                    // Same call the live controller makes (TransactionsController.CreateGameSession).
+                    return await _transactions.CreateGameSession(req.UserId, req.GameId, req.GameSettingId, req.Hours,
+                        req.Status <= 0 ? 1 : req.Status, createdBy, req.SetId, req.DiscountId, ct,
+                        req.NumberOfPersons <= 0 ? 1 : req.NumberOfPersons, req.IsDayPass, req.Comment ?? string.Empty);
+                }
+                case OfflineOpTypes.CloseGameSession:
+                {
+                    var req = Deserialize<CloseGameSessionPayload>(payload);
+                    if (req.WalletAmount < 0) throw new ArgumentException("walletAmount cannot be negative.");
+                    var invoiceId = await ResolveInvoiceIdAsync(req.InvoiceId, req.InvoiceOpId, createdInBatch, ct);
+                    return await _transactions.CloseGameSession(invoiceId, createdBy, ct, req.WalletAmount);
+                }
                 default:
                     throw new ArgumentException($"Unknown op type '{type}'.");
             }
         }
 
         /// <summary>
-        /// Invoices created offline only have a negative temp id on the client;
-        /// the follow-up ops carry the creating op's id instead. Resolve it from
-        /// this batch first, then from an earlier batch's stored response.
+        /// Invoices (F&amp;B orders and game sessions) created offline only have a
+        /// negative temp id on the client; the follow-up ops carry the creating
+        /// op's id instead. Resolve it from this batch first, then from an
+        /// earlier batch's stored response.
         /// </summary>
         private async Task<int> ResolveInvoiceIdAsync(int invoiceId, Guid? invoiceOpId, Dictionary<Guid, int> createdInBatch, CancellationToken ct)
         {
@@ -226,7 +247,7 @@ namespace Application.Services.Offline
 
         private static void RememberCreatedId(string type, Guid opId, JsonElement? body, Dictionary<Guid, int> createdInBatch)
         {
-            if (type != OfflineOpTypes.CreateCoffeeShopOrder) return;
+            if (!OfflineOpTypes.Creating.Contains(type, StringComparer.Ordinal)) return;
             var id = ExtractTransactionId(body);
             if (id > 0) createdInBatch[opId] = id;
         }

@@ -346,6 +346,102 @@ namespace Application.Services.Branches
             return new(true, null, $"{count} transaction(s) attributed to branch '{target.Name}'.", count);
         }
 
+        // ── Phase 3: legacy backfill over every branch-aware table ───────
+        /// <summary>
+        /// Tables POST api/branches/backfill can stamp, in the order they are
+        /// processed. StockOps_Locations is deliberately absent: there BranchId null
+        /// means "shared", not "legacy".
+        /// </summary>
+        public static readonly IReadOnlyList<string> BackfillTables = new[]
+        {
+            "transactions",
+            "Till_CashierShifts", "Till_PaymentTenders",
+            "Delivery_Orders",
+            "Floor_Reservations", "Floor_Tips",
+            "Hr_AttendanceRecords",
+            "StockOps_StockCounts", "StockOps_StockTransfers", "StockOps_StockBatches",
+            "Promo_Combos", "Promo_ComboApplications", "Promo_Coupons", "Promo_GiftCards", "Promo_HappyHourRules",
+        };
+
+        private Task<int> StampTableAsync(string table, int branchId, CancellationToken ct) => table switch
+        {
+            "transactions" => StampAsync<TransactionRecord>(branchId, ct),
+            "Till_CashierShifts" => StampAsync<CashierShift>(branchId, ct),
+            "Till_PaymentTenders" => StampAsync<PaymentTender>(branchId, ct),
+            "Delivery_Orders" => StampAsync<DeliveryOrder>(branchId, ct),
+            "Floor_Reservations" => StampAsync<Reservation>(branchId, ct),
+            "Floor_Tips" => StampAsync<Tip>(branchId, ct),
+            "Hr_AttendanceRecords" => StampAsync<AttendanceRecord>(branchId, ct),
+            "StockOps_StockCounts" => StampAsync<StockCount>(branchId, ct),
+            "StockOps_StockTransfers" => StampAsync<StockTransfer>(branchId, ct),
+            "StockOps_StockBatches" => StampAsync<StockBatch>(branchId, ct),
+            "Promo_Combos" => StampAsync<Combo>(branchId, ct),
+            "Promo_ComboApplications" => StampAsync<ComboApplication>(branchId, ct),
+            "Promo_Coupons" => StampAsync<Coupon>(branchId, ct),
+            "Promo_GiftCards" => StampAsync<GiftCard>(branchId, ct),
+            "Promo_HappyHourRules" => StampAsync<HappyHourRule>(branchId, ct),
+            _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Unknown backfill table")
+        };
+
+        /// <summary>
+        /// Sets BranchId on every row of T whose BranchId is null. Set-based on
+        /// relational providers (no interceptors / audit involved), tracked loop
+        /// on the in-memory provider used by tests.
+        /// </summary>
+        private async Task<int> StampAsync<T>(int branchId, CancellationToken ct) where T : class
+        {
+            var q = _db.Set<T>().Where(e => EF.Property<int?>(e, "BranchId") == null);
+            if (_db.Database.IsRelational())
+                return await q.ExecuteUpdateAsync(s => s.SetProperty(e => EF.Property<int?>(e, "BranchId"), branchId), ct);
+
+            var rows = await q.ToListAsync(ct);
+            foreach (var r in rows) _db.Entry(r).Property("BranchId").CurrentValue = branchId;
+            await _db.SaveChangesAsync(ct);
+            return rows.Count;
+        }
+
+        public async Task<BaseResponse<BranchBackfillResultDto>> BackfillAsync(int? branchId, string? tables, CancellationToken ct = default)
+        {
+            Branch? target;
+            if (branchId.HasValue)
+            {
+                target = await _db.Set<Branch>().AsNoTracking().FirstOrDefaultAsync(b => b.Id == branchId.Value, ct);
+                if (target is null) return new(false, "Branch not found.", "Not found");
+            }
+            else
+            {
+                target = await _db.Set<Branch>().AsNoTracking()
+                    .OrderByDescending(b => b.IsDefault).ThenBy(b => b.Id)
+                    .FirstOrDefaultAsync(b => b.IsDefault, ct);
+                if (target is null) return new(false, "No default branch exists; create one or pass branchId.", "Validation failed");
+            }
+
+            List<string> selected;
+            if (string.IsNullOrWhiteSpace(tables) || tables.Trim().Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                selected = BackfillTables.ToList();
+            }
+            else
+            {
+                selected = new List<string>();
+                foreach (var raw in tables.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var match = BackfillTables.FirstOrDefault(t => t.Equals(raw, StringComparison.OrdinalIgnoreCase));
+                    if (match is null)
+                        return new(false, $"Unknown table '{raw}'. Valid: all, {string.Join(", ", BackfillTables)}.", "Validation failed");
+                    if (!selected.Contains(match)) selected.Add(match);
+                }
+            }
+
+            var counts = new Dictionary<string, int>();
+            foreach (var table in selected) counts[table] = await StampTableAsync(table, target.Id, ct);
+            var total = counts.Values.Sum();
+
+            _logger.LogInformation("Backfilled BranchId={BranchId} on {Total} row(s) across {Tables} table(s) by {User}", target.Id, total, selected.Count, _user.UserName);
+            return new(true, null, $"{total} row(s) across {selected.Count} table(s) attributed to branch '{target.Name}'.",
+                new BranchBackfillResultDto(target.Id, target.Code, target.Name, selected, counts, total));
+        }
+
         public async Task<ConsolidatedDashboardDto> GetConsolidatedAsync(DateTime? from, DateTime? to, CancellationToken ct = default)
         {
             var today = BusinessDate.ToDay(DateTime.UtcNow);

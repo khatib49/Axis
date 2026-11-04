@@ -47,9 +47,7 @@ namespace Tests.Promotions
         private readonly ApplicationDbContext _db = PromoDb.New();
         public void Dispose() => _db.Dispose();
 
-        private GiftCardService Svc()
-            => new(_db, new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
-                new FakeUser(), NullLogger<GiftCardService>.Instance);
+        private GiftCardService Svc() => PromoAccounting.GiftCards(_db);
 
         [Fact]
         public async Task Redeem_debits_card_writes_ledger_and_reduces_open_invoice()

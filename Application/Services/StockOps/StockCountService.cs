@@ -9,10 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace Application.Services.StockOps
 {
     /// <summary>
-    /// Stocktake sheets. Posting a count at the DEFAULT location updates
+    /// Stocktake sheets. Posting a count at the GLOBAL default location updates
     /// Ingredient.QuantityOnHand and writes an Adjustment StockMovement per
     /// non-zero variance (same contract as IngredientService.AdjustStock).
-    /// At any other location only the LocationStock rows move.
+    /// At any other location (including a branch default) only the
+    /// LocationStock rows move.
     /// </summary>
     public class StockCountService : IStockCountService
     {
@@ -33,6 +34,9 @@ namespace Application.Services.StockOps
             var q = _db.Set<StockCount>().AsNoTracking();
             if (!string.IsNullOrWhiteSpace(status)) q = q.Where(c => c.Status == status);
             if (locationId.HasValue) q = q.Where(c => c.LocationId == locationId.Value);
+            // Branch scope: hide stocktakes held at another branch's locations.
+            var foreign = await StockOpsSupport.OtherBranchLocationIdsAsync(_db, _user.BranchId, ct);
+            if (foreign.Count > 0) q = q.Where(c => !foreign.Contains(c.LocationId));
 
             var total = await q.CountAsync(ct);
             var rows = await q.OrderByDescending(c => c.Id)
@@ -73,7 +77,8 @@ namespace Application.Services.StockOps
             }
             else
             {
-                loc = await StockOpsSupport.EnsureDefaultLocationAsync(_db, _user.BranchId, ct);
+                // No location given: the caller's branch default (lazily created), else the global default.
+                loc = await StockOpsSupport.GetDefaultLocationAsync(_db, _user.BranchId, ct);
             }
 
             if (await _db.Set<StockCount>().AnyAsync(c => c.LocationId == loc.Id && c.Status == StockOpsSupport.StatusDraft, ct))
@@ -166,7 +171,7 @@ namespace Application.Services.StockOps
 
                 if (line.Variance == 0m) continue;
 
-                if (loc.IsDefault)
+                if (StockOpsSupport.MirrorsIngredient(loc))
                 {
                     ing.QuantityOnHand = Math.Round(ing.QuantityOnHand + line.Variance, 3);
                     ing.ModifiedOn = now;

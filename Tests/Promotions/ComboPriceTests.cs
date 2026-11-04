@@ -26,9 +26,7 @@ namespace Tests.Promotions
         private readonly ApplicationDbContext _db = PromoDb.New();
         public void Dispose() => _db.Dispose();
 
-        private PromotionAutoApplyService AutoApply() => new(_db,
-            new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance),
-            new FakeUser(), NullLogger<PromotionAutoApplyService>.Instance);
+        private PromotionAutoApplyService AutoApply() => PromoAccounting.AutoApply(_db);
 
         private static TransactionDto Dto(int id, decimal total) => new(
             id, null, "", null, "", null, "", null, "", 0, total, 7, DateTime.UtcNow, null, "seed",

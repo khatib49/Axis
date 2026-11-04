@@ -72,4 +72,10 @@ namespace Application.DTOs
         string AttributionNote,
         IReadOnlyList<BranchKpiDto> Branches,
         BranchKpiDto Total);
+
+    /// <summary>
+    /// Result of POST api/branches/backfill: rows stamped per table (table name =>
+    /// number of rows whose BranchId was null and is now BranchId).
+    /// </summary>
+    public record BranchBackfillResultDto(int BranchId, string BranchCode, string BranchName, IReadOnlyList<string> Tables, Dictionary<string, int> Counts, int Total);
 }

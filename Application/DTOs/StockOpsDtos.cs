@@ -168,4 +168,56 @@ namespace Application.DTOs
     );
 
     public record StockBatchFilterDto(int? IngredientId = null, bool? OnlyWithRemaining = null, int Page = 1, int PageSize = 25);
+
+    // ─── Branch stock positions (phase 3) ─────────────────────────────────
+    /// <summary>
+    /// One ingredient at one branch. DefaultQty = quantity at the branch's default
+    /// location, OtherQty = sum over the branch's other locations, TotalQty = both.
+    /// BelowLevel = TotalQty &lt;= ReorderLevel (rule MinQty, else Ingredient.ReorderLevel),
+    /// same convention as the reorder suggestions. Value = TotalQty x BuyPricePerUnit.
+    /// </summary>
+    public record BranchStockLineDto(
+        int IngredientId,
+        string IngredientName,
+        string Unit,
+        decimal DefaultQty,
+        decimal OtherQty,
+        decimal TotalQty,
+        decimal? ReorderLevel,
+        bool BelowLevel,
+        decimal? UnitCost,
+        decimal Value
+    );
+
+    /// <summary>BranchId null = the shared scope (global "Main" + shared locations).</summary>
+    public record BranchStockPositionDto(
+        int? BranchId,
+        string BranchCode,
+        string BranchName,
+        int DefaultLocationId,
+        string DefaultLocationName,
+        List<StockLocationDto> OtherLocations,
+        int BelowLevelCount,
+        decimal TotalValue,
+        List<BranchStockLineDto> Lines
+    );
+
+    public record StockPositionColumnDto(int? BranchId, string Code, string Name, int DefaultLocationId, string DefaultLocationName, decimal TotalValue, int BelowLevelCount);
+    public record StockPositionCellDto(int? BranchId, decimal Qty, bool BelowLevel, decimal Value);
+    public record StockPositionRowDto(
+        int IngredientId,
+        string IngredientName,
+        string Unit,
+        decimal? ReorderLevel,
+        decimal? UnitCost,
+        List<StockPositionCellDto> Cells,
+        decimal TotalQty,
+        decimal TotalValue
+    );
+    /// <summary>All branches side by side; Columns[0] is always the shared scope (BranchId null).</summary>
+    public record StockPositionsDto(List<StockPositionColumnDto> Columns, List<StockPositionRowDto> Rows, decimal TotalValue);
+
+    public record ReceiveToLocationDto(int PurchaseId, int LocationId, string? Notes = null);
+    /// <summary>AlreadyReceived = the purchase had been received before; Transfer is the existing one.</summary>
+    public record ReceiveToLocationResultDto(int PurchaseId, int LocationId, string LocationName, bool AlreadyReceived, StockTransferDto Transfer);
 }

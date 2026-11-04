@@ -32,18 +32,23 @@ namespace Application.Services.Promotions
     {
         private readonly ApplicationDbContext _db;
         private readonly IPromotionInvoiceAdjuster _adjuster;
+        private readonly IPromotionAccountingService _accounting;
         private readonly ICurrentUserAccessor _user;
         private readonly ILogger<PromotionAutoApplyService> _logger;
         private readonly TimeZoneInfo _tz = HappyHourEngine.VenueTimeZone();
 
         public PromotionAutoApplyService(ApplicationDbContext db, IPromotionInvoiceAdjuster adjuster,
-            ICurrentUserAccessor user, ILogger<PromotionAutoApplyService> logger)
+            IPromotionAccountingService accounting, ICurrentUserAccessor user, ILogger<PromotionAutoApplyService> logger)
         {
             _db = db;
             _adjuster = adjuster;
+            _accounting = accounting;
             _user = user;
             _logger = logger;
         }
+
+        /// <summary>A delta booked by this pass whose ledger posting runs after the single SaveChanges (row ids exist then).</summary>
+        private sealed record PendingPost(string Kind, Func<int> ReferenceId, int Sequence, decimal Delta);
 
         public async Task<BaseResponse<AutoApplyResultDto>> ApplyAsync(int transactionId, string? actor = null, CancellationToken ct = default)
         {
@@ -64,11 +69,33 @@ namespace Application.Services.Promotions
 
             var totalBefore = trx.TotalPrice;
             var messages = new List<string>();
+            var posts = new List<PendingPost>();
 
-            var happyHour = await EvaluateHappyHourAsync(trx, lines, by, messages, ct);
-            var combos = await EvaluateCombosAsync(trx, lines, by, messages, ct);
+            var happyHour = await EvaluateHappyHourAsync(trx, lines, by, messages, posts, ct);
+            var combos = await EvaluateCombosAsync(trx, lines, by, messages, posts, ct);
 
             await _db.SaveChangesAsync(ct);
+
+            // Phase 3: contra-revenue postings for every delta booked above. A
+            // failure (locked period…) is surfaced in Messages and left pending;
+            // the discounts on the invoice stand.
+            foreach (var p in posts)
+            {
+                try
+                {
+                    var post = await _accounting.OnPromotionDiscountAsync(p.Kind, p.ReferenceId(), p.Sequence, trx.Id, p.Delta, ct);
+                    if (!post.Success)
+                    {
+                        _logger.LogWarning("{Kind} accounting posting deferred on invoice {TxId}: {Error}", p.Kind, trx.Id, post.Error);
+                        messages.Add($"Accounting pending for {p.Kind}: {post.Error}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "{Kind} accounting posting failed on invoice {TxId}", p.Kind, trx.Id);
+                    messages.Add($"Accounting pending for {p.Kind}: {ex.Message}");
+                }
+            }
 
             var changed = (happyHour?.Delta ?? 0m) != 0m || combos.Any(c => c.Delta != 0m);
             if (changed)
@@ -112,7 +139,7 @@ namespace Application.Services.Promotions
 
         // ── happy hour ─────────────────────────────────────────────────────
         private async Task<AutoApplyHappyHourDto?> EvaluateHappyHourAsync(
-            TransactionRecord trx, List<PromoLine> lines, string by, List<string> messages, CancellationToken ct)
+            TransactionRecord trx, List<PromoLine> lines, string by, List<string> messages, List<PendingPost> posts, CancellationToken ct)
         {
             var app = await _db.Set<HappyHourApplication>().Include(a => a.Rule)
                 .FirstOrDefaultAsync(a => a.TransactionId == trx.Id, ct);
@@ -163,6 +190,8 @@ namespace Application.Services.Promotions
             app.Version = version;
             app.On = DateTime.UtcNow;
             app.By = by;
+            var hhApp = app;
+            posts.Add(new PendingPost("HappyHour", () => hhApp.Id, version, delta));
 
             messages.Add(delta < 0
                 ? $"Happy hour '{rule.Name}': {-delta:F2} off (total discount {desired:F2})."
@@ -172,7 +201,7 @@ namespace Application.Services.Promotions
 
         // ── combos ─────────────────────────────────────────────────────────
         private async Task<List<AutoApplyComboDto>> EvaluateCombosAsync(
-            TransactionRecord trx, List<PromoLine> lines, string by, List<string> messages, CancellationToken ct)
+            TransactionRecord trx, List<PromoLine> lines, string by, List<string> messages, List<PendingPost> posts, CancellationToken ct)
         {
             var apps = await _db.Set<ComboApplication>().Include(a => a.Combo)
                 .Where(a => a.TransactionId == trx.Id).ToListAsync(ct);
@@ -253,6 +282,8 @@ namespace Application.Services.Promotions
                 app.Version = version;
                 app.On = DateTime.UtcNow;
                 app.By = by;
+                var comboApp = app;
+                posts.Add(new PendingPost("Combo", () => comboApp.Id, version, delta));
 
                 messages.Add(delta < 0
                     ? $"Combo '{combo.Name}' × {sets}: {-delta:F2} off (total saving {target:F2})."

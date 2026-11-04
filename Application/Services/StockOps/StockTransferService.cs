@@ -9,10 +9,12 @@ using Microsoft.Extensions.Logging;
 namespace Application.Services.StockOps
 {
     /// <summary>
-    /// Inter-location transfers. Leaving the default location writes a
+    /// Inter-location transfers. Leaving the GLOBAL default location writes a
     /// negative Adjustment movement ("Transfer to X") and lowers
-    /// Ingredient.QuantityOnHand; arriving at the default location writes a
-    /// positive one ("Transfer from X"). Other locations move LocationStock only.
+    /// Ingredient.QuantityOnHand; arriving at it writes a positive one
+    /// ("Transfer from X"). Every other location — branch defaults included —
+    /// moves LocationStock only. Moving stock Main -> "Main – CODE" is how a
+    /// branch receives stock.
     /// </summary>
     public class StockTransferService : IStockTransferService
     {
@@ -33,6 +35,16 @@ namespace Application.Services.StockOps
             var q = _db.Set<StockTransfer>().AsNoTracking().Include(t => t.Lines).AsQueryable();
             if (!string.IsNullOrWhiteSpace(status)) q = q.Where(t => t.Status == status);
             if (locationId.HasValue) q = q.Where(t => t.FromLocationId == locationId.Value || t.ToLocationId == locationId.Value);
+            // Branch scope: a transfer is visible when neither end belongs to another branch
+            // (own + shared locations), or when one end is one of the branch's own locations.
+            var branchId = _user.BranchId;
+            if (branchId.HasValue)
+            {
+                var foreign = await StockOpsSupport.OtherBranchLocationIdsAsync(_db, branchId, ct);
+                var own = await _db.Set<StockLocation>().AsNoTracking().Where(l => l.BranchId == branchId.Value).Select(l => l.Id).ToListAsync(ct);
+                q = q.Where(t => own.Contains(t.FromLocationId) || own.Contains(t.ToLocationId)
+                              || (!foreign.Contains(t.FromLocationId) && !foreign.Contains(t.ToLocationId)));
+            }
 
             var total = await q.CountAsync(ct);
             var rows = await q.OrderByDescending(t => t.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
@@ -140,7 +152,7 @@ namespace Application.Services.StockOps
                 var unitCost = ing.BuyPricePerUnit;
 
                 // Source side
-                if (from.IsDefault)
+                if (StockOpsSupport.MirrorsIngredient(from))
                 {
                     ing.QuantityOnHand = Math.Round(ing.QuantityOnHand - line.Quantity, 3);
                     ing.ModifiedOn = now;
@@ -165,7 +177,7 @@ namespace Application.Services.StockOps
                 }
 
                 // Destination side
-                if (to.IsDefault)
+                if (StockOpsSupport.MirrorsIngredient(to))
                 {
                     ing.QuantityOnHand = Math.Round(ing.QuantityOnHand + line.Quantity, 3);
                     ing.ModifiedOn = now;

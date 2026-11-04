@@ -12,14 +12,16 @@ namespace Application.Services.Promotions
     {
         private readonly ApplicationDbContext _db;
         private readonly IPromotionInvoiceAdjuster _adjuster;
+        private readonly IPromotionAccountingService _accounting;
         private readonly ICurrentUserAccessor _user;
         private readonly ILogger<CouponService> _logger;
 
         public CouponService(ApplicationDbContext db, IPromotionInvoiceAdjuster adjuster,
-            ICurrentUserAccessor user, ILogger<CouponService> logger)
+            IPromotionAccountingService accounting, ICurrentUserAccessor user, ILogger<CouponService> logger)
         {
             _db = db;
             _adjuster = adjuster;
+            _accounting = accounting;
             _user = user;
             _logger = logger;
         }
@@ -234,7 +236,26 @@ namespace Application.Services.Promotions
             await _db.SaveChangesAsync(ct);
 
             _logger.LogInformation("Coupon {Code} redeemed on invoice {TxId} for {Amount}", c.Code, trx.Id, ev.DiscountAmount);
-            return new BaseResponse<CouponRedeemResultDto>(true, null, "Coupon applied",
+
+            // Phase 3: contra-revenue posting AFTER the redemption is saved; a
+            // failure is reported in the message, never rolled back.
+            var message = "Coupon applied";
+            try
+            {
+                var post = await _accounting.OnPromotionDiscountAsync("Coupon", redemption.Id, 1, trx.Id, -ev.DiscountAmount, ct);
+                if (!post.Success)
+                {
+                    _logger.LogWarning("Coupon accounting posting deferred: {Error}", post.Error);
+                    message = $"Coupon applied (accounting pending: {post.Error})";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Coupon accounting posting failed");
+                message = $"Coupon applied (accounting pending: {ex.Message})";
+            }
+
+            return new BaseResponse<CouponRedeemResultDto>(true, null, message,
                 new CouponRedeemResultDto(c.Code, trx.Id, ev.DiscountAmount, adj.OldTotal, adj.NewTotal, redemption.Id));
         }
     }

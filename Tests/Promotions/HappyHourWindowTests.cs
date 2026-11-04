@@ -96,7 +96,7 @@ namespace Tests.Promotions
             await _db.SaveChangesAsync();
 
             var adjuster = new PromotionInvoiceAdjuster(_db, new FakeUser(), NullLogger<PromotionInvoiceAdjuster>.Instance);
-            var auto = new PromotionAutoApplyService(_db, adjuster, new FakeUser(), NullLogger<PromotionAutoApplyService>.Instance);
+            var auto = PromoAccounting.AutoApply(_db);
             var svc = new HappyHourService(_db, auto, new FakeUser(), NullLogger<HappyHourService>.Instance);
 
             (await svc.ActiveNowAsync()).Rules.Should().HaveCount(1);

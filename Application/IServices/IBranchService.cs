@@ -24,5 +24,12 @@ namespace Application.IServices
 
         /// <summary>Sets BranchId on every transaction that has none (default: the default branch). Returns the row count.</summary>
         Task<BaseResponse<int>> BackfillTransactionsAsync(int? branchId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Phase 3: stamps BranchId on every legacy row (BranchId null) of the phase-1/2
+        /// branch-aware tables. tables = "all" (default) or a comma-separated subset of
+        /// <c>BranchService.BackfillTables</c>. Returns the count per table.
+        /// </summary>
+        Task<BaseResponse<BranchBackfillResultDto>> BackfillAsync(int? branchId, string? tables, CancellationToken ct = default);
     }
 }

@@ -17,6 +17,7 @@ namespace Application.Modules
             services.AddScoped<IStockTransferService, StockTransferService>();
             services.AddScoped<IReorderService, ReorderService>();
             services.AddScoped<IStockBatchService, StockBatchService>();
+            services.AddScoped<IBranchStockService, BranchStockService>();
             services.AddScoped<StockOpsJobs>();
             return services;
         }

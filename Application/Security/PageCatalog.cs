@@ -144,7 +144,7 @@
                 new[] { "ExpenseCategoryController" }, None),
 
             // ── Food & beverage till ────────────────────────────────────
-            new PageDefinition("cashier-items", "Items (till)", "Till", "/cashier/items", FoodTill.Concat(new[] { "PromotionsAutoApplyController", "DisplaysController" }).ToArray(), new[] { "cashier" }),
+            new PageDefinition("cashier-items", "Items (till)", "Till", "/cashier/items", FoodTill.Concat(new[] { "PromotionsAutoApplyController", "DisplaysController", "BarcodesController", "SerialsController" }).ToArray(), new[] { "cashier" }),
             new PageDefinition("cashier-orders", "Orders (till)", "Till", "/cashier/orders",
                 new[] { "TransactionsController", "KitchenController" }, new[] { "cashier" }),
             new PageDefinition("open-invoices", "Open Items Invoice", "Till", "/cashier/open-invoices",
@@ -188,6 +188,10 @@
             new PageDefinition("stockops-transfers", "Stock Transfers", "Stock Management", "/stock/transfers", new[] { "StockTransfersController" }, Stock),
             new PageDefinition("stockops-reorder", "Reorder Suggestions", "Stock Management", "/stock/reorder", new[] { "ReorderController" }, Stock),
             new PageDefinition("stockops-batches", "Batches & Expiry", "Stock Management", "/stock/batches", new[] { "StockBatchesController" }, Stock),
+            new PageDefinition("stockops-positions", "Branch Stock Positions", "Stock Management", "/stock/positions", new[] { "BranchStockController", "StockLocationsController", "StockTransfersController" }, Stock),
+            new PageDefinition("retail-barcodes", "Barcodes", "Inventory Management", "/admin/retail/barcodes", new[] { "BarcodesController" }, None),
+            new PageDefinition("retail-labels", "Barcode Labels", "Inventory Management", "/admin/retail/labels", new[] { "BarcodesController" }, None),
+            new PageDefinition("retail-serials", "Serial Numbers", "Inventory Management", "/admin/retail/serials", new[] { "SerialsController" }, None),
 
             // ── Floor, tables & reservations ───────────────────────────
             new PageDefinition("floor-plan", "Floor Plan", "Venue", "/admin/floor-plan", new[] { "FloorController" }, None),
@@ -237,6 +241,7 @@
             new PageDefinition("promo-coupons", "Coupons", "Promotions", "/admin/promotions/coupons", new[] { "CouponsController" }, None),
             new PageDefinition("promo-happyhours", "Happy Hours", "Promotions", "/admin/promotions/happy-hours", new[] { "HappyHourController" }, None),
             new PageDefinition("promo-combos", "Combos", "Promotions", "/admin/promotions/combos", new[] { "CombosController" }, None),
+            new PageDefinition("promo-accounting", "Promotion Accounting", "Promotions", "/admin/promotions/accounting", new[] { "PromotionAccountingController" }, None),
             new PageDefinition("till-coupon-apply", "Apply Coupon", "Till", "/cashier/coupon", new[] { "CouponsController", "GiftCardsController", "HappyHourController", "CombosController", "PromotionsAutoApplyController" }, TillRoles),
 
             // ── Branches & BI ──────────────────────────────────────────

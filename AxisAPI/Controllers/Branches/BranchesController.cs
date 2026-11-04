@@ -99,6 +99,22 @@ namespace AxisAPI.Controllers.Branches
             Ok(await _svc.GetConsolidatedAsync(from, to, ct));
 
         /// <summary>
+        /// Phase 3: stamp BranchId on every legacy row of the branch-aware tables
+        /// (transactions, Till_*, Delivery_Orders, Floor_Reservations/Tips,
+        /// Hr_AttendanceRecords, StockOps_*, Promo_*). ?branchId= (default: the
+        /// default branch), ?tables=all|comma,separated. Returns counts per table.
+        /// The older backfill-transactions endpoint keeps working unchanged.
+        /// </summary>
+        [HttpPost("backfill")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> Backfill([FromQuery] int? branchId, [FromQuery] string? tables = "all", CancellationToken ct = default)
+        {
+            var r = await _svc.BackfillAsync(branchId, tables, ct);
+            if (r.Success) return Ok(r);
+            return r.Message == "Not found" ? NotFound(r) : BadRequest(r);
+        }
+
+        /// <summary>
         /// Admin one-off: stamp BranchId on every legacy transaction that has none.
         /// ?branchId= (default: the default branch). Returns BaseResponse&lt;int&gt; with the count.
         /// </summary>

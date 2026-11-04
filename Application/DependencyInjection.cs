@@ -129,6 +129,8 @@ namespace Application
             services.AddPaymentsModule();          // phase 2: Whish invoice payments + customer displays
             services.AddMenuEngineeringModule();   // phase 2: recipe costing / menu engineering
             services.AddMarketingModule();         // phase 3: segments and campaigns
+            services.AddRetailModule();            // phase 3: barcodes and serial numbers
+            services.AddShop2Module();             // phase 3: storefront catalog endpoints
 
             return services;
         }

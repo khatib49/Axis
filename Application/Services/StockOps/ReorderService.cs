@@ -1,3 +1,4 @@
+using Application.Common;
 using Application.DTOs;
 using Application.IServices;
 using Domain.Entities;
@@ -12,19 +13,32 @@ namespace Application.Services.StockOps
     /// rule's MinQty, or Ingredient.ReorderLevel when it has no rule.
     ///   suggested = TargetQty - qty            (rule)
     ///   suggested = 2 * ReorderLevel - qty     (no rule)
+    /// With an X-Branch-Id header the quantity is what that branch holds
+    /// (its default location plus its other locations) instead of the global
+    /// Ingredient.QuantityOnHand, so a branch sees what IT needs to pull in.
     /// </summary>
     public class ReorderService : IReorderService
     {
         private readonly ApplicationDbContext _db;
+        private readonly ICurrentUserAccessor? _user;
 
-        public ReorderService(ApplicationDbContext db) { _db = db; }
+        public ReorderService(ApplicationDbContext db, ICurrentUserAccessor? user = null) { _db = db; _user = user; }
 
         public async Task<List<ReorderSuggestionDto>> GetSuggestionsAsync(CancellationToken ct = default)
         {
-            var ingredients = await _db.Set<Ingredient>().AsNoTracking()
+            var raw = await _db.Set<Ingredient>().AsNoTracking()
                 .Where(i => i.IsActive)
                 .Select(i => new { i.Id, i.Name, i.Unit, i.QuantityOnHand, i.ReorderLevel, i.BuyPricePerUnit })
                 .ToListAsync(ct);
+
+            var branchId = _user?.BranchId;
+            var branchQty = branchId.HasValue ? await BranchQuantitiesAsync(branchId.Value, ct) : null;
+            var ingredients = raw.Select(i => new
+            {
+                i.Id, i.Name, i.Unit,
+                QuantityOnHand = branchQty == null ? i.QuantityOnHand : branchQty.GetValueOrDefault(i.Id, 0m),
+                i.ReorderLevel, i.BuyPricePerUnit
+            }).ToList();
 
             var rules = await _db.Set<ReorderRule>().AsNoTracking()
                 .Where(r => r.IsActive)
@@ -87,6 +101,20 @@ namespace Application.Services.StockOps
             }
 
             return result.OrderByDescending(r => r.EstimatedCost).ThenBy(r => r.IngredientName).ToList();
+        }
+
+        /// <summary>Sum of LocationStock over every location of the branch (its default included).</summary>
+        private async Task<Dictionary<int, decimal>> BranchQuantitiesAsync(int branchId, CancellationToken ct)
+        {
+            var locIds = await _db.Set<StockLocation>().AsNoTracking()
+                .Where(l => l.BranchId == branchId).Select(l => l.Id).ToListAsync(ct);
+            if (locIds.Count == 0) return new Dictionary<int, decimal>();
+            var rows = await _db.Set<LocationStock>().AsNoTracking()
+                .Where(s => locIds.Contains(s.LocationId))
+                .GroupBy(s => s.IngredientId)
+                .Select(g => new { g.Key, Qty = g.Sum(x => x.Quantity) })
+                .ToListAsync(ct);
+            return rows.ToDictionary(r => r.Key, r => r.Qty);
         }
 
         public async Task<List<ReorderRuleDto>> ListRulesAsync(CancellationToken ct = default)

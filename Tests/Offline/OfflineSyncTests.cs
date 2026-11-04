@@ -70,6 +70,26 @@ namespace Tests.Offline
         private Task<OfflineSyncResponse> Sync(params OfflineOpRequest[] ops)
             => _svc.SyncAsync(new OfflineSyncRequest("till-1", ops.ToList()), "cashier@axis", 3);
 
+        private static object GameCreatePayload(int gameId = 1, int settingId = 1, int hours = 1, int setId = 1, int persons = 1, int discountId = 0) => new
+        {
+            gameId,
+            gameSettingId = settingId,
+            hours,
+            status = 1,
+            setId,
+            discountId,
+            userId = (int?)null,
+            numberOfPersons = persons,
+            isDayPass = false,
+            comment = "offline start",
+        };
+
+        private void GameCreateReturns(int id, int statusId = 7) =>
+            _tx.Setup(t => t.CreateGameSession(
+                    It.IsAny<int?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), "cashier@axis",
+                    It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<string>()))
+                .ReturnsAsync(Ok(Tx(id, statusId)));
+
         private void CreateReturns(int id, bool open = false) =>
             _tx.Setup(t => t.CreateCoffeeShopOrder(
                     It.IsAny<int?>(), It.IsAny<int>(), It.IsAny<List<OrderItemRequest>>(), "cashier@axis",
@@ -231,6 +251,103 @@ namespace Tests.Offline
             r.Results[0].Outcome.Should().Be(OfflineOpOutcomes.Failed);
             r.Results[0].Status.Should().Be(400);
             _db.Set<IdempotencyRecord>().Should().BeEmpty();
+        }
+
+        // ── game sessions (phase 3) ──────────────────────────────────────
+
+        [Fact]
+        public async Task Game_session_create_and_close_in_one_batch_call_the_existing_services_with_the_payload_fields()
+        {
+            _tx.Setup(t => t.CreateGameSession(null, 1, 2, 3, 1, "cashier@axis", 4, 5, It.IsAny<CancellationToken>(), 2, false, "offline start"))
+                .ReturnsAsync(Ok(Tx(900, 7)));
+            _tx.Setup(t => t.CloseGameSession(900, "cashier@axis", It.IsAny<CancellationToken>(), 2.5m))
+                .ReturnsAsync(Ok(Tx(900, 6)));
+
+            var createOp = Guid.NewGuid();
+            var r = await Sync(
+                Op(createOp, OfflineOpTypes.CreateGameSession, GameCreatePayload(gameId: 1, settingId: 2, hours: 3, setId: 4, persons: 2, discountId: 5)),
+                Op(Guid.NewGuid(), OfflineOpTypes.CloseGameSession, new { invoiceId = -7, invoiceOpId = createOp, walletAmount = 2.5 }));
+
+            r.Results.Should().HaveCount(2);
+            r.Results.Select(x => x.Outcome).Should().AllBe(OfflineOpOutcomes.Ok);
+            r.Results[0].Result!.Value.GetProperty("data").GetProperty("id").GetInt32().Should().Be(900);
+            r.Results[1].Result!.Value.GetProperty("data").GetProperty("statusId").GetInt32().Should().Be(6);
+            _tx.VerifyAll();
+
+            _db.Set<IdempotencyRecord>().Select(x => x.Endpoint).Should()
+                .BeEquivalentTo(new[] { OfflineOpTypes.CreateGameSession, OfflineOpTypes.CloseGameSession });
+        }
+
+        [Fact]
+        public async Task Replaying_a_game_session_batch_returns_stored_responses_and_creates_nothing_new()
+        {
+            GameCreateReturns(901);
+            _tx.Setup(t => t.CloseGameSession(901, "cashier@axis", It.IsAny<CancellationToken>(), 0m))
+                .ReturnsAsync(Ok(Tx(901, 6)));
+            var createOp = Guid.NewGuid();
+            var ops = new[]
+            {
+                Op(createOp, OfflineOpTypes.CreateGameSession, GameCreatePayload()),
+                Op(Guid.NewGuid(), OfflineOpTypes.CloseGameSession, new { invoiceId = -1, invoiceOpId = createOp }),
+            };
+
+            var first = await Sync(ops);
+            var second = await Sync(ops);
+
+            first.Results.Select(x => x.Outcome).Should().AllBe(OfflineOpOutcomes.Ok);
+            second.Results.Select(x => x.Outcome).Should().AllBe(OfflineOpOutcomes.Replayed);
+            second.Results[0].Result!.Value.GetRawText().Should().Be(first.Results[0].Result!.Value.GetRawText());
+            second.Results[1].Result!.Value.GetRawText().Should().Be(first.Results[1].Result!.Value.GetRawText());
+
+            _tx.Verify(t => t.CreateGameSession(
+                It.IsAny<int?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(),
+                It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<string>()), Times.Once);
+            _tx.Verify(t => t.CloseGameSession(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<decimal>()), Times.Once);
+            _db.Set<IdempotencyRecord>().Count().Should().Be(2);
+        }
+
+        [Fact]
+        public async Task A_game_session_started_offline_can_be_closed_in_a_later_batch_through_its_create_opId()
+        {
+            GameCreateReturns(902);
+            _tx.Setup(t => t.CloseGameSession(902, "cashier@axis", It.IsAny<CancellationToken>(), 0m))
+                .ReturnsAsync(Ok(Tx(902, 6)));
+            var createOp = Guid.NewGuid();
+
+            var r1 = await Sync(Op(createOp, OfflineOpTypes.CreateGameSession, GameCreatePayload()));
+            // a fresh service instance would resolve from the stored record the same way: the in-batch map is empty here
+            var r2 = await Sync(Op(Guid.NewGuid(), OfflineOpTypes.CloseGameSession, new { invoiceId = -55, invoiceOpId = createOp }));
+
+            r1.Results[0].Outcome.Should().Be(OfflineOpOutcomes.Ok);
+            r2.Results[0].Outcome.Should().Be(OfflineOpOutcomes.Ok);
+            _tx.Verify(t => t.CloseGameSession(902, "cashier@axis", It.IsAny<CancellationToken>(), 0m), Times.Once);
+        }
+
+        [Fact]
+        public async Task Game_session_payload_validation_and_same_opId_conflict_follow_the_order_rules()
+        {
+            GameCreateReturns(903);
+            var opId = Guid.NewGuid();
+
+            var bad = await Sync(
+                Op(Guid.NewGuid(), OfflineOpTypes.CreateGameSession, new { gameId = 0, gameSettingId = 1, hours = 1 }),
+                Op(Guid.NewGuid(), OfflineOpTypes.CloseGameSession, new { invoiceId = -3, invoiceOpId = Guid.NewGuid() }),
+                Op(opId, OfflineOpTypes.CreateGameSession, GameCreatePayload(hours: 1)));
+            var conflict = await Sync(Op(opId, OfflineOpTypes.CreateGameSession, GameCreatePayload(hours: 2)));
+
+            bad.Results[0].Outcome.Should().Be(OfflineOpOutcomes.Failed);
+            bad.Results[0].Status.Should().Be(400);
+            bad.Results[0].Error.Should().Contain("gameId");
+            bad.Results[1].Outcome.Should().Be(OfflineOpOutcomes.Failed);
+            bad.Results[1].Error.Should().Contain("not been created");
+            bad.Results[2].Outcome.Should().Be(OfflineOpOutcomes.Ok);
+            conflict.Results[0].Outcome.Should().Be(OfflineOpOutcomes.Conflict);
+            conflict.Results[0].Status.Should().Be(409);
+
+            _tx.Verify(t => t.CreateGameSession(
+                It.IsAny<int?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(),
+                It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<string>()), Times.Once);
+            _db.Set<IdempotencyRecord>().Count().Should().Be(1);
         }
 
         [Fact]

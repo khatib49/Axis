@@ -33,6 +33,7 @@ namespace Application.Services.StockOps
             var q = _db.Set<StockBatch>().AsNoTracking();
             if (filter.IngredientId.HasValue) q = q.Where(b => b.IngredientId == filter.IngredientId.Value);
             if (filter.OnlyWithRemaining == true) q = q.Where(b => b.RemainingQuantity > 0);
+            q = Scoped(q);
 
             var total = await q.CountAsync(ct);
             var rows = await q.OrderBy(b => b.ExpiresOn == null).ThenBy(b => b.ExpiresOn).ThenByDescending(b => b.Id)
@@ -109,7 +110,7 @@ namespace Application.Services.StockOps
             days = Math.Clamp(days, 0, 365);
             var today = DateTime.UtcNow.Date;
             var limit = today.AddDays(days + 1); // exclusive: whole last day included
-            var rows = await _db.Set<StockBatch>().AsNoTracking()
+            var rows = await Scoped(_db.Set<StockBatch>().AsNoTracking())
                 .Where(b => b.RemainingQuantity > 0 && b.ExpiresOn != null && b.ExpiresOn >= today && b.ExpiresOn < limit)
                 .OrderBy(b => b.ExpiresOn).ThenBy(b => b.Id)
                 .ToListAsync(ct);
@@ -119,11 +120,18 @@ namespace Application.Services.StockOps
         public async Task<List<StockBatchDto>> GetExpiredAsync(CancellationToken ct = default)
         {
             var today = DateTime.UtcNow.Date;
-            var rows = await _db.Set<StockBatch>().AsNoTracking()
+            var rows = await Scoped(_db.Set<StockBatch>().AsNoTracking())
                 .Where(b => b.RemainingQuantity > 0 && b.ExpiresOn != null && b.ExpiresOn < today)
                 .OrderBy(b => b.ExpiresOn).ThenBy(b => b.Id)
                 .ToListAsync(ct);
             return await ToDtosAsync(rows, ct);
+        }
+
+        /// <summary>X-Branch-Id => that branch's batches plus shared (BranchId null) ones; no header => everything.</summary>
+        private IQueryable<StockBatch> Scoped(IQueryable<StockBatch> q)
+        {
+            var branchId = _user.BranchId;
+            return branchId.HasValue ? q.Where(b => b.BranchId == null || b.BranchId == branchId.Value) : q;
         }
 
         public async Task<BaseResponse<StockBatchDto>> WriteOffExpiredAsync(int id, string? notes, CancellationToken ct = default)

@@ -17,14 +17,16 @@ namespace Application.Services.Promotions
 
         private readonly ApplicationDbContext _db;
         private readonly IPromotionInvoiceAdjuster _adjuster;
+        private readonly IPromotionAccountingService _accounting;
         private readonly ICurrentUserAccessor _user;
         private readonly ILogger<GiftCardService> _logger;
 
         public GiftCardService(ApplicationDbContext db, IPromotionInvoiceAdjuster adjuster,
-            ICurrentUserAccessor user, ILogger<GiftCardService> logger)
+            IPromotionAccountingService accounting, ICurrentUserAccessor user, ILogger<GiftCardService> logger)
         {
             _db = db;
             _adjuster = adjuster;
+            _accounting = accounting;
             _user = user;
             _logger = logger;
         }
@@ -69,9 +71,9 @@ namespace Application.Services.Promotions
         private static GiftCardTransactionDto ToDto(GiftCardTransaction t) => new(
             t.Id, t.GiftCardId, t.Type, t.Amount, t.TransactionId, t.BalanceAfter, t.On, t.By, t.Note);
 
-        private void AddLedger(GiftCard card, string type, decimal amount, int? transactionId, string? note)
+        private GiftCardTransaction AddLedger(GiftCard card, string type, decimal amount, int? transactionId, string? note)
         {
-            card.Transactions.Add(new GiftCardTransaction
+            var row = new GiftCardTransaction
             {
                 GiftCard = card,
                 Type = type,
@@ -81,7 +83,31 @@ namespace Application.Services.Promotions
                 On = DateTime.UtcNow,
                 By = _user.UserName,
                 Note = note,
-            });
+            };
+            card.Transactions.Add(row);
+            return row;
+        }
+
+        /// <summary>
+        /// Phase 3: ledger posting AFTER the card movement is saved. A failure
+        /// (locked period, missing account) is logged and appended to the
+        /// message; the card movement is never rolled back — the posting stays
+        /// pending for POST api/promotions/accounting/repost.
+        /// </summary>
+        private async Task<string> PostAsync(Func<Task<BaseResponse<PromotionPostingResultDto>>> post, string message)
+        {
+            try
+            {
+                var r = await post();
+                if (r.Success) return message;
+                _logger.LogWarning("Gift card accounting posting deferred: {Error}", r.Error);
+                return $"{message} (accounting pending: {r.Error})";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Gift card accounting posting failed");
+                return $"{message} (accounting pending: {ex.Message})";
+            }
         }
 
         private void RefreshStatus(GiftCard card)
@@ -122,12 +148,13 @@ namespace Application.Services.Promotions
                 CreatedBy = _user.UserName,
                 BranchId = _user.BranchId,
             };
-            AddLedger(card, GiftCardTransactionType.Load, card.Balance, null, "Issued");
+            var load = AddLedger(card, GiftCardTransactionType.Load, card.Balance, null, "Issued");
 
             _db.Add(card);
             await _db.SaveChangesAsync(ct);
             _logger.LogInformation("Gift card {Code} issued for {Amount} by {User}", card.Code, card.Balance, _user.UserName);
-            return new BaseResponse<GiftCardDto>(true, null, "Gift card issued", ToDto(card));
+            var msg = await PostAsync(() => _accounting.OnGiftCardIssuedOrLoadedAsync(card.Id, load.Id, load.Amount, ct), "Gift card issued");
+            return new BaseResponse<GiftCardDto>(true, null, msg, ToDto(card));
         }
 
         public async Task<PaginatedResponse<GiftCardDto>> ListAsync(GiftCardFilterDto filter, CancellationToken ct = default)
@@ -209,9 +236,10 @@ namespace Application.Services.Promotions
             card.Balance = Math.Round(card.Balance + dto.Amount, 2);
             card.InitialAmount = Math.Round(card.InitialAmount + dto.Amount, 2);
             RefreshStatus(card);
-            AddLedger(card, GiftCardTransactionType.Load, dto.Amount, null, dto.Note ?? "Loaded");
+            var load = AddLedger(card, GiftCardTransactionType.Load, dto.Amount, null, dto.Note ?? "Loaded");
             await _db.SaveChangesAsync(ct);
-            return new BaseResponse<GiftCardDto>(true, null, "Value loaded", ToDto(card));
+            var msg = await PostAsync(() => _accounting.OnGiftCardIssuedOrLoadedAsync(card.Id, load.Id, load.Amount, ct), "Value loaded");
+            return new BaseResponse<GiftCardDto>(true, null, msg, ToDto(card));
         }
 
         public async Task<BaseResponse<GiftCardDto>> RefundAsync(int id, GiftCardRefundDto dto, CancellationToken ct = default)
@@ -235,9 +263,10 @@ namespace Application.Services.Promotions
 
             card.Balance = Math.Round(card.Balance + dto.Amount, 2);
             RefreshStatus(card);
-            AddLedger(card, GiftCardTransactionType.Refund, dto.Amount, dto.TransactionId, dto.Note ?? "Refund to card");
+            var refund = AddLedger(card, GiftCardTransactionType.Refund, dto.Amount, dto.TransactionId, dto.Note ?? "Refund to card");
             await _db.SaveChangesAsync(ct);
-            return new BaseResponse<GiftCardDto>(true, null, "Refunded to card", ToDto(card));
+            var msg = await PostAsync(() => _accounting.OnGiftCardRefundedAsync(card.Id, refund.Id, refund.Amount, dto.TransactionId, ct), "Refunded to card");
+            return new BaseResponse<GiftCardDto>(true, null, msg, ToDto(card));
         }
 
         // ── till ─────────────────────────────────────────────────────────
@@ -287,12 +316,13 @@ namespace Application.Services.Promotions
 
             card.Balance = Math.Round(card.Balance - amount, 2);
             RefreshStatus(card);
-            AddLedger(card, GiftCardTransactionType.Redeem, amount, dto.TransactionId, $"Applied as payment on invoice #{dto.TransactionId}");
+            var redeem = AddLedger(card, GiftCardTransactionType.Redeem, amount, dto.TransactionId, $"Applied as payment on invoice #{dto.TransactionId}");
 
             await _db.SaveChangesAsync(ct);
             _logger.LogInformation("Gift card {Code} redeemed {Amount} on invoice {TxId}", card.Code, amount, dto.TransactionId);
+            var msg = await PostAsync(() => _accounting.OnGiftCardRedeemedAsync(card.Id, redeem.Id, redeem.Amount, dto.TransactionId, ct), "Gift card applied as payment");
 
-            return new BaseResponse<GiftCardRedeemResultDto>(true, null, "Gift card applied as payment",
+            return new BaseResponse<GiftCardRedeemResultDto>(true, null, msg,
                 new GiftCardRedeemResultDto(card.Code, amount, card.Balance, dto.TransactionId, adj.OldTotal, adj.NewTotal, card.Status));
         }
     }
