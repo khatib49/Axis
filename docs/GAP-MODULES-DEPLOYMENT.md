@@ -118,3 +118,60 @@ The script creates `Pay_WhishRequests`, `Till_DisplayStates`, `Promo_ComboApplic
 - Pre-existing dark-mode issues on legacy admin pages (black headings) are listed in the e2e contrast report; new pages were fixed.
 - Hard-coded Azure SignalR hub URLs in the UI produce console noise when running locally.
 - Gift-card liability accounting, payroll and barcode scanning remain open (see the comparison PDF).
+
+# Phase 3 (branch `claude/gallant-dijkstra-tgdb1l-phase3`)
+
+Builds on phase 2. Run **after** `20261103_Phase2.sql`:
+
+```bash
+psql "$POSTGRES_CONNECTION" -v ON_ERROR_STOP=1 -f docs/sql/20261104_Phase3.sql
+```
+
+The script only **creates** 13 new tables (`Hr_PayComponentTypes`, `Hr_EmployeePayComponents`,
+`Hr_PayrollRuns`, `Hr_PayrollLines`, `Hr_PayrollAdvances`, `Mkt_Segments`, `Mkt_Campaigns`,
+`Mkt_CampaignRecipients`, `Mkt_Unsubscribes`, `Promo_AccountingPostings`, `Retail_Barcodes`,
+`Retail_SerialNumbers`, `Retail_SerialSettings`). It does not alter or drop anything existing and is safe to re-run.
+
+## What phase 3 adds
+
+| Item | Where |
+|---|---|
+| Gift-card liability and promotion discount journals (sale of a card credits 2150, redemption debits it, discounts post to 4950) | Promotions → Promotion Accounting; one-off `POST api/promotions/accounting/backfill` |
+| Stock per branch and backfill of every legacy row to a branch | Stock → Branch Positions; `POST api/branches/backfill?tables=all` once |
+| Barcodes (EAN-13, scan at the till), shelf labels, serial numbers per sale | Inventory → Barcodes / Serial Numbers; `/admin/retail/labels` prints |
+| Game sessions keep running offline and sync when the connection returns | game cashier pages, offline queue |
+| Marketing segments and campaigns over email, SMS and WhatsApp, with unsubscribe links | Marketing → Segments / Campaigns; job `marketing-send-due-campaigns` every 5 minutes |
+| Payroll: pay components, monthly runs from attendance, advances, journal on pay (5400 expense, 2200 payable, 2310 statutory) | HR → Payroll / Pay Components |
+| Dark mode on the legacy pages, including antd tables and modals | theme toggle |
+| Public online shop: catalog, cart, checkout (pay at pickup or Whish), my orders, account | `/shop` |
+
+## Settings to add (Admin → Integrations)
+
+| Key | Purpose |
+|---|---|
+| `Sms.Provider` (`http`), `Sms.Url`, `Sms.ApiKey` (secret), `Sms.From` | SMS campaigns; without them SMS recipients are marked "not configured" |
+| `Marketing:PublicBaseUrl` (appsettings, optional) | absolute unsubscribe links in emails; defaults to a relative `/api` path |
+
+Email and WhatsApp reuse the existing SMTP and WhatsApp settings. Accounts 2150 and 4950 are created automatically on first posting.
+
+## Steps after deploy
+
+1. Run the Phase3 SQL script.
+2. Call `POST api/branches/backfill?tables=all` once (admin), then `POST api/promotions/accounting/backfill` once.
+3. Add barcodes to items (or generate internal EAN-13s) and print labels.
+4. Define pay components per employee before the first payroll run.
+5. Link the shop from the website: `https://<dashboard>/shop`.
+
+## Security fix in this phase
+
+Page grants used to unlock every action of a new-module controller, so a cashier with a till page could also create barcodes, void reasons, delivery zones and floor areas, issue gift cards and approve voids. For controllers in the new modules, admin-only actions now open only through admin-grade pages. Till actions and all original controllers behave exactly as before (covered by `Tests/Security/DynamicPagePermissionTests.cs`).
+
+## Verified on the local build
+
+615 backend tests pass; the UI type-checks; the smoke suite loads every route per role in light and dark; seven live API flows (accounting, branch stock, barcodes/serials, offline games, marketing, payroll, storefront) pass end to end against Postgres.
+
+## Known follow-ups
+
+- Original controllers still let a page grant unlock their admin actions (pre-existing; not changed to avoid affecting current users).
+- `ApplicationDbContextFactory` contains a hard-coded production connection string; move it to an environment variable and rotate the password.
+- Whish, SMTP, SMS and WhatsApp were verified up to the provider call only; send one real message and one real payment after configuring the keys.
