@@ -175,3 +175,63 @@ Page grants used to unlock every action of a new-module controller, so a cashier
 - Original controllers still let a page grant unlock their admin actions (pre-existing; not changed to avoid affecting current users).
 - `ApplicationDbContextFactory` contains a hard-coded production connection string; move it to an environment variable and rotate the password.
 - Whish, SMTP, SMS and WhatsApp were verified up to the provider call only; send one real message and one real payment after configuring the keys.
+
+# Phase 4 (branch `claude/gallant-dijkstra-tgdb1l-phase4`)
+
+Builds on phase 3. Run **after** `20261104_Phase3.sql`:
+
+```bash
+psql "$POSTGRES_CONNECTION" -v ON_ERROR_STOP=1 -f docs/sql/20261104_Phase4.sql
+```
+
+The script only **creates** 9 new tables (`Menu_ItemModels`, `Upsell_Rules`, `Upsell_Pairs`, `Upsell_Events`,
+`Delivery_Platforms`, `Delivery_ItemMappings`, `Delivery_PlatformPushes`, `Pay_CardTerminals`, `Pay_TerminalPayments`).
+Nothing existing is altered or dropped, and it is safe to re-run.
+
+## What phase 4 adds
+
+| Item | Where |
+|---|---|
+| 3D models per item (GLB for web and Android, USDZ for iPhone AR), "View on your table" | Inventory → 3D Menu; shown on the shop product page, public menu, QR self-order and kiosk |
+| Upsells: manager rules plus pairs learned nightly from paid invoices, optional AI-written pitch, acceptance report | Promotions → Upsells; suggestions on the till order drawer, waiter, shop cart, self-order and kiosk |
+| Delivery apps: item mapping, menu feed with markup, auto-accept, signed status updates back to the app with retry | F&B Admin → Delivery Apps |
+| Card terminals: stand-alone (approval code typed), connected through an HTTP API, or simulator for tests; Card tender recorded and invoice closed automatically; reconciliation report | Till Controls → Card Terminals; "Card terminal" panel in the till checkout |
+
+## Settings (Admin → Integrations)
+
+| Key | Purpose |
+|---|---|
+| `Delivery.WebhookSecret.{source}` | Shared secret per app: checks incoming orders and menu-feed calls, signs status updates (`X-Axis-Signature: sha256=<HMAC of body>`) |
+| `Delivery.ApiKey.{source}` (optional) | Bearer key sent with status updates to the app |
+| `CardTerminal.Cloud.BaseUrl`, `CardTerminal.Cloud.ApiKey` | Bank or provider API for connected terminals (contract below) |
+| `CardTerminal.Cloud.WebhookSecret` (optional) | Lets the provider push results to `POST api/payments/terminal/callback` |
+| `CardTerminal.AllowSimulator` | `true` only on test systems; leave empty in production |
+| `Upsell.AiPitches` (optional) | `false` turns off AI-written pitches; they also need `Anthropic.ApiKey` |
+
+Connected-terminal contract that a bank adapter or local bridge must expose:
+`POST {BaseUrl}/payments {reference, terminalId, amount, currency, description}`,
+`GET {BaseUrl}/payments/{reference}` → `{status: pending|approved|declined|cancelled|failed, approvalCode, last4, scheme, rrn}`,
+`POST {BaseUrl}/payments/{reference}/cancel`.
+
+## New jobs
+
+- `upsell-rebuild-pairs` daily 01:30 UTC.
+- `delivery-platform-status-push` every minute (no-op without a callback URL).
+
+## Steps after deploy
+
+1. Run the Phase4 SQL script.
+2. Upsells → "Relearn now" once, then add any rules you want first.
+3. Card Terminals → add one terminal per register. Use "Stand-alone" until the bank gives an API.
+4. Delivery Apps → connect the app, set its shared secret, send the app the webhook and menu-feed URLs, map items.
+5. 3D Menu → upload models for your best sellers.
+
+## Verified on the local build
+
+645 backend tests pass. The smoke suite loads every route per role in light and dark (168 pass). A live API flow of 61 checks passed twice against Postgres. It covered card payments with the simulator, manual codes, a fake bank API and signed callbacks, plus upsells, 3D uploads and file serving, delivery-app mapping, feed, auto-accept and signed pushes, and the role checks. A browser walkthrough confirmed the 3D model renders on the shop, menu and kiosk, the upsell adds items at the till and kiosk, and the card checkout closes the invoice.
+
+## Limits to know
+
+- Toters (or any app) must call the webhook and menu feed in the Axis format. If they impose their own API, a small adapter is needed. Nothing app-specific was available to test against.
+- Connected card terminals need a bank or provider API in the contract above. Without one, use the stand-alone mode, which works with any terminal today.
+- The legacy public `/menu` page only lists categories whose type is Food, Drinks, Retail or Tobacco. Categories typed "FnB" do not appear there (pre-existing).
