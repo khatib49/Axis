@@ -216,7 +216,18 @@ var app = builder.Build();
 var staticTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
 staticTypes.Mappings[".glb"] = "model/gltf-binary";
 staticTypes.Mappings[".usdz"] = "model/vnd.usdz+zip";
-app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = staticTypes });
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = staticTypes,
+    // The 3D viewer downloads models with fetch(), so a dashboard on another origin needs CORS on
+    // these public, credential-free files (images load through <img> and do not).
+    OnPrepareResponse = ctx =>
+    {
+        var ext = Path.GetExtension(ctx.File.Name);
+        if (ext.Equals(".glb", StringComparison.OrdinalIgnoreCase) || ext.Equals(".usdz", StringComparison.OrdinalIgnoreCase))
+            ctx.Context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+    },
+});
 
 
 // 🔧 Serve Swagger ALWAYS (dev & prod)
