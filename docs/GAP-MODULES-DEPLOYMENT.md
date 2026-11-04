@@ -235,3 +235,67 @@ Connected-terminal contract that a bank adapter or local bridge must expose:
 - Toters (or any app) must call the webhook and menu feed in the Axis format. If they impose their own API, a small adapter is needed. Nothing app-specific was available to test against.
 - Connected card terminals need a bank or provider API in the contract above. Without one, use the stand-alone mode, which works with any terminal today.
 - The legacy public `/menu` page only lists categories whose type is Food, Drinks, Retail or Tobacco. Categories typed "FnB" do not appear there (pre-existing).
+
+# Phase 5 (branch `claude/gallant-dijkstra-tgdb1l-phase5`)
+
+Builds on phase 4. Run **after** `20261104_Phase4.sql`:
+
+```bash
+psql "$POSTGRES_CONNECTION" -v ON_ERROR_STOP=1 -f docs/sql/20261104_Phase5.sql
+```
+
+The script only **creates** 10 new tables (`Tour_Tournaments`, `Tour_Participants`, `Tour_Matches`,
+`Booking_StationBookings`, `Station_Codes`, `OwnerBot_Chats`, `Parent_Links`, `Alert_Rules`, `Alert_Events`,
+`Ai_ImportDrafts`). Nothing existing is altered or dropped, and it is safe to re-run.
+
+## What phase 5 adds
+
+| Item | Where |
+|---|---|
+| Tournaments: public sign-up, seeded bracket with byes, free stations for ready matches, tap the winner, places, prize split paid into wallets | Gaming → Tournaments; guests at `/t` and `/t/<link>` |
+| Book a PS5 room or station online, QR check-in, staff list, no-shows marked automatically | `/book`; Gaming → Station Bookings |
+| Order food from the station while a game runs; one open invoice per station; extend-time requests | Gaming → Station QR Ordering; guests at `/station/<code>` |
+| Owner assistant on Telegram and WhatsApp: summary, free questions to the AI, daily summary | Owner → Owner Assistant |
+| Parent wallet: daily spend limit enforced at checkout, alerts on spend / low balance / session end, parent page | Gaming → Parent Wallet; parents at `/parent/<link>` |
+| Owner alerts: 10 conditions (sales, no sales, big sale, voids, low stock, old open tabs, waiting delivery, cash variance, busy stations), hours, cooldown, Telegram / WhatsApp / email / bell | Owner → Owner Alerts |
+| AI forecast of sales and ingredients to buy; AI supplier invoice scan to purchase; AI menu import from photo, PDF or CSV | Owner → AI Forecast / AI Invoice Scan / AI Menu Import |
+| Setup in minutes: live checklist, business details, language, menu import | Owner → Setup |
+| Journal exports for Xero, QuickBooks Online, Odoo and CSV, plus chart of accounts | Accounting → Accounting Exports |
+| Arabic and English with right-to-left layout | language button in the header and on guest pages |
+| Integration settings page (keys for AI, Whish, WhatsApp, Telegram, booking) | Owner → Integrations |
+
+## Settings (Owner → Integrations / Owner Assistant)
+
+| Key | Purpose |
+|---|---|
+| `Telegram.BotToken`, `Telegram.WebhookSecret` (created by "Connect webhook") | Owner bot on Telegram |
+| `WhatsApp.VerifyToken`, `WhatsApp.AppSecret` | Incoming WhatsApp messages for the owner bot (reuses `WhatsApp.PhoneNumberId` / `AccessToken`) |
+| `OwnerBot.AllowedTelegramChatIds`, `OwnerBot.AllowedWhatsAppNumbers` | Who may use the bot and receives alerts |
+| `OwnerBot.DailySummaryHour`, `OwnerBot.DailySummary` | Daily summary time, or `false` to turn it off |
+| `Alerts.Emails`, `Alerts.WhatsAppTemplate` | Email recipients; WhatsApp template for alerts outside Meta's 24-hour window |
+| `Venue.TimeZone` | Venue day for "today" (default Asia/Beirut) |
+| `Booking.OpenHour`, `Booking.CloseHour`, `Booking.SlotMinutes`, `Booking.MaxDays`, `Booking.RoomIds`, `Booking.RequireApproval`, `Booking.NoShowMinutes` | Online booking rules |
+| `Station.RequireRunningSession` | `false` lets guests order from the station QR without a running game |
+| `Anthropic.ApiKey` | Needed for menu photos/PDFs, invoice scan and free questions to the bot |
+
+## New jobs
+
+- `owner-alerts-and-parent-wallet` every 5 minutes.
+- `booking-no-shows` every 10 minutes.
+- `owner-daily-summary` hourly, sends only at the configured hour.
+
+## Changes to existing code
+
+- `WalletService.SpendAsync` refuses a wallet payment over a parent's daily limit (read-only check; no effect for wallets without parent controls).
+- `AnonymousRateLimit` now counts per client IP **and endpoint**. Before, one counter per IP covered every guest endpoint, so browsing availability could block the booking itself, and guests on one venue Wi-Fi shared it.
+
+## Verified on the local build
+
+666 backend tests pass. The smoke suite loads every route per role: 189 pass in light theme; in dark theme 188 pass and the one failure (`/avatars`, a template demo page) passed on rerun after a dev-server reload during the run. A live API flow of 66 checks passed twice against Postgres, with fake Telegram and WhatsApp endpoints. A browser walkthrough of 18 checks confirmed Arabic right-to-left, online booking, Arabic tournament sign-up, picking a winner, ordering from the station and the owner pages.
+
+## Limits to know
+
+- AI photo / PDF reading and free bot questions were tested with a simulated AI answer, not the real Anthropic API (no key here). CSV menu import works without AI and was tested live.
+- Telegram and WhatsApp were tested against local fakes of their APIs. Do one real message with your bot after setting the keys.
+- Tournament entry fees are collected at the till; the page only marks players as paid.
+- Arabic covers the menu, the header, guest pages and the new pages. Older admin pages keep English text inside the page.
