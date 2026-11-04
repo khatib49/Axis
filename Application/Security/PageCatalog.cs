@@ -268,6 +268,18 @@
                  .Select(p => p.Key)
                  .ToList();
 
+        /// <summary>
+        /// Admin-grade pages (no built-in till/kitchen role ever had them) that use
+        /// the given controller. Only these may unlock an admin-only action on a
+        /// new-module controller; a till page that happens to use the same
+        /// controller for its lookups must not.
+        /// </summary>
+        public static IReadOnlyList<string> AdminGradeKeysForController(string controllerTypeName) =>
+            Pages.Where(p => p.LegacyRoles.Length == 0
+                          && p.Controllers.Contains(controllerTypeName, StringComparer.OrdinalIgnoreCase))
+                 .Select(p => p.Key)
+                 .ToList();
+
         /// <summary>Pages a built-in role had before permissions became editable.</summary>
         public static IReadOnlyList<string> LegacyPagesFor(string role) =>
             Pages.Where(p => p.LegacyRoles.Contains(role, StringComparer.OrdinalIgnoreCase))

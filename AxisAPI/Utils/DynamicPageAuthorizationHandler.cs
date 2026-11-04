@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Application.IServices;
 using Application.Security;
 using Microsoft.AspNetCore.Authorization;
@@ -39,7 +39,19 @@ namespace AxisAPI.Utils
             var descriptor = _http.HttpContext?.GetEndpoint()?.Metadata.GetMetadata<ControllerActionDescriptor>();
             if (descriptor is null) return;
 
-            var keys = PageCatalog.KeysForController(descriptor.ControllerTypeInfo.Name);
+            var controllerName = descriptor.ControllerTypeInfo.Name;
+
+            // New-module controllers live in sub-namespaces (AxisAPI.Controllers.<Module>).
+            // For those, an admin-only action may only be unlocked by an admin-grade
+            // page; a till page that uses the controller for lookups must not open
+            // its admin actions. Original controllers keep their existing behaviour.
+            var isNewModule = descriptor.ControllerTypeInfo.Namespace?
+                .StartsWith("AxisAPI.Controllers.", StringComparison.Ordinal) == true;
+            var adminOnlyAction = isNewModule && IsAdminOnlyAction(descriptor, requirement);
+
+            var keys = adminOnlyAction
+                ? PageCatalog.AdminGradeKeysForController(controllerName)
+                : PageCatalog.KeysForController(controllerName);
             if (keys.Count == 0) return;
 
             var roles = context.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
@@ -56,6 +68,31 @@ namespace AxisAPI.Utils
                 // Never let a permissions lookup failure turn into a 500 on every request.
                 _logger.LogWarning(ex, "Dynamic page permission lookup failed for {Controller}", descriptor.ControllerTypeInfo.Name);
             }
+        }
+
+        /// <summary>
+        /// Class and action [Authorize] attributes combine with AND, so a controller
+        /// marked admin-only at class level still demands admin on an action that
+        /// only adds [Authorize] or a till role list. The action's own attributes
+        /// state its intent: any attribute that admits non-admins makes it a till
+        /// action; none, or admin-only ones, make it admin-only.
+        /// </summary>
+        private static bool IsAdminOnlyAction(ControllerActionDescriptor descriptor, RolesAuthorizationRequirement requirement)
+        {
+            static bool AdminOnly(string? roles) =>
+                !string.IsNullOrWhiteSpace(roles)
+                && roles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .All(r => string.Equals(r, PageCatalog.AdminRole, StringComparison.OrdinalIgnoreCase));
+
+            var actionAttributes = descriptor.MethodInfo?
+                .GetCustomAttributes(inherit: true).OfType<Microsoft.AspNetCore.Authorization.IAuthorizeData>().ToList()
+                ?? new List<Microsoft.AspNetCore.Authorization.IAuthorizeData>();
+
+            if (actionAttributes.Count > 0)
+                return actionAttributes.All(a => AdminOnly(a.Roles));
+
+            return requirement.AllowedRoles.Any()
+                && requirement.AllowedRoles.All(r => string.Equals(r, PageCatalog.AdminRole, StringComparison.OrdinalIgnoreCase));
         }
     }
 }
