@@ -43,6 +43,9 @@ namespace Application.Services
         private readonly IUnitOfWork _uow;
         private readonly ILogger<WalletService> _logger;
 
+        /// <summary>Phase 5: parent daily limit (read-only check). Null in tests / when not registered.</summary>
+        private readonly Application.Services.Phase5.IParentSpendGuard? _parentGuard;
+
         public WalletService(
             IBaseRepository<Wallet> repo,
             IBaseRepository<WalletTransaction> repoTxn,
@@ -51,8 +54,10 @@ namespace Application.Services
             UserManager<AppUser> userManager,
             IJournalService journal,
             IUnitOfWork uow,
-            ILogger<WalletService> logger)
+            ILogger<WalletService> logger,
+            Application.Services.Phase5.IParentSpendGuard? parentGuard = null)
         {
+            _parentGuard = parentGuard;
             _repo = repo;
             _repoTxn = repoTxn;
             _repoTier = repoTier;
@@ -389,6 +394,12 @@ namespace Application.Services
             if (wallet.Balance < amount)
                 return new BaseResponse<decimal>(false, "Insufficient balance",
                     $"Wallet has {wallet.Balance:0.00}, needs {amount:0.00}.", wallet.Balance);
+
+            if (_parentGuard is not null)
+            {
+                var (allowed, why) = await _parentGuard.CheckAsync(userId, amount, ct);
+                if (!allowed) return new BaseResponse<decimal>(false, "Parent limit", why ?? "Daily limit reached.", wallet.Balance);
+            }
 
             wallet.Balance -= amount;
             wallet.ModifiedOn = DateTime.UtcNow;

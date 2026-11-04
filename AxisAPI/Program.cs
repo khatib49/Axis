@@ -308,6 +308,20 @@ Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase4.DeliveryPlatformJo
     j => j.PushStatusesAsync(CancellationToken.None),
     "* * * * *");                     // every minute
 
+// Phase 5: owner alerts + parent wallet messages every 5 minutes; booking no-shows every 10; daily owner summary (hour set in OwnerBot.DailySummaryHour).
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase5.Phase5Jobs>(
+    "owner-alerts-and-parent-wallet",
+    j => j.EveryFiveMinutesAsync(CancellationToken.None),
+    "*/5 * * * *");
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase5.BookingJobs>(
+    "booking-no-shows",
+    j => j.MarkNoShowsAsync(CancellationToken.None),
+    "*/10 * * * *");
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase5.OwnerBotJobs>(
+    "owner-daily-summary",
+    j => j.DailySummaryAsync(CancellationToken.None),
+    "2 * * * *");                     // hourly; sends only at the configured venue hour
+
 app.UseHttpsRedirection();
 //app.UseForce403ForUnauthorized();
 app.UseSerilogRequestEnricher();

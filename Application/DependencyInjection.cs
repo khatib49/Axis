@@ -132,6 +132,7 @@ namespace Application
             services.AddRetailModule();            // phase 3: barcodes and serial numbers
             services.AddShop2Module();             // phase 3: storefront catalog endpoints
             services.AddPhase4Module();            // phase 4: 3D menu, upsells, delivery apps, card terminals
+            services.AddPhase5Module();            // phase 5: tournaments, booking, station orders, owner bot, parent wallet, alerts, AI tools
 
             return services;
         }

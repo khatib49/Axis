@@ -286,6 +286,55 @@ namespace Infrastructure.Migrations
                     b.ToTable("AiConversations", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.AiImportDraft", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AppliedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Result")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedOn");
+
+                    b.ToTable("Ai_ImportDrafts");
+                });
+
             modelBuilder.Entity("Domain.Entities.AiMessage", b =>
                 {
                     b.Property<int>("Id")
@@ -326,6 +375,102 @@ namespace Infrastructure.Migrations
                     b.HasIndex("ConversationId", "Id");
 
                     b.ToTable("AiMessages", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.AlertEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Delivery")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("FiredOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("RuleId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RuleId", "FiredOn");
+
+                    b.ToTable("Alert_Events");
+                });
+
+            modelBuilder.Entity("Domain.Entities.AlertRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Channels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Comparator")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("CooldownMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FromHour")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastFiredOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Metric")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Recipients")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("Threshold")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("ToHour")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WindowMinutes")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.ToTable("Alert_Rules");
                 });
 
             modelBuilder.Entity("Domain.Entities.AttendanceRecord", b =>
@@ -4173,6 +4318,48 @@ namespace Infrastructure.Migrations
                     b.ToTable("Owners", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.OwnerBotChat", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("ChatId")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int?>("ConversationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("FirstSeenOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAllowed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastMessageOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Channel", "ChatId")
+                        .IsUnique();
+
+                    b.ToTable("OwnerBot_Chats");
+                });
+
             modelBuilder.Entity("Domain.Entities.OwnerDrawing", b =>
                 {
                     b.Property<int>("Id")
@@ -4231,6 +4418,77 @@ namespace Infrastructure.Migrations
                     b.HasIndex("OwnerId");
 
                     b.ToTable("OwnerDrawings", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.ParentLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChildUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("DailyLimit")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastLowBalanceAlertOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("LastNotifiedTransactionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastNotifiedWalletTxId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("LowBalanceThreshold")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("NotifyOnSessionEnd")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NotifyOnSpend")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ParentEmail")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ParentName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ParentPhone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ParentTelegramChatId")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChildUserId")
+                        .IsUnique();
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("Parent_Links");
                 });
 
             modelBuilder.Entity("Domain.Entities.PassType", b =>
@@ -5918,6 +6176,111 @@ namespace Infrastructure.Migrations
                     b.ToTable("SiteContents", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.StationBooking", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CheckedInOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("EndsOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HandledBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Players")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SetId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("StartsOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("SetId", "StartsOn");
+
+                    b.ToTable("Booking_StationBookings");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StationCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SetId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SetId")
+                        .IsUnique();
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("Station_Codes");
+                });
+
             modelBuilder.Entity("Domain.Entities.Status", b =>
                 {
                     b.Property<int>("Id")
@@ -6733,6 +7096,181 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Hr_TipPoolAllocations");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Tournament", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("EntryFee")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("GameTitle")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("MaxPlayers")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<decimal>("PrizePool")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("PrizeSplit")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<bool>("PrizesPaid")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PublicToken")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("RoomIds")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Rules")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("StartsOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublicToken")
+                        .IsUnique();
+
+                    b.HasIndex("StartsOn");
+
+                    b.ToTable("Tour_Tournaments");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TournamentMatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Player1Id")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Player2Id")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Score")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("SetId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("TournamentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("WinnerId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TournamentId", "Round", "Slot")
+                        .IsUnique();
+
+                    b.ToTable("Tour_Matches");
+                });
+
+            modelBuilder.Entity("Domain.Entities.TournamentParticipant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int?>("FinalPlace")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Paid")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PaidVia")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<decimal>("PrizeAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("Seed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TournamentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TournamentId");
+
+                    b.ToTable("Tour_Participants");
                 });
 
             modelBuilder.Entity("Domain.Entities.TransactionAuditLog", b =>
@@ -7975,6 +8513,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("Conversation");
                 });
 
+            modelBuilder.Entity("Domain.Entities.AlertEvent", b =>
+                {
+                    b.HasOne("Domain.Entities.AlertRule", null)
+                        .WithMany()
+                        .HasForeignKey("RuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Domain.Entities.AttendanceRecord", b =>
                 {
                     b.HasOne("Domain.Entities.Employee", null)
@@ -9042,6 +9589,24 @@ namespace Infrastructure.Migrations
                     b.Navigation("Shipment");
                 });
 
+            modelBuilder.Entity("Domain.Entities.StationBooking", b =>
+                {
+                    b.HasOne("Domain.Entities.Set", null)
+                        .WithMany()
+                        .HasForeignKey("SetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Entities.StationCode", b =>
+                {
+                    b.HasOne("Domain.Entities.Set", null)
+                        .WithMany()
+                        .HasForeignKey("SetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Domain.Entities.StockBatch", b =>
                 {
                     b.HasOne("Domain.Entities.Ingredient", null)
@@ -9228,6 +9793,24 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.TipPool", null)
                         .WithMany("Allocations")
                         .HasForeignKey("TipPoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Entities.TournamentMatch", b =>
+                {
+                    b.HasOne("Domain.Entities.Tournament", null)
+                        .WithMany()
+                        .HasForeignKey("TournamentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Entities.TournamentParticipant", b =>
+                {
+                    b.HasOne("Domain.Entities.Tournament", null)
+                        .WithMany()
+                        .HasForeignKey("TournamentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
