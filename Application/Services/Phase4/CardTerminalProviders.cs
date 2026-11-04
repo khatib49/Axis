@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Application.IServices;
 using Domain.Entities;
@@ -97,11 +96,13 @@ namespace Application.Services.Phase4
             {
                 try
                 {
-                    using var resp = await c.PostAsJsonAsync($"{baseUrl}/payments", new
+                    // Fixed-length body (no chunked encoding): some bank gateways and bridges reject chunked requests.
+                    var json = JsonSerializer.Serialize(new
                     {
                         reference = p.ExternalId, terminalId = t.ProviderTerminalId, amount = p.Amount, currency = p.Currency,
                         description = $"Axis invoice #{p.TransactionId}",
-                    }, ct);
+                    });
+                    using var resp = await c.PostAsync($"{baseUrl}/payments", new StringContent(json, System.Text.Encoding.UTF8, "application/json"), ct);
                     var raw = await resp.Content.ReadAsStringAsync(ct);
                     if (!resp.IsSuccessStatusCode) return new(TerminalPaymentStatuses.Failed, Message: $"Terminal API refused the payment (HTTP {(int)resp.StatusCode}).", Raw: raw);
                     var parsed = Parse(raw);

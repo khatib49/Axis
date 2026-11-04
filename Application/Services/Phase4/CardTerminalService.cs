@@ -266,10 +266,11 @@ namespace Application.Services.Phase4
         }
 
         private async Task<TerminalPaymentDto> ToDtoAsync(int id, CancellationToken ct)
-            => (await Query().Where(x => x.Id == id).ToListAsync(ct)).First();
+            => (await Query(_db.Set<TerminalPayment>().AsNoTracking().Where(x => x.Id == id)).ToListAsync(ct)).First();
 
-        private IQueryable<TerminalPaymentDto> Query()
-            => from p in _db.Set<TerminalPayment>().AsNoTracking()
+        /// <summary>Filters go on the source rows: EF cannot translate a Where on the projected record.</summary>
+        private IQueryable<TerminalPaymentDto> Query(IQueryable<TerminalPayment> source)
+            => from p in source
                join t in _db.Set<CardTerminal>().AsNoTracking() on p.TerminalId equals t.Id
                join tx in _db.Set<TransactionRecord>().AsNoTracking() on p.TransactionId equals tx.Id
                select new TerminalPaymentDto(p.Id, p.TransactionId, p.TerminalId, t.Name, t.Provider, p.Amount, p.Currency, p.ExternalId,
@@ -280,9 +281,10 @@ namespace Application.Services.Phase4
         {
             var f = (from ?? DateTime.UtcNow.Date).ToUniversalTime();
             var t = (to ?? f.AddDays(1)).ToUniversalTime();
-            var q = Query().Where(p => p.CreatedOn >= f && p.CreatedOn < t);
-            if (terminalId is int tid) q = q.Where(p => p.TerminalId == tid);
-            var list = await q.OrderByDescending(p => p.Id).Take(1000).ToListAsync(ct);
+            var src = _db.Set<TerminalPayment>().AsNoTracking().Where(p => p.CreatedOn >= f && p.CreatedOn < t);
+            if (terminalId is int tid) src = src.Where(p => p.TerminalId == tid);
+            var list = await Query(src.OrderByDescending(p => p.Id).Take(1000)).ToListAsync(ct);
+            list = list.OrderByDescending(p => p.Id).ToList();
             var approved = list.Where(p => p.Status == TerminalPaymentStatuses.Approved).ToList();
             return new(f, t, approved.Count, approved.Sum(p => p.Amount),
                 list.Count(p => p.Status == TerminalPaymentStatuses.Declined), list.Count(p => p.Status == TerminalPaymentStatuses.Cancelled),
