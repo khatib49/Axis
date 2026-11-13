@@ -26,8 +26,8 @@ namespace Application.Services.Retail
                select new SerialSettingDto(s.ItemId, i.Name, s.RequiresSerial, s.Prefix, s.ModifiedOn, s.ModifiedBy);
 
         public async Task<List<SerialSettingDto>> ListSettingsAsync(CancellationToken ct = default)
-            => await ProjectSettings(_db.Set<SerialSetting>().AsNoTracking().Where(s => s.RequiresSerial))
-                .OrderBy(s => s.ItemName).ToListAsync(ct);
+            => (await ProjectSettings(_db.Set<SerialSetting>().AsNoTracking().Where(s => s.RequiresSerial)).ToListAsync(ct))
+                .OrderBy(s => s.ItemName).ToList(); // sort after load: EF cannot order on the projected record
 
         public async Task<SerialSettingDto?> GetSettingAsync(int itemId, CancellationToken ct = default)
         {
