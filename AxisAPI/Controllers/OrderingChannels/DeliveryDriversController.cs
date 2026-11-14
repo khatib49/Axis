@@ -15,7 +15,7 @@ namespace AxisAPI.Controllers.OrderingChannels
         public DeliveryDriversController(IDeliveryService svc) { _svc = svc; }
 
         [HttpGet]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> List([FromQuery] bool includeInactive = false, CancellationToken ct = default)
             => Ok(await _svc.ListDriversAsync(includeInactive, ct));
 

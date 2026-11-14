@@ -195,6 +195,8 @@ builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 // Custom roles: a role granted a page (Admin → Roles & Permissions) may call that page's API.
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AxisAPI.Utils.DynamicPageAuthorizationHandler>();
+// Staff-only endpoints: signed in with a role other than customer (see StaffPolicy).
+builder.Services.AddAuthorization(AxisAPI.Utils.StaffPolicy.Add);
 
 
 builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",

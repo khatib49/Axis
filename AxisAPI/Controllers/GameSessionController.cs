@@ -9,6 +9,7 @@ namespace AxisAPI.Controllers
 {
     [Route("api/gamesession")]
     [ApiController]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class GameSessionController : ControllerBase
     {
         private readonly IGameSessionService _gameSessionService;

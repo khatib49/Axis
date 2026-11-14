@@ -1,4 +1,5 @@
-﻿using Application.DTOs;
+﻿using Microsoft.AspNetCore.Authorization;
+using Application.DTOs;
 using Application.IServices;
 using Application.Services;
 using Domain.Entities;
@@ -9,6 +10,7 @@ namespace AxisAPI.Controllers
 {
     [Route("api/usercard")]
     [ApiController]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class UserCardController : ControllerBase
     {
         private readonly IUserCardService _userCardService;

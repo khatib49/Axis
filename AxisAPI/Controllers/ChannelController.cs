@@ -7,7 +7,7 @@ namespace AxisAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class ChannelController : ControllerBase
     {
         private readonly IChannelService _svc;

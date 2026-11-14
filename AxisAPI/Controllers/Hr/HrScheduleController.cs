@@ -7,7 +7,7 @@ namespace AxisAPI.Controllers.Hr
 {
     [ApiController]
     [Route("api/hr/schedule")]
-    [Authorize]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class HrScheduleController : ControllerBase
     {
         private readonly IHrScheduleService _svc;

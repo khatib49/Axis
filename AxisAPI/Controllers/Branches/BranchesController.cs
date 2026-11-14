@@ -14,7 +14,7 @@ namespace AxisAPI.Controllers.Branches
 
         /// <summary>Branches the caller may work in (admin → all; assigned; none → default branch).</summary>
         [HttpGet("me")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> Me(CancellationToken ct) => Ok(await _svc.GetMineAsync(ct));
 
         [HttpGet]

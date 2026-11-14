@@ -26,7 +26,7 @@ namespace AxisAPI.Controllers
         /// home dashboard.
         /// </summary>
         [HttpGet("dashboard")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> DashboardList(
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
@@ -46,7 +46,7 @@ namespace AxisAPI.Controllers
         /// PageSize=null on the service to get every matching row.
         /// </summary>
         [HttpGet("dashboard/export")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> DashboardExport(
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
@@ -126,6 +126,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var item = await _transactionService.GetAsync(id, ct);
@@ -134,6 +135,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("{id:int}/details")]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> GetWithItems(int id, CancellationToken ct)
         {
             var item = await _transactionService.GetWithItemsAsync(id, ct);
@@ -142,7 +144,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> List([FromQuery] BasePaginationRequestDto pagination, CancellationToken ct)
         {
             var categories = await _transactionService.ListAsync(pagination, ct);
@@ -211,7 +213,7 @@ namespace AxisAPI.Controllers
             var result = await _transactionService.SetDiscountAsync(id, body?.DiscountId, ct);
             return result.Success ? Ok(result) : BadRequest(result);
         }
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         [HttpPost("CreateGame")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create(TransactionCreateDto dto, CancellationToken ct)

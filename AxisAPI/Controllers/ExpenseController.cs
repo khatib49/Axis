@@ -13,6 +13,7 @@ namespace AxisAPI.Controllers
         public ExpenseController(IExpenseService svc) => _svc = svc;
 
         [HttpGet("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<ExpenseDto>> GetById(int id, CancellationToken ct)
         {
             var dto = await _svc.GetByIdAsync(id, ct);

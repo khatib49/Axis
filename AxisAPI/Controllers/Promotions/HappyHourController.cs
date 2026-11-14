@@ -49,12 +49,12 @@ namespace AxisAPI.Controllers.Promotions
 
         /// <summary>Rules in effect now (or at ?at=UTC timestamp), evaluated in Asia/Beirut.</summary>
         [HttpGet("active-now")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> ActiveNow([FromQuery] DateTime? at, CancellationToken ct)
             => Ok(await _svc.ActiveNowAsync(at, ct));
 
         [HttpGet("price-preview")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> PricePreview([FromQuery] int itemId, [FromQuery] DateTime? at, CancellationToken ct)
         {
             var r = await _svc.PricePreviewAsync(itemId, at, ct);

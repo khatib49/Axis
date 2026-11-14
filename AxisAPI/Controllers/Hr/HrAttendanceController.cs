@@ -15,7 +15,7 @@ namespace AxisAPI.Controllers.Hr
 
         /// <summary>Till kiosk: PIN toggles clock-in / clock-out. Any logged-in till device.</summary>
         [HttpPost("clock")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> Clock(HrClockRequestDto dto, CancellationToken ct)
         {
             var r = await _svc.ClockAsync(dto, ct);

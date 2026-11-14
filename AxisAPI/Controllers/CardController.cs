@@ -1,4 +1,5 @@
-﻿using Application.DTOs;
+﻿using Microsoft.AspNetCore.Authorization;
+using Application.DTOs;
 using Application.IServices;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,7 @@ namespace AxisAPI.Controllers
 {
     [ApiController]
     [Route("api/card")]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class CardController : ControllerBase
     {
         private readonly ICardService _cardService;
@@ -32,6 +34,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(int id, CardUpdateDto dto, CancellationToken ct)
         {
             var success = await _cardService.UpdateAsync(id, dto, ct);
@@ -40,6 +43,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create(CardCreateDto dto, CancellationToken ct)
         {
             var created = await _cardService.CreateAsync(dto, ct);
@@ -47,6 +51,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
             var success = await _cardService.DeleteAsync(id, ct);

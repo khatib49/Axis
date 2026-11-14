@@ -34,7 +34,7 @@ namespace AxisAPI.Controllers.OrderingChannels
 
         /// <summary>Orders assigned to the driver linked (Driver.UserId) to the caller. Any staff.</summary>
         [HttpGet("mine")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> Mine(CancellationToken ct) => Ok(await _svc.MyOrdersAsync(ct));
 
         [HttpGet("{id:int}")]
@@ -50,7 +50,7 @@ namespace AxisAPI.Controllers.OrderingChannels
 
         /// <summary>Move to the next status (or an explicit allowed one). A driver may advance his own orders.</summary>
         [HttpPost("{id:int}/advance")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> Advance(int id, [FromBody] DeliveryAdvanceDto? dto, CancellationToken ct)
             => FromResponse(await _svc.AdvanceAsync(id, dto?.ToStatus, dto?.Note, ct));
 

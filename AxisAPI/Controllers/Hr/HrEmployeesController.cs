@@ -20,7 +20,7 @@ namespace AxisAPI.Controllers.Hr
 
         /// <summary>The caller's own employee profile (via user link). Any staff.</summary>
         [HttpGet("me")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> Me(CancellationToken ct)
         {
             var me = await _svc.GetMineAsync(ct);

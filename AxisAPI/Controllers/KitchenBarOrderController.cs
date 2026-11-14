@@ -7,6 +7,7 @@ namespace AxisAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class KitchenBarOrderController : ControllerBase
     {
         private readonly IKitchenBarOrderService _service;

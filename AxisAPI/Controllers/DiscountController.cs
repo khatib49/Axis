@@ -9,6 +9,7 @@ namespace AxisAPI.Controllers
 {
     [ApiController]
     [Route("api/discount")]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class DiscountController : ControllerBase
     {
         private readonly IDiscountService _discountService;

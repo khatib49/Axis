@@ -7,7 +7,7 @@ namespace AxisAPI.Controllers.TillControls
 {
     [ApiController]
     [Route("api/currency")]
-    [Authorize]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class CurrenciesController : ControllerBase
     {
         private readonly ICurrencyService _svc;

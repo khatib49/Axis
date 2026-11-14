@@ -8,7 +8,7 @@ namespace AxisAPI.Controllers.Hr
 {
     [ApiController]
     [Route("api/hr/leave")]
-    [Authorize]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class HrLeaveController : ControllerBase
     {
         private readonly IHrLeaveService _svc;

@@ -7,6 +7,7 @@ namespace AxisAPI.Controllers
 {
     [ApiController]
     [Route("api/setting")]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class SettingController : ControllerBase
     {
         private readonly ISettingService _settingService;

@@ -23,7 +23,7 @@ namespace AxisAPI.Controllers
         /// Item transactions (flattened to one row per item line), multi-filter & paginated.
         /// </summary>
         [HttpGet("item-transactions")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<ActionResult<PaginatedResponse<ItemTransactionLineDto>>> GetItemTransactions(
             [FromQuery] TransactionsFilterDto f, CancellationToken ct)
         {
@@ -35,7 +35,7 @@ namespace AxisAPI.Controllers
         /// Game transactions (one row per transaction), multi-filter & paginated.
         /// </summary>
         [HttpGet("game-transactions")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<ActionResult<PaginatedResponse<GameTransactionDetailsDto>>> GetGameTransactions(
             [FromQuery] TransactionsFilterDto f, CancellationToken ct)
         {
@@ -44,6 +44,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("orders/count")]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> GetOrdersCount([FromQuery] DateTime? from, [FromQuery] DateTime? to,[FromQuery] string? categoryIds, CancellationToken ct)
         {
             var count = await _svc.GetOrdersCountAsync(from, to, categoryIds, ct);
@@ -73,6 +74,7 @@ namespace AxisAPI.Controllers
         }
 
         [HttpGet("clients/count")]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> GetClientUsersCount(CancellationToken ct)
         {
             var count = await _usersService.CountClientUsersAsync(ct);

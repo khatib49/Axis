@@ -15,12 +15,12 @@ namespace AxisAPI.Controllers.OrderingChannels
         public DeliveryZonesController(IDeliveryService svc) { _svc = svc; }
 
         [HttpGet]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> List([FromQuery] bool includeInactive = false, CancellationToken ct = default)
             => Ok(await _svc.ListZonesAsync(includeInactive, ct));
 
         [HttpGet("{id:int}")]
-        [Authorize]
+        [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
         public async Task<IActionResult> Get(int id, CancellationToken ct)
         {
             var z = await _svc.GetZoneAsync(id, ct);

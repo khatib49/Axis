@@ -1,4 +1,5 @@
-﻿using Application.DTOs;
+﻿using Microsoft.AspNetCore.Authorization;
+using Application.DTOs;
 using Application.IServices;
 using Application.Services;
 using Microsoft.AspNetCore.Http;
@@ -8,6 +9,7 @@ namespace AxisAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = AxisAPI.Utils.StaffPolicy.Name)]
     public class PrintingController : ControllerBase
     {
         private readonly IReceiptPrintingService _printingService;
