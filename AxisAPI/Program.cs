@@ -79,6 +79,7 @@ builder.Services.AddInfrastructure(builder.Configuration); // DbContext + repos
 builder.Services.AddApplication();                         // <-- registers IAuthService & IGameService
 builder.Services.AddScoped<IImageStorageService, LocalImageStorageService>();
 builder.Services.AddScoped<IMediaStorageService, AxisAPI.Utils.LocalMediaStorageService>();
+builder.Services.AddScoped<Application.IServices.IMediaFileReader, AxisAPI.Utils.LocalMediaFileReader>();
 
 // Event promo videos can be large; the framework defaults (~30 MB for
 // multipart, 30 MB for the whole request body) would reject them long
@@ -309,6 +310,12 @@ Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase4.DeliveryPlatformJo
     "delivery-platform-status-push",
     j => j.PushStatusesAsync(CancellationToken.None),
     "* * * * *");                     // every minute
+
+// 4D menu: start queued photo-to-3D jobs and collect finished models every minute.
+Hangfire.RecurringJob.AddOrUpdate<Application.Services.Menu4D.Menu4DJobs>(
+    "menu-4d-models",
+    j => j.ProcessModels(),
+    "* * * * *");
 
 // Phase 5: owner alerts + parent wallet messages every 5 minutes; booking no-shows every 10; daily owner summary (hour set in OwnerBot.DailySummaryHour).
 Hangfire.RecurringJob.AddOrUpdate<Application.Services.Phase5.Phase5Jobs>(

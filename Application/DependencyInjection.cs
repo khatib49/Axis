@@ -133,6 +133,7 @@ namespace Application
             services.AddShop2Module();             // phase 3: storefront catalog endpoints
             services.AddPhase4Module();            // phase 4: 3D menu, upsells, delivery apps, card terminals
             services.AddPhase5Module();            // phase 5: tournaments, booking, station orders, owner bot, parent wallet, alerts, AI tools
+            services.AddMenu4DModule();            // 4D menu: AI dish parts + AI photo-to-3D for table AR
 
             return services;
         }

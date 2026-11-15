@@ -2973,6 +2973,74 @@ namespace Infrastructure.Migrations
                     b.ToTable("Items");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Item4DProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("GenError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("GenFinishedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GenProgress")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GenProvider")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("GenQueuedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("GenStartedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GenStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GenTaskId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PartsJson")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("PartsPublished")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("RealSizeCm")
+                        .HasPrecision(6, 1)
+                        .HasColumnType("numeric(6,1)");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GenStatus");
+
+                    b.HasIndex("ItemId")
+                        .IsUnique();
+
+                    b.ToTable("Menu4D_Profiles", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.ItemAddOn", b =>
                 {
                     b.Property<int>("Id")
@@ -9006,6 +9074,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("Game");
 
                     b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Item4DProfile", b =>
+                {
+                    b.HasOne("Domain.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Domain.Entities.ItemAddOn", b =>

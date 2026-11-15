@@ -241,7 +241,7 @@
             new PageDefinition("promo-coupons", "Coupons", "Promotions", "/admin/promotions/coupons", new[] { "CouponsController" }, None),
             new PageDefinition("promo-happyhours", "Happy Hours", "Promotions", "/admin/promotions/happy-hours", new[] { "HappyHourController" }, None),
             new PageDefinition("promo-combos", "Combos", "Promotions", "/admin/promotions/combos", new[] { "CombosController" }, None),
-            new PageDefinition("menu-3d", "3D Menu", "Inventory Management", "/admin/menu-3d", new[] { "Menu3DController" }, None),
+            new PageDefinition("menu-3d", "4D Menu", "Inventory Management", "/admin/menu-3d", new[] { "Menu3DController", "Menu4DController" }, None),
             new PageDefinition("upsells", "Upsells", "Promotions", "/admin/upsells", new[] { "UpsellController" }, None),
             new PageDefinition("delivery-platforms", "Delivery Apps", "F&B Admin", "/admin/delivery/platforms", new[] { "DeliveryPlatformsController" }, None),
             new PageDefinition("card-terminals", "Card Terminals", "Till", "/admin/payments/terminals", new[] { "CardTerminalsController" }, None),
