@@ -81,7 +81,8 @@ namespace Application.Services.Menu4D
         {
             var ids = await PhotoItems().Select(i => i.Id).ToListAsync(ct);
             var profiles = await _db.Set<Item4DProfile>().AsNoTracking().Where(p => ids.Contains(p.ItemId)).ToListAsync(ct);
-            var withModel = await _db.Set<ItemModel3D>().AsNoTracking().CountAsync(m => ids.Contains(m.ItemId), ct);
+            // Every 3D model counts, including dishes that only have an uploaded scan.
+            var withModel = await _db.Set<ItemModel3D>().AsNoTracking().CountAsync(ct);
             return new Menu4DStatusDto(
                 !string.IsNullOrWhiteSpace(await _settings.GetRawAsync("Anthropic.ApiKey", ct)),
                 !string.IsNullOrWhiteSpace(await _settings.GetRawAsync("Menu4D.Meshy.ApiKey", ct)),

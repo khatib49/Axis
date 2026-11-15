@@ -195,6 +195,7 @@ namespace Tests.Menu4D
             _db.SaveChanges();
             var row = (await _svc.ListAsync()).Single(r => r.ItemId == 3);
             row.HasModel.Should().BeTrue(); row.ModelIsAi.Should().BeFalse(); row.ImagePath.Should().BeNull();
+            (await _svc.StatusAsync()).WithModel.Should().Be(1, "scan-only dishes count as 3D models");
         }
 
         [Fact]
