@@ -215,6 +215,9 @@ builder.Services.AddCors(options => options.AddPolicy("CorsPolicy",
 
 var app = builder.Build();
 
+// New feature tables (idempotent): a publish is all that is needed.
+AxisAPI.Utils.SchemaBootstrap.Apply(app);
+
 // 3D menu models: the default provider does not know .glb / .usdz and would 404 them.
 var staticTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
 staticTypes.Mappings[".glb"] = "model/gltf-binary";
