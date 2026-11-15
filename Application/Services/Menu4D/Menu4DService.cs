@@ -233,9 +233,11 @@ namespace Application.Services.Menu4D
             var p = await ProfileAsync(itemId, ct);
             p.PartsJson = JsonSerializer.Serialize(parts, Json);
             p.PartsPublished = dto.Published && parts.Count > 0;
+            var sizeChanged = p.RealSizeCm != dto.RealSizeCm;
             p.RealSizeCm = dto.RealSizeCm;
             p.UpdatedOn = DateTime.UtcNow; p.UpdatedBy = Who;
             await _db.SaveChangesAsync(ct);
+            if (sizeChanged && dto.RealSizeCm is { } cm) await RefitAiModelAsync(itemId, (double)cm, ct);
             return new(true, null, p.PartsPublished ? "Saved and published." : "Saved.", await RowAsync(itemId, ct));
         }
 
@@ -312,9 +314,10 @@ namespace Application.Services.Menu4D
                     {
                         if (string.IsNullOrWhiteSpace(t.GlbUrl)) { Failed(p, "The 3D service finished without a model file."); changed++; continue; }
                         var glb = await _to3d.DownloadAsync(t.GlbUrl, ct);
-                        byte[]? usdz = null;
-                        if (!string.IsNullOrWhiteSpace(t.UsdzUrl)) { try { usdz = await _to3d.DownloadAsync(t.UsdzUrl, ct); } catch (HttpRequestException) { usdz = null; } }
-                        var err = await SaveModelAsync(p.ItemId, glb, usdz, ct);
+                        // Bake the real size into the file: phone AR viewers show a model at the size stored in it.
+                        // The service's USDZ is not kept (it would be the wrong size); iPhones get one made from this GLB.
+                        glb = GlbRealSize.FitWidth(glb, await RealWidthCmAsync(p, ct) / 100.0);
+                        var err = await SaveModelAsync(p.ItemId, glb, null, ct);
                         if (err is null) { p.GenStatus = Item4DGenStatus.Done; p.GenProgress = 100; p.GenFinishedOn = DateTime.UtcNow; p.GenError = null; }
                         else Failed(p, err);
                         changed++;
@@ -356,6 +359,53 @@ namespace Application.Services.Menu4D
         private static void Failed(Item4DProfile p, string message)
         {
             p.GenStatus = Item4DGenStatus.Failed; p.GenError = message.Length > 1000 ? message[..1000] : message; p.GenFinishedOn = DateTime.UtcNow;
+        }
+
+        /// <summary>Real width of the serving in cm: the staff value, else a sensible default for the kind of dish.</summary>
+        private async Task<double> RealWidthCmAsync(Item4DProfile p, CancellationToken ct)
+        {
+            if (p.RealSizeCm is { } cm) return (double)cm;
+            var item = await _db.Set<Item>().AsNoTracking().Where(i => i.Id == p.ItemId).Select(i => new { i.Name, i.CategoryId }).FirstOrDefaultAsync(ct);
+            var cat = item is null ? null : await _db.Set<Category>().AsNoTracking().Where(c => c.Id == item.CategoryId).Select(c => c.Name).FirstOrDefaultAsync(ct);
+            return DefaultWidthCm($"{item?.Name} {cat}");
+        }
+
+        /// <summary>Typical serving width when staff have not set one (models from photos include the plate or board).</summary>
+        public static double DefaultWidthCm(string text)
+        {
+            var t = text.ToLowerInvariant();
+            bool Has(params string[] w) => w.Any(t.Contains);
+            if (Has("espresso", "turkish", "cortado")) return 8;
+            if (Has("coffee", "latte", "cappuccino", "mocha", "tea", "drink", "juice", "shake", "frappe", "smoothie", "lemonade", "matcha", "soda", "water", "mojito", "iced")) return 9;
+            if (Has("pizza")) return 30;
+            if (Has("burger", "sandwich", "platter", "combo", "steak", "crepe")) return 30;
+            if (Has("salad", "ramen", "pasta", "bowl")) return 22;
+            if (Has("ice cream", "dessert", "cake", "brownie")) return 14;
+            return 26;
+        }
+
+        /// <summary>Rescales a stored AI model after staff change the real size, so phone AR shows the new size.</summary>
+        private async Task RefitAiModelAsync(int itemId, double cm, CancellationToken ct)
+        {
+            var row = await _db.Set<ItemModel3D>().FirstOrDefaultAsync(m => m.ItemId == itemId, ct);
+            var profile = await _db.Set<Item4DProfile>().AsNoTracking().FirstOrDefaultAsync(x => x.ItemId == itemId, ct);
+            if (row is null || profile?.GenStatus != Item4DGenStatus.Done || row.UpdatedBy != "AI 3D") return;
+            try
+            {
+                var file = await _files.ReadAsync(row.GlbPath, ct);
+                if (file is null) return;
+                var glb = GlbRealSize.FitWidth(file.Value.Bytes, cm / 100.0);
+                if (ReferenceEquals(glb, file.Value.Bytes)) return;
+                var path = await _media.SaveAsync(new BytesFormFile(glb, "model.glb", "model/gltf-binary"), "models", MediaKind.Model3D, ct);
+                var old = row.GlbPath;
+                row.GlbPath = path; row.GlbBytes = glb.Length; row.UpdatedOn = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+                await _media.DeleteAsync(old);
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or HttpRequestException)
+            {
+                _log.LogWarning(ex, "4D: could not resize the 3D model of item {Item}", itemId);
+            }
         }
 
         /// <summary>Stores the AI model as the item's 3D model, switched off until staff approve it.</summary>

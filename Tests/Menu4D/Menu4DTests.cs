@@ -45,9 +45,14 @@ namespace Tests.Menu4D
     internal sealed class FakeMedia : IMediaStorageService
     {
         public List<string> Saved { get; } = new();
+        public List<byte[]> SavedBytes { get; } = new();
         public List<string?> Deleted { get; } = new();
         public Task<string> SaveAsync(IFormFile file, string subfolder, MediaKind kind, CancellationToken ct = default)
-        { var p = $"media/{subfolder}/{Saved.Count + 1}{Path.GetExtension(file.FileName)}"; Saved.Add(p); return Task.FromResult(p); }
+        {
+            var p = $"media/{subfolder}/{Saved.Count + 1}{Path.GetExtension(file.FileName)}"; Saved.Add(p);
+            using var ms = new MemoryStream(); file.CopyTo(ms); SavedBytes.Add(ms.ToArray());
+            return Task.FromResult(p);
+        }
         public Task DeleteAsync(string? relativePath) { Deleted.Add(relativePath); return Task.CompletedTask; }
     }
 
@@ -167,6 +172,19 @@ namespace Tests.Menu4D
         }
 
         [Fact]
+        public async Task Photo_to_3D_saves_the_model_at_the_dishs_real_width_and_drops_the_service_usdz()
+        {
+            await _svc.UpdateAsync(1, new Item4DUpdateDto(new(), false, 12m));
+            await _svc.QueueModelAsync(1);
+            await _svc.ProcessModelQueueAsync();
+            _to3d.Glb = GlbFixture.Box(2.0, 1.0, 0.5); // a 2 m wide model, like many AI services return
+            _to3d.Tasks["task-1"] = new PhotoTo3DTask("SUCCEEDED", 100, "https://cdn/x.glb", "https://cdn/x.usdz", null);
+            await _svc.ProcessModelQueueAsync();
+            _media.Saved.Should().ContainSingle().Which.Should().EndWith(".glb");
+            GlbRealSize.Width(_media.SavedBytes[0])!.Value.Should().BeApproximately(0.12, 0.001);
+        }
+
+        [Fact]
         public async Task Photo_to_3D_reports_failures_and_bad_files()
         {
             await _svc.QueueModelAsync(1);
@@ -265,6 +283,80 @@ namespace Tests.Menu4D
             h.Seen[1].Url.Should().Be("https://api.meshy.ai/openapi/v1/image-to-3d/0193-abc");
             t.Status.Should().Be("SUCCEEDED"); t.Progress.Should().Be(100);
             t.GlbUrl.Should().EndWith(".glb"); t.UsdzUrl.Should().EndWith(".usdz"); t.Error.Should().BeNull();
+        }
+    }
+}
+
+namespace Tests.Menu4D
+{
+    using System.Text.Json;
+
+    /// <summary>Tiny valid GLB files for the size tests.</summary>
+    internal static class GlbFixture
+    {
+        /// <summary>One box-shaped primitive (bounds only) of the given size in metres, under a node with scale 1.</summary>
+        public static byte[] Box(double x, double y, double z, object? node = null)
+        {
+            var bin = new byte[36];
+            var json = JsonSerializer.Serialize(new
+            {
+                asset = new { version = "2.0" },
+                scene = 0,
+                scenes = new[] { new { nodes = new[] { 0 } } },
+                nodes = new[] { node ?? new { mesh = 0 } },
+                meshes = new[] { new { primitives = new[] { new { attributes = new { POSITION = 0 } } } } },
+                accessors = new[] { new { bufferView = 0, componentType = 5126, count = 3, type = "VEC3", min = new[] { -x / 2, 0, -z / 2 }, max = new[] { x / 2, y, z / 2 } } },
+                bufferViews = new[] { new { buffer = 0, byteLength = 36 } },
+                buffers = new[] { new { byteLength = 36 } },
+            });
+            var j = Encoding.UTF8.GetBytes(json);
+            var pad = (4 - j.Length % 4) % 4;
+            using var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms);
+            w.Write(Encoding.ASCII.GetBytes("glTF")); w.Write(2u); w.Write((uint)(12 + 8 + j.Length + pad + 8 + bin.Length));
+            w.Write((uint)(j.Length + pad)); w.Write(0x4E4F534Au); w.Write(j); for (var i = 0; i < pad; i++) w.Write((byte)0x20);
+            w.Write((uint)bin.Length); w.Write(0x004E4942u); w.Write(bin);
+            return ms.ToArray();
+        }
+    }
+
+    public class GlbRealSizeTests
+    {
+        [Fact]
+        public void Fits_the_widest_side_and_keeps_the_binary_data()
+        {
+            var glb = GlbFixture.Box(0.8, 0.3, 0.4);
+            GlbRealSize.Width(glb)!.Value.Should().BeApproximately(0.8, 1e-6);
+            var fitted = GlbRealSize.FitWidth(glb, 0.24);
+            GlbRealSize.Width(fitted)!.Value.Should().BeApproximately(0.24, 1e-6);
+            Encoding.ASCII.GetString(fitted, 0, 4).Should().Be("glTF");
+            BitConverter.ToUInt32(fitted, 8).Should().Be((uint)fitted.Length);
+            (fitted.Length % 4).Should().Be(0);
+        }
+
+        [Fact]
+        public void Uses_node_transforms_and_the_deeper_side()
+        {
+            // scale 3 on the node, and Z is the widest side
+            var glb = GlbFixture.Box(0.1, 0.1, 0.2, new { mesh = 0, scale = new[] { 3.0, 3.0, 3.0 }, translation = new[] { 5.0, 0, 0 } });
+            GlbRealSize.Width(glb)!.Value.Should().BeApproximately(0.6, 1e-5);
+            GlbRealSize.Width(GlbRealSize.FitWidth(glb, 0.3))!.Value.Should().BeApproximately(0.3, 1e-5);
+        }
+
+        [Fact]
+        public void Leaves_files_it_cannot_read_unchanged()
+        {
+            var junk = Encoding.ASCII.GetBytes("glTF....fake");
+            GlbRealSize.FitWidth(junk, 0.2).Should().BeSameAs(junk);
+            GlbRealSize.Width(junk).Should().BeNull();
+        }
+
+        [Fact]
+        public void Default_widths_follow_the_kind_of_dish()
+        {
+            Menu4DService.DefaultWidthCm("Iced Latte Iced Coffee").Should().Be(9);
+            Menu4DService.DefaultWidthCm("Veggie Pizza Pizzas").Should().Be(30);
+            Menu4DService.DefaultWidthCm("Shrimp Ramen Ramen").Should().Be(22);
         }
     }
 }
