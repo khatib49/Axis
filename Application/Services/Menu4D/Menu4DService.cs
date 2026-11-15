@@ -49,7 +49,11 @@ namespace Application.Services.Menu4D
 
         public async Task<List<Item4DRowDto>> ListAsync(CancellationToken ct = default)
         {
-            var items = await PhotoItems().Select(i => new { i.Id, i.Name, i.ImagePath, i.Type, i.CategoryId }).ToListAsync(ct);
+            // Dishes with a photo, plus dishes that only have an uploaded 3D scan.
+            var scanned = _db.Set<ItemModel3D>().Select(m => m.ItemId);
+            var items = await _db.Set<Item>().AsNoTracking()
+                .Where(i => i.StatusId == 1 && ((i.ImagePath != null && i.ImagePath != "") || scanned.Contains(i.Id)))
+                .Select(i => new { i.Id, i.Name, i.ImagePath, i.Type, i.CategoryId }).ToListAsync(ct);
             var cats = await _db.Set<Category>().AsNoTracking().Select(c => new { c.Id, c.Name }).ToDictionaryAsync(c => c.Id, c => c.Name, ct);
             var profiles = await _db.Set<Item4DProfile>().AsNoTracking().ToDictionaryAsync(p => p.ItemId, ct);
             var models = await _db.Set<ItemModel3D>().AsNoTracking().ToDictionaryAsync(m => m.ItemId, ct);

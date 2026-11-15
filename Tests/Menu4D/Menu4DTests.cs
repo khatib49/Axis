@@ -188,6 +188,16 @@ namespace Tests.Menu4D
         }
 
         [Fact]
+        public async Task List_includes_dishes_that_only_have_an_uploaded_scan()
+        {
+            (await _svc.ListAsync()).Should().NotContain(r => r.ItemId == 3, "no photo and no scan");
+            _db.Add(new ItemModel3D { ItemId = 3, GlbPath = "media/models/scan.glb", GlbBytes = 10, UpdatedBy = "staff" });
+            _db.SaveChanges();
+            var row = (await _svc.ListAsync()).Single(r => r.ItemId == 3);
+            row.HasModel.Should().BeTrue(); row.ModelIsAi.Should().BeFalse(); row.ImagePath.Should().BeNull();
+        }
+
+        [Fact]
         public async Task Queue_all_skips_items_with_models_and_respects_the_parallel_limit()
         {
             _db.Add(new ItemModel3D { ItemId = 2, GlbPath = "media/models/scan.glb", GlbBytes = 10, UpdatedBy = "staff" });
