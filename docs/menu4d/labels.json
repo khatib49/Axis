@@ -1,0 +1,3345 @@
+[
+ {
+  "id": 5,
+  "name": "Penne Arrabbiata",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Basil leaf",
+    "detail": "A glossy basil leaf crowning the pasta",
+    "x": 50.0,
+    "y": 43.0
+   },
+   {
+    "name": "Grated parmesan",
+    "detail": "Fine shreds of parmesan snowed over the top",
+    "x": 62.0,
+    "y": 44.0
+   },
+   {
+    "name": "Penne",
+    "detail": "Ridged penne tubes coated in sauce",
+    "x": 42.0,
+    "y": 72.0
+   },
+   {
+    "name": "Tomato sauce",
+    "detail": "Rich red tomato sauce clinging to every piece",
+    "x": 29.0,
+    "y": 61.0
+   }
+  ]
+ },
+ {
+  "id": 44,
+  "name": "Single Espresso",
+  "realSizeCm": 7,
+  "parts": [
+   {
+    "name": "Espresso crema",
+    "detail": "Golden-brown crema resting on a single shot",
+    "x": 50.0,
+    "y": 32.0
+   },
+   {
+    "name": "Espresso cup",
+    "detail": "Small matte charcoal cup with a white rim",
+    "x": 47.0,
+    "y": 48.0
+   },
+   {
+    "name": "Saucer",
+    "detail": "Matching dark saucer with a white edge",
+    "x": 64.0,
+    "y": 60.0
+   }
+  ]
+ },
+ {
+  "id": 51,
+  "name": "Cortado",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Latte art",
+    "detail": "A white milk tulip poured on the surface",
+    "x": 47.0,
+    "y": 31.0
+   },
+   {
+    "name": "Cortado",
+    "detail": "Espresso cut with warm milk in a short glass",
+    "x": 48.0,
+    "y": 58.0
+   }
+  ]
+ },
+ {
+  "id": 87,
+  "name": "Hot Mocha",
+  "realSizeCm": 10,
+  "parts": [
+   {
+    "name": "Cocoa dusting",
+    "detail": "Speckled cocoa powder over smooth foam",
+    "x": 47.0,
+    "y": 28.0
+   },
+   {
+    "name": "Mocha cup",
+    "detail": "Pale blue cup holding the hot mocha",
+    "x": 40.0,
+    "y": 58.0
+   },
+   {
+    "name": "Saucer",
+    "detail": "Matching blue saucer with a dark rim",
+    "x": 50.0,
+    "y": 75.0
+   }
+  ]
+ },
+ {
+  "id": 92,
+  "name": "Strawberry Mango",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Strawberry garnish",
+    "detail": "A halved strawberry perched on the rim",
+    "x": 58.0,
+    "y": 18.0
+   },
+   {
+    "name": "Frothy top",
+    "detail": "Light froth from the blend on the surface",
+    "x": 43.0,
+    "y": 20.0
+   },
+   {
+    "name": "Strawberry mango blend",
+    "detail": "Thick, deep coral smoothie filling the glass",
+    "x": 50.0,
+    "y": 52.0
+   }
+  ]
+ },
+ {
+  "id": 111,
+  "name": "Flat White",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Latte art",
+    "detail": "A white milk rosetta on silky microfoam",
+    "x": 47.0,
+    "y": 30.0
+   },
+   {
+    "name": "Flat white",
+    "detail": "Espresso and steamed milk in a short glass",
+    "x": 48.0,
+    "y": 60.0
+   }
+  ]
+ },
+ {
+  "id": 133,
+  "name": "Chicken Quesedillas",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Guacamole",
+    "detail": "Creamy green avocado dip on the side",
+    "x": 42.0,
+    "y": 15.0
+   },
+   {
+    "name": "Sour cream",
+    "detail": "Cool, smooth sour cream for dipping",
+    "x": 29.0,
+    "y": 31.0
+   },
+   {
+    "name": "Toasted tortilla",
+    "detail": "Folded wrap with golden griddle marks",
+    "x": 50.0,
+    "y": 68.0
+   },
+   {
+    "name": "Chicken and cheese",
+    "detail": "Tender chicken and melted mozzarella inside",
+    "x": 52.0,
+    "y": 47.0
+   },
+   {
+    "name": "Mixed peppers",
+    "detail": "Bright red pepper pieces in the filling",
+    "x": 62.0,
+    "y": 34.0
+   },
+   {
+    "name": "Side greens",
+    "detail": "Mixed salad leaves around the wedges",
+    "x": 75.0,
+    "y": 63.0
+   }
+  ]
+ },
+ {
+  "id": 144,
+  "name": "Shrimp Caesar",
+  "realSizeCm": 22,
+  "parts": [
+   {
+    "name": "Grilled shrimp",
+    "detail": "Plump shrimp with a charred, seasoned crust",
+    "x": 41.0,
+    "y": 62.0
+   },
+   {
+    "name": "Croutons",
+    "detail": "Golden toasted bread cubes for crunch",
+    "x": 44.0,
+    "y": 40.0
+   },
+   {
+    "name": "Shaved parmesan",
+    "detail": "Fine parmesan shreds scattered on top",
+    "x": 52.0,
+    "y": 30.0
+   },
+   {
+    "name": "Romaine lettuce",
+    "detail": "Crisp lettuce tossed in creamy Caesar dressing",
+    "x": 56.0,
+    "y": 65.0
+   }
+  ]
+ },
+ {
+  "id": 150,
+  "name": "Halloumi Salad",
+  "realSizeCm": 22,
+  "parts": [
+   {
+    "name": "Grilled halloumi",
+    "detail": "Thick halloumi slices with golden sear marks",
+    "x": 37.0,
+    "y": 55.0
+   },
+   {
+    "name": "Red onion",
+    "detail": "Thin rings of red onion for a sharp bite",
+    "x": 48.0,
+    "y": 32.0
+   },
+   {
+    "name": "Cucumber",
+    "detail": "Crisp cucumber rounds",
+    "x": 61.0,
+    "y": 62.0
+   },
+   {
+    "name": "Cherry tomato",
+    "detail": "Juicy halved cherry tomatoes",
+    "x": 70.0,
+    "y": 60.0
+   },
+   {
+    "name": "Mixed greens",
+    "detail": "A bed of tender mixed salad leaves",
+    "x": 50.0,
+    "y": 46.0
+   }
+  ]
+ },
+ {
+  "id": 156,
+  "name": "Chicken Creamy Sandwich",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Toasted roll",
+    "detail": "Golden, crusty sandwich roll",
+    "x": 40.0,
+    "y": 40.0
+   },
+   {
+    "name": "Creamy chicken",
+    "detail": "Chicken in a creamy mushroom sauce",
+    "x": 53.0,
+    "y": 48.0
+   },
+   {
+    "name": "Rocket leaves",
+    "detail": "Peppery rocket tucked into the filling",
+    "x": 42.0,
+    "y": 57.0
+   },
+   {
+    "name": "Side salad",
+    "detail": "Mixed leaves and veg served alongside",
+    "x": 48.0,
+    "y": 22.0
+   }
+  ]
+ },
+ {
+  "id": 160,
+  "name": "Veggie Ramen",
+  "realSizeCm": 20,
+  "parts": [
+   {
+    "name": "Nori",
+    "detail": "Dark sheets of seaweed folded in the centre",
+    "x": 44.0,
+    "y": 40.0
+   },
+   {
+    "name": "Mushrooms",
+    "detail": "Seared, glossy mushroom slices",
+    "x": 55.0,
+    "y": 26.0
+   },
+   {
+    "name": "Shredded cabbage",
+    "detail": "Purple and white cabbage, lightly wilted",
+    "x": 63.0,
+    "y": 55.0
+   },
+   {
+    "name": "Carrots",
+    "detail": "Fine carrot strips with sesame",
+    "x": 35.0,
+    "y": 62.0
+   },
+   {
+    "name": "Herbs and sesame",
+    "detail": "Parsley, green onion and sesame seeds",
+    "x": 37.0,
+    "y": 32.0
+   }
+  ]
+ },
+ {
+  "id": 196,
+  "name": "Honey Mustard Chicken Burger",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Brioche bun",
+    "detail": "Shiny, golden toasted bun held with a skewer",
+    "x": 40.0,
+    "y": 46.0
+   },
+   {
+    "name": "Fried chicken",
+    "detail": "Crunchy, deep-golden fried chicken fillet",
+    "x": 30.0,
+    "y": 59.0
+   },
+   {
+    "name": "Lettuce",
+    "detail": "Frilly green lettuce under the chicken",
+    "x": 57.0,
+    "y": 64.0
+   },
+   {
+    "name": "Bottom bun",
+    "detail": "Soft toasted base of the burger",
+    "x": 42.0,
+    "y": 68.0
+   },
+   {
+    "name": "Seasoned fries",
+    "detail": "Spiced fries piled in a wire basket",
+    "x": 75.0,
+    "y": 41.0
+   }
+  ]
+ },
+ {
+  "id": 208,
+  "name": "Appetizer Special Combo",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Chicken strips",
+    "detail": "Crispy, golden breaded chicken strips",
+    "x": 42.0,
+    "y": 22.0
+   },
+   {
+    "name": "Mozzarella sticks",
+    "detail": "Crumbed sticks filled with mozzarella",
+    "x": 38.0,
+    "y": 50.0
+   },
+   {
+    "name": "Jalapeño bites",
+    "detail": "Golden fried bites with a jalapeño filling",
+    "x": 54.0,
+    "y": 65.0
+   },
+   {
+    "name": "Curly fries",
+    "detail": "Seasoned spiral fries",
+    "x": 68.0,
+    "y": 30.0
+   },
+   {
+    "name": "Honey mustard",
+    "detail": "Sweet, tangy golden dip",
+    "x": 31.0,
+    "y": 15.0
+   },
+   {
+    "name": "Creamy dips",
+    "detail": "Cocktail sauce and spicy mayo for dipping",
+    "x": 21.0,
+    "y": 25.0
+   }
+  ]
+ },
+ {
+  "id": 234,
+  "name": "V60",
+  "realSizeCm": 14,
+  "parts": [
+   {
+    "name": "Paper filter",
+    "detail": "Pleated paper filter lining the dripper",
+    "x": 40.0,
+    "y": 12.0
+   },
+   {
+    "name": "Coffee bed",
+    "detail": "Freshly ground coffee after the pour",
+    "x": 46.0,
+    "y": 27.0
+   },
+   {
+    "name": "V60 dripper",
+    "detail": "Cone dripper with a black base and handle",
+    "x": 34.0,
+    "y": 41.0
+   },
+   {
+    "name": "Coffee stream",
+    "detail": "A thin stream of brewed coffee dripping down",
+    "x": 46.0,
+    "y": 66.0
+   },
+   {
+    "name": "Brewed coffee",
+    "detail": "Dark, clear filter coffee in the server",
+    "x": 44.0,
+    "y": 82.0
+   }
+  ]
+ },
+ {
+  "id": 249,
+  "name": "Coffee Frappe",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Coffee beans",
+    "detail": "Coffee bean garnish on the cream",
+    "x": 47.0,
+    "y": 7.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "A tall swirl of whipped cream",
+    "x": 48.0,
+    "y": 22.0
+   },
+   {
+    "name": "Coffee frappe",
+    "detail": "Icy blended coffee in a tall glass",
+    "x": 45.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 271,
+  "name": "Brownie Cup",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "Swirls of whipped cream on top",
+    "x": 36.0,
+    "y": 24.0
+   },
+   {
+    "name": "Nutella drizzle",
+    "detail": "Glossy chocolate hazelnut ribbons over the cream",
+    "x": 47.0,
+    "y": 28.0
+   },
+   {
+    "name": "Brownie chunks",
+    "detail": "Dense, fudgy brownie pieces",
+    "x": 40.0,
+    "y": 37.0
+   },
+   {
+    "name": "Nutella layer",
+    "detail": "Smooth Nutella coating the glass walls",
+    "x": 60.0,
+    "y": 43.0
+   },
+   {
+    "name": "Strawberries",
+    "detail": "Juicy strawberry pieces between the layers",
+    "x": 51.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 280,
+  "name": "Strawberry Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Strawberry",
+    "detail": "A whole strawberry with its green top",
+    "x": 46.0,
+    "y": 13.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "Fluffy whipped cream piled high",
+    "x": 53.0,
+    "y": 25.0
+   },
+   {
+    "name": "Strawberry sauce",
+    "detail": "Red strawberry syrup running down the glass",
+    "x": 47.0,
+    "y": 55.0
+   },
+   {
+    "name": "Strawberry shake",
+    "detail": "Creamy pink milkshake",
+    "x": 53.0,
+    "y": 68.0
+   }
+  ]
+ },
+ {
+  "id": 285,
+  "name": "Turkish Coffee",
+  "realSizeCm": 7,
+  "parts": [
+   {
+    "name": "Coffee foam",
+    "detail": "Rich, bubbly foam on the coffee",
+    "x": 49.0,
+    "y": 30.0
+   },
+   {
+    "name": "Coffee cup",
+    "detail": "Small matte charcoal cup with a white rim",
+    "x": 45.0,
+    "y": 50.0
+   },
+   {
+    "name": "Saucer",
+    "detail": "Matching dark saucer with a white edge",
+    "x": 67.0,
+    "y": 58.0
+   }
+  ]
+ },
+ {
+  "id": 364,
+  "name": "Chocolate Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Chocolate drizzle",
+    "detail": "Chocolate sauce swirled over the top",
+    "x": 48.0,
+    "y": 7.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "Fluffy whipped cream crown",
+    "x": 61.0,
+    "y": 20.0
+   },
+   {
+    "name": "Chocolate streaks",
+    "detail": "Chocolate sauce lining the inside of the glass",
+    "x": 46.0,
+    "y": 44.0
+   },
+   {
+    "name": "Chocolate shake",
+    "detail": "Thick, creamy chocolate milkshake",
+    "x": 48.0,
+    "y": 72.0
+   }
+  ]
+ },
+ {
+  "id": 374,
+  "name": "Lotus Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Lotus biscuit crumble",
+    "detail": "Chunks of caramelised Lotus biscuit",
+    "x": 50.0,
+    "y": 15.0
+   },
+   {
+    "name": "Lotus spread",
+    "detail": "Glossy caramel-coloured Lotus spread",
+    "x": 62.0,
+    "y": 21.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "Soft whipped cream topping",
+    "x": 40.0,
+    "y": 23.0
+   },
+   {
+    "name": "Spread swirl",
+    "detail": "Lotus spread streaked inside the glass",
+    "x": 50.0,
+    "y": 53.0
+   },
+   {
+    "name": "Lotus milkshake",
+    "detail": "Creamy biscuit-flavoured milkshake",
+    "x": 46.0,
+    "y": 70.0
+   }
+  ]
+ },
+ {
+  "id": 378,
+  "name": "Fresh Lemonade",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Clear ice keeping the lemonade cold",
+    "x": 43.0,
+    "y": 17.0
+   },
+   {
+    "name": "Lemonade",
+    "detail": "Cloudy, pale yellow lemon drink",
+    "x": 48.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 389,
+  "name": "Iced Tea Peach",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes floating at the top",
+    "x": 44.0,
+    "y": 20.0
+   },
+   {
+    "name": "Peach iced tea",
+    "detail": "Amber iced tea with peach flavour",
+    "x": 48.0,
+    "y": 58.0
+   }
+  ]
+ },
+ {
+  "id": 415,
+  "name": "strips combo platter",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Chicken tenders",
+    "detail": "Crunchy, golden breaded chicken tenders",
+    "x": 45.0,
+    "y": 56.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Golden straight-cut fries",
+    "x": 68.0,
+    "y": 40.0
+   },
+   {
+    "name": "Honey mustard",
+    "detail": "Sweet and tangy dip for the tenders",
+    "x": 41.0,
+    "y": 18.0
+   }
+  ]
+ },
+ {
+  "id": 486,
+  "name": "Oreo Crepe",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Oreo crumble",
+    "detail": "Crushed Oreo cookies covering the crepe",
+    "x": 48.0,
+    "y": 47.0
+   },
+   {
+    "name": "Chocolate drizzle",
+    "detail": "Glossy chocolate sauce zigzagged across",
+    "x": 46.0,
+    "y": 64.0
+   },
+   {
+    "name": "Folded crepe",
+    "detail": "Thin, golden crepe folded into a rectangle",
+    "x": 69.0,
+    "y": 65.0
+   }
+  ]
+ },
+ {
+  "id": 587,
+  "name": "Entrecote Burger",
+  "realSizeCm": 38,
+  "parts": [
+   {
+    "name": "Seasoned fries",
+    "detail": "Spiced fries in a wire basket",
+    "x": 29.0,
+    "y": 34.0
+   },
+   {
+    "name": "Entrecote sauce",
+    "detail": "Green herby entrecote sauce for dipping",
+    "x": 44.0,
+    "y": 62.0
+   },
+   {
+    "name": "Beef patty",
+    "detail": "Juicy, well-seared beef patty",
+    "x": 67.0,
+    "y": 29.0
+   },
+   {
+    "name": "Swiss cheese",
+    "detail": "Melted Swiss cheese over the patty",
+    "x": 74.0,
+    "y": 46.0
+   },
+   {
+    "name": "Baby rocket",
+    "detail": "Peppery baby rocket leaves",
+    "x": 64.0,
+    "y": 50.0
+   },
+   {
+    "name": "Toasted bun",
+    "detail": "Golden bun sitting in entrecote sauce",
+    "x": 74.0,
+    "y": 57.0
+   }
+  ]
+ },
+ {
+  "id": 591,
+  "name": "Wings",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Glazed wings",
+    "detail": "Crispy wings coated in a sticky, rich sauce",
+    "x": 45.0,
+    "y": 57.0
+   },
+   {
+    "name": "Saucy glaze",
+    "detail": "Glossy sauce clinging to every wing",
+    "x": 60.0,
+    "y": 45.0
+   },
+   {
+    "name": "Herb garnish",
+    "detail": "Fresh green herb sprigs",
+    "x": 66.0,
+    "y": 37.0
+   },
+   {
+    "name": "Lettuce",
+    "detail": "Green leaves tucked under the wings",
+    "x": 53.0,
+    "y": 70.0
+   },
+   {
+    "name": "Dipping sauce",
+    "detail": "Smooth golden dip on the side",
+    "x": 19.0,
+    "y": 30.0
+   }
+  ]
+ },
+ {
+  "id": 595,
+  "name": "White Choco Matcha",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes chilling the drink",
+    "x": 51.0,
+    "y": 27.0
+   },
+   {
+    "name": "Iced matcha",
+    "detail": "Matcha with white chocolate and milk",
+    "x": 50.0,
+    "y": 56.0
+   }
+  ]
+ },
+ {
+  "id": 599,
+  "name": "Beef Steak Entrecote",
+  "realSizeCm": 40,
+  "parts": [
+   {
+    "name": "Sliced steak",
+    "detail": "Seared beef steak sliced to show a pink centre",
+    "x": 72.0,
+    "y": 55.0
+   },
+   {
+    "name": "Entrecote sauce",
+    "detail": "Herby green sauce pooled around the steak",
+    "x": 57.0,
+    "y": 49.0
+   },
+   {
+    "name": "Sauce pot",
+    "detail": "Extra entrecote sauce in a small pan",
+    "x": 59.0,
+    "y": 25.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Golden fries in a wire basket",
+    "x": 37.0,
+    "y": 28.0
+   },
+   {
+    "name": "Spice mix",
+    "detail": "A bowl of red, coarse seasoning",
+    "x": 24.0,
+    "y": 64.0
+   }
+  ]
+ },
+ {
+  "id": 6,
+  "name": "Chicken Tagliatelle Alfredo",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Grilled chicken breast",
+    "detail": "Sliced chicken breast with dark grill marks, fanned across the bowl",
+    "x": 35.5,
+    "y": 48.0
+   },
+   {
+    "name": "Basil leaves",
+    "detail": "Bright green basil leaves tucked between chicken and pasta",
+    "x": 51.0,
+    "y": 32.5
+   },
+   {
+    "name": "Tagliatelle",
+    "detail": "Ribbons of tagliatelle twirled in creamy white sauce",
+    "x": 63.0,
+    "y": 50.0
+   },
+   {
+    "name": "Grated parmesan",
+    "detail": "A fluffy pile of finely grated parmesan over the pasta",
+    "x": 58.0,
+    "y": 33.0
+   },
+   {
+    "name": "Creamy white sauce",
+    "detail": "Silky white sauce pooling at the base of the bowl",
+    "x": 50.0,
+    "y": 70.0
+   }
+  ]
+ },
+ {
+  "id": 45,
+  "name": "Double Espresso",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Espresso crema",
+    "detail": "Golden-brown crema swirled over a double shot of espresso",
+    "x": 44.0,
+    "y": 37.0
+   },
+   {
+    "name": "Ceramic cup",
+    "detail": "Pale blue cup with a dark rim, holding the double shot",
+    "x": 53.0,
+    "y": 58.0
+   },
+   {
+    "name": "Saucer",
+    "detail": "Matching blue saucer under the cup",
+    "x": 30.0,
+    "y": 72.0
+   }
+  ]
+ },
+ {
+  "id": 52,
+  "name": "Cappuccino",
+  "realSizeCm": 10,
+  "parts": [
+   {
+    "name": "Cocoa dusting",
+    "detail": "A fine sprinkle of cocoa over half of the foam",
+    "x": 40.0,
+    "y": 37.0
+   },
+   {
+    "name": "Milk foam",
+    "detail": "Thick, velvety white milk foam crowning the cappuccino",
+    "x": 57.0,
+    "y": 35.0
+   }
+  ]
+ },
+ {
+  "id": 88,
+  "name": "Iced Caramel Macchiato",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Caramel drizzle",
+    "detail": "A spiral of golden caramel drizzled over the foam",
+    "x": 51.0,
+    "y": 21.0
+   },
+   {
+    "name": "Milk foam",
+    "detail": "A smooth cap of white milk foam on top",
+    "x": 42.0,
+    "y": 26.0
+   },
+   {
+    "name": "Espresso layer",
+    "detail": "Espresso cascading down into the cold milk",
+    "x": 50.0,
+    "y": 47.0
+   },
+   {
+    "name": "Cold milk",
+    "detail": "Chilled milk forming the creamy middle layer",
+    "x": 50.0,
+    "y": 67.0
+   },
+   {
+    "name": "Caramel base",
+    "detail": "Caramel syrup settled at the bottom of the glass",
+    "x": 50.0,
+    "y": 83.0
+   }
+  ]
+ },
+ {
+  "id": 100,
+  "name": "Iced Mocha",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes floating at the top of the glass",
+    "x": 48.0,
+    "y": 22.0
+   },
+   {
+    "name": "Chocolate swirls",
+    "detail": "Chocolate sauce streaked down the inside of the glass",
+    "x": 44.0,
+    "y": 46.0
+   },
+   {
+    "name": "Iced mocha",
+    "detail": "Espresso, milk and chocolate blended into a creamy brown drink",
+    "x": 50.0,
+    "y": 65.0
+   },
+   {
+    "name": "Chocolate base",
+    "detail": "Dark chocolate sauce pooled at the bottom",
+    "x": 48.0,
+    "y": 83.0
+   }
+  ]
+ },
+ {
+  "id": 118,
+  "name": "Affogato",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Ice cream scoop",
+    "detail": "A scoop of creamy ice cream melting into the coffee",
+    "x": 42.0,
+    "y": 24.0
+   },
+   {
+    "name": "Espresso pour",
+    "detail": "Espresso poured over the ice cream, turning it golden",
+    "x": 50.0,
+    "y": 34.0
+   }
+  ]
+ },
+ {
+  "id": 136,
+  "name": "Chicken Strips",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Breaded chicken strip",
+    "detail": "Chicken strip in a deep golden, crunchy crumb coating",
+    "x": 29.0,
+    "y": 47.0
+   },
+   {
+    "name": "Crispy chicken strips",
+    "detail": "Stacked strips with a rough, crackly crust",
+    "x": 51.0,
+    "y": 62.0
+   },
+   {
+    "name": "Honey mustard sauce",
+    "detail": "Smooth yellow honey mustard dip for the strips",
+    "x": 77.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 145,
+  "name": "Quinoa Greek Salad",
+  "realSizeCm": 22,
+  "parts": [
+   {
+    "name": "Red onion",
+    "detail": "Thin crescents of red onion fanned on top",
+    "x": 48.0,
+    "y": 28.0
+   },
+   {
+    "name": "Feta cheese",
+    "detail": "Crumbled white feta sprinkled with dried herbs",
+    "x": 51.0,
+    "y": 45.0
+   },
+   {
+    "name": "Black olives",
+    "detail": "Glossy black olive halves scattered through the salad",
+    "x": 64.0,
+    "y": 43.0
+   },
+   {
+    "name": "Lettuce",
+    "detail": "Crisp green lettuce forming the base of the salad",
+    "x": 61.0,
+    "y": 55.0
+   },
+   {
+    "name": "Quinoa",
+    "detail": "Tiny quinoa grains mixed through the leaves",
+    "x": 33.0,
+    "y": 45.0
+   }
+  ]
+ },
+ {
+  "id": 152,
+  "name": "Club Sandwich",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Toasted brioche",
+    "detail": "Golden toasted brioche slice on top of the stack",
+    "x": 44.0,
+    "y": 24.0
+   },
+   {
+    "name": "Tomato",
+    "detail": "Red tomato slices layered inside the sandwich",
+    "x": 49.0,
+    "y": 35.5
+   },
+   {
+    "name": "Turkey slices",
+    "detail": "Thin slices of turkey peeking out of the cut half",
+    "x": 69.0,
+    "y": 55.0
+   },
+   {
+    "name": "Side salad",
+    "detail": "Mixed leaves with red-stemmed greens served alongside",
+    "x": 48.0,
+    "y": 72.0
+   }
+  ]
+ },
+ {
+  "id": 157,
+  "name": "Shrimp Burger",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Brioche bun",
+    "detail": "Soft, glossy golden brioche bun",
+    "x": 33.0,
+    "y": 19.0
+   },
+   {
+    "name": "Shrimp patty",
+    "detail": "Golden seared shrimp patty with a crisp crust",
+    "x": 27.0,
+    "y": 36.0
+   },
+   {
+    "name": "Spicy sauce",
+    "detail": "Creamy spicy sauce spread over the patty",
+    "x": 45.5,
+    "y": 33.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Seasoned golden fries piled beside the burger",
+    "x": 67.0,
+    "y": 33.0
+   },
+   {
+    "name": "Cherry tomato",
+    "detail": "Halved cherry tomato on the side salad",
+    "x": 55.5,
+    "y": 60.0
+   },
+   {
+    "name": "Side salad",
+    "detail": "Rocca and mixed leaves served on the side",
+    "x": 26.0,
+    "y": 66.0
+   }
+  ]
+ },
+ {
+  "id": 164,
+  "name": "Pain Perdu",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Vanilla ice cream",
+    "detail": "A scoop of vanilla ice cream drizzled with caramel",
+    "x": 49.0,
+    "y": 30.0
+   },
+   {
+    "name": "Caramel drizzle",
+    "detail": "Glossy caramel sauce streaked over the toast",
+    "x": 65.0,
+    "y": 48.0
+   },
+   {
+    "name": "Brioche toast",
+    "detail": "Thick, soft brioche soaked and toasted golden",
+    "x": 50.0,
+    "y": 63.0
+   },
+   {
+    "name": "Strawberries",
+    "detail": "Halved strawberries on the side of the plate",
+    "x": 70.0,
+    "y": 31.0
+   },
+   {
+    "name": "Chopped nuts",
+    "detail": "Crunchy chopped nuts scattered over the top",
+    "x": 33.0,
+    "y": 34.0
+   },
+   {
+    "name": "Caramel pool",
+    "detail": "Caramel sauce swirled across the plate",
+    "x": 22.0,
+    "y": 66.0
+   }
+  ]
+ },
+ {
+  "id": 197,
+  "name": "Curly fries",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Curly fries",
+    "detail": "Seasoned spiral fries, crisp and golden",
+    "x": 33.0,
+    "y": 35.0
+   },
+   {
+    "name": "Cocktail sauce",
+    "detail": "Creamy pink cocktail sauce for dipping",
+    "x": 64.0,
+    "y": 58.0
+   }
+  ]
+ },
+ {
+  "id": 209,
+  "name": "Shrimp Ramen",
+  "realSizeCm": 20,
+  "parts": [
+   {
+    "name": "Soft-boiled egg",
+    "detail": "Halved egg with a jammy golden yolk",
+    "x": 48.0,
+    "y": 68.0
+   },
+   {
+    "name": "Shrimp",
+    "detail": "Seared shrimp with sesame seeds and spring onion",
+    "x": 63.0,
+    "y": 60.0
+   },
+   {
+    "name": "Nori",
+    "detail": "A sheet of dark nori seaweed resting in the broth",
+    "x": 47.0,
+    "y": 42.0
+   },
+   {
+    "name": "Carrots",
+    "detail": "Fine shreds of bright orange carrot",
+    "x": 33.0,
+    "y": 57.0
+   },
+   {
+    "name": "Mushrooms",
+    "detail": "Sliced sauteed mushrooms",
+    "x": 58.0,
+    "y": 29.0
+   },
+   {
+    "name": "Red peppers",
+    "detail": "Strips of red pepper with fresh herbs",
+    "x": 32.0,
+    "y": 33.0
+   }
+  ]
+ },
+ {
+  "id": 236,
+  "name": "Iced  V60",
+  "realSizeCm": 12,
+  "parts": [
+   {
+    "name": "Paper filter",
+    "detail": "White paper filter lining the V60 dripper",
+    "x": 53.0,
+    "y": 13.0
+   },
+   {
+    "name": "Coffee bed",
+    "detail": "Ground coffee blooming in the dripper",
+    "x": 44.0,
+    "y": 23.0
+   },
+   {
+    "name": "Dripper stand",
+    "detail": "Black holder resting the dripper on the server",
+    "x": 32.0,
+    "y": 45.0
+   },
+   {
+    "name": "Ice cubes",
+    "detail": "Ice in the server, chilling the coffee as it drips",
+    "x": 42.0,
+    "y": 62.0
+   },
+   {
+    "name": "Brewed coffee",
+    "detail": "Clear, dark filter coffee collected in the glass server",
+    "x": 44.0,
+    "y": 82.0
+   }
+  ]
+ },
+ {
+  "id": 250,
+  "name": "Caramel Frappe",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "A tall swirl of whipped cream on top",
+    "x": 48.0,
+    "y": 17.0
+   },
+   {
+    "name": "Caramel drizzle",
+    "detail": "Caramel sauce drizzled over the cream",
+    "x": 59.0,
+    "y": 24.0
+   },
+   {
+    "name": "Caramel streaks",
+    "detail": "Caramel sauce running down the inside of the glass",
+    "x": 44.0,
+    "y": 52.0
+   },
+   {
+    "name": "Caramel frappe",
+    "detail": "Icy blended coffee in a creamy caramel tone",
+    "x": 52.0,
+    "y": 64.0
+   }
+  ]
+ },
+ {
+  "id": 274,
+  "name": "Grilled Chicken Platter",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Grilled chicken breast",
+    "detail": "Chicken breast with charred grill marks and a smoky glaze",
+    "x": 41.0,
+    "y": 50.0
+   },
+   {
+    "name": "Second chicken breast",
+    "detail": "The second grilled breast, golden with dark char lines",
+    "x": 41.0,
+    "y": 68.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Golden fries piled at the back of the plate",
+    "x": 53.0,
+    "y": 25.0
+   },
+   {
+    "name": "Broccoli",
+    "detail": "Bright green broccoli florets",
+    "x": 77.0,
+    "y": 40.0
+   },
+   {
+    "name": "Green beans",
+    "detail": "Tender green beans",
+    "x": 69.0,
+    "y": 68.0
+   },
+   {
+    "name": "Honey mustard sauce",
+    "detail": "Smooth honey mustard in a small dip bowl",
+    "x": 18.0,
+    "y": 24.0
+   }
+  ]
+ },
+ {
+  "id": 281,
+  "name": "Pepperoni Pizza",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Pepperoni",
+    "detail": "Rounds of pepperoni baked until slightly crisp at the edges",
+    "x": 48.0,
+    "y": 58.5
+   },
+   {
+    "name": "Melted cheese",
+    "detail": "Bubbling mixed cheese with golden brown spots",
+    "x": 62.0,
+    "y": 67.0
+   },
+   {
+    "name": "Parmesan shreds",
+    "detail": "Fine shreds of parmesan over the pepperoni",
+    "x": 51.5,
+    "y": 20.5
+   },
+   {
+    "name": "Golden crust",
+    "detail": "Thin, golden baked crust around the edge",
+    "x": 22.0,
+    "y": 49.0
+   }
+  ]
+ },
+ {
+  "id": 355,
+  "name": "Zinger Burger",
+  "realSizeCm": 13,
+  "parts": [
+   {
+    "name": "Brioche bun",
+    "detail": "Shiny, golden brioche bun held with a pick",
+    "x": 40.0,
+    "y": 34.0
+   },
+   {
+    "name": "Crispy spicy chicken",
+    "detail": "Craggy, crunchy fried chicken fillet",
+    "x": 37.0,
+    "y": 57.0
+   },
+   {
+    "name": "Spicy mayo",
+    "detail": "Creamy spicy mayo spilling from under the bun",
+    "x": 48.0,
+    "y": 42.0
+   },
+   {
+    "name": "Lettuce",
+    "detail": "Frilly green lettuce under the chicken",
+    "x": 30.0,
+    "y": 63.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Seasoned fries in a mini wire basket",
+    "x": 75.0,
+    "y": 44.0
+   }
+  ]
+ },
+ {
+  "id": 365,
+  "name": "Vanilla Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "A generous swirl of whipped cream on top",
+    "x": 50.0,
+    "y": 15.0
+   },
+   {
+    "name": "Vanilla milkshake",
+    "detail": "Thick, creamy vanilla shake filling the glass",
+    "x": 50.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 375,
+  "name": "Nutella Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "A tall cap of whipped cream",
+    "x": 40.0,
+    "y": 17.0
+   },
+   {
+    "name": "Chocolate drizzle",
+    "detail": "Nutella-style chocolate sauce drizzled over the cream",
+    "x": 55.5,
+    "y": 22.0
+   },
+   {
+    "name": "Nutella streaks",
+    "detail": "Chocolate sauce streaked down the inside of the glass",
+    "x": 46.0,
+    "y": 45.0
+   },
+   {
+    "name": "Nutella milkshake",
+    "detail": "Creamy chocolate-hazelnut milkshake",
+    "x": 50.0,
+    "y": 68.0
+   }
+  ]
+ },
+ {
+  "id": 379,
+  "name": "Strawberry Minted Lemonade",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Strawberry",
+    "detail": "A whole strawberry perched on the rim",
+    "x": 60.5,
+    "y": 10.0
+   },
+   {
+    "name": "Lemon wedge",
+    "detail": "Juicy lemon wedge hooked on the glass",
+    "x": 66.0,
+    "y": 27.0
+   },
+   {
+    "name": "Icy top",
+    "detail": "Frosty, slushy blend at the top of the glass",
+    "x": 43.0,
+    "y": 25.0
+   },
+   {
+    "name": "Minted lemonade",
+    "detail": "Pink lemonade blended with mint and strawberry",
+    "x": 47.0,
+    "y": 53.0
+   },
+   {
+    "name": "Strawberry layer",
+    "detail": "Deep red strawberry layer at the bottom",
+    "x": 48.0,
+    "y": 80.0
+   }
+  ]
+ },
+ {
+  "id": 393,
+  "name": "Mate",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Yerba mate",
+    "detail": "Packed green yerba mate leaves ready to steep",
+    "x": 52.0,
+    "y": 35.0
+   },
+   {
+    "name": "Bombilla",
+    "detail": "Metal bombilla straw for sipping the mate",
+    "x": 37.0,
+    "y": 18.0
+   }
+  ]
+ },
+ {
+  "id": 420,
+  "name": "Jalapeños Bites",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Jalapeno bite",
+    "detail": "Triangular bite in a crunchy golden breadcrumb coating",
+    "x": 58.0,
+    "y": 48.0
+   },
+   {
+    "name": "Spicy mayo",
+    "detail": "Creamy, pale orange spicy mayo for dipping",
+    "x": 77.0,
+    "y": 44.0
+   },
+   {
+    "name": "Rocket leaves",
+    "detail": "Rocket and mixed leaves under the bites",
+    "x": 47.0,
+    "y": 60.0
+   }
+  ]
+ },
+ {
+  "id": 487,
+  "name": "Nutella Crepe",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Nutella drizzle",
+    "detail": "Rich chocolate-hazelnut drizzle zigzagged over the crepe",
+    "x": 55.5,
+    "y": 27.5
+   },
+   {
+    "name": "Strawberries",
+    "detail": "Diced strawberries scattered across the top",
+    "x": 47.0,
+    "y": 42.5
+   },
+   {
+    "name": "Crepe",
+    "detail": "Thin, golden folded crepe",
+    "x": 67.0,
+    "y": 64.0
+   }
+  ]
+ },
+ {
+  "id": 588,
+  "name": "Chicken Mozzarella Burger",
+  "realSizeCm": 13,
+  "parts": [
+   {
+    "name": "Brioche bun",
+    "detail": "Soft, glossy golden brioche bun",
+    "x": 41.0,
+    "y": 31.0
+   },
+   {
+    "name": "Red onion",
+    "detail": "A ring of red onion on top of the patty",
+    "x": 46.7,
+    "y": 40.3
+   },
+   {
+    "name": "Crispy chicken",
+    "detail": "Thick, craggy fried chicken fillet",
+    "x": 41.0,
+    "y": 53.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Seasoned fries in a mini wire basket",
+    "x": 78.0,
+    "y": 46.0
+   }
+  ]
+ },
+ {
+  "id": 592,
+  "name": "Mushroom Steak",
+  "realSizeCm": 40,
+  "parts": [
+   {
+    "name": "Fries",
+    "detail": "Seasoned fries in a black wire basket",
+    "x": 24.0,
+    "y": 31.0
+   },
+   {
+    "name": "Mushroom sauce",
+    "detail": "Extra creamy mushroom sauce in a small jug",
+    "x": 50.5,
+    "y": 26.0
+   },
+   {
+    "name": "Beef steak strips",
+    "detail": "Seared strips of beef steak in creamy sauce",
+    "x": 68.0,
+    "y": 46.7
+   },
+   {
+    "name": "Mushrooms",
+    "detail": "Sliced sauteed mushrooms",
+    "x": 69.0,
+    "y": 67.0
+   },
+   {
+    "name": "Creamy sauce",
+    "detail": "Rich, creamy mushroom sauce in the skillet",
+    "x": 57.0,
+    "y": 62.0
+   }
+  ]
+ },
+ {
+  "id": 596,
+  "name": "Elixir",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes chilling the top of the drink",
+    "x": 50.0,
+    "y": 23.0
+   },
+   {
+    "name": "Fruity layer",
+    "detail": "Bright orange layer of strawberry and peach",
+    "x": 50.0,
+    "y": 42.0
+   },
+   {
+    "name": "Blue layer",
+    "detail": "Dark blue curacao layer at the bottom",
+    "x": 50.0,
+    "y": 64.0
+   }
+  ]
+ },
+ {
+  "id": 664,
+  "name": "Appetizer golden combo",
+  "realSizeCm": 32,
+  "parts": [
+   {
+    "name": "Chicken wings",
+    "detail": "Crispy, golden fried chicken wings",
+    "x": 57.0,
+    "y": 33.0
+   },
+   {
+    "name": "Onion rings",
+    "detail": "Thick onion rings in a crunchy golden batter",
+    "x": 37.0,
+    "y": 67.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Seasoned spiral fries piled high",
+    "x": 39.0,
+    "y": 25.0
+   },
+   {
+    "name": "Jalapeno bites",
+    "detail": "Triangular bites in a crispy breadcrumb coating",
+    "x": 25.0,
+    "y": 46.0
+   },
+   {
+    "name": "Spicy mayo",
+    "detail": "Creamy spicy mayo for dipping",
+    "x": 72.0,
+    "y": 27.0
+   },
+   {
+    "name": "Honey mustard sauce",
+    "detail": "Smooth yellow honey mustard dip",
+    "x": 75.0,
+    "y": 56.0
+   }
+  ]
+ },
+ {
+  "id": 7,
+  "name": "Penne Pesto",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Basil leaves",
+    "detail": "Bright green basil sprig set right on top of the pasta",
+    "x": 55.0,
+    "y": 47.0
+   },
+   {
+    "name": "Grated parmesan",
+    "detail": "A fluffy heap of finely grated parmesan over the pasta",
+    "x": 40.0,
+    "y": 30.0
+   },
+   {
+    "name": "Penne in pesto",
+    "detail": "Penne coated in a creamy, bright green pesto sauce",
+    "x": 36.0,
+    "y": 68.0
+   }
+  ]
+ },
+ {
+  "id": 49,
+  "name": "Hot Caramel Macchiato",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Caramel drizzle",
+    "detail": "Golden caramel piped in a flower pattern over the foam",
+    "x": 44.0,
+    "y": 18.0
+   },
+   {
+    "name": "Milk foam",
+    "detail": "Thick, velvety milk foam crowning the glass",
+    "x": 56.0,
+    "y": 30.0
+   },
+   {
+    "name": "Espresso and milk",
+    "detail": "Espresso marked through steamed milk for a light caramel-brown body",
+    "x": 49.0,
+    "y": 58.0
+   }
+  ]
+ },
+ {
+  "id": 85,
+  "name": "Spanish Latte",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Milk foam",
+    "detail": "Smooth, airy layer of white foam on top",
+    "x": 38.0,
+    "y": 22.0
+   },
+   {
+    "name": "Coffee dusting",
+    "detail": "A small golden swirl of coffee marking the foam",
+    "x": 50.0,
+    "y": 22.0
+   },
+   {
+    "name": "Latte body",
+    "detail": "Espresso blended with sweet milk into a creamy tan latte",
+    "x": 50.0,
+    "y": 50.0
+   },
+   {
+    "name": "Milky base",
+    "detail": "Pale, creamy layer settled at the bottom of the glass",
+    "x": 50.0,
+    "y": 74.0
+   }
+  ]
+ },
+ {
+  "id": 90,
+  "name": "Hot Chocolate",
+  "realSizeCm": 16,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "A tall swirl of whipped cream piled over the cup",
+    "x": 42.0,
+    "y": 34.0
+   },
+   {
+    "name": "Cocoa dusting",
+    "detail": "Light dusting of cocoa scattered over the cream",
+    "x": 47.0,
+    "y": 19.0
+   },
+   {
+    "name": "Hot chocolate",
+    "detail": "Rich, creamy hot chocolate peeking out around the cream",
+    "x": 64.0,
+    "y": 33.0
+   }
+  ]
+ },
+ {
+  "id": 101,
+  "name": "Iced Americano",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Coffee crema",
+    "detail": "Golden foamy crema floating on top",
+    "x": 40.0,
+    "y": 24.0
+   },
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes keeping the coffee chilled",
+    "x": 55.0,
+    "y": 24.0
+   },
+   {
+    "name": "Iced americano",
+    "detail": "Dark, clear espresso topped up with cold water",
+    "x": 49.0,
+    "y": 60.0
+   }
+  ]
+ },
+ {
+  "id": 124,
+  "name": "Iced Tea Lemon",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Clear ice cubes floating at the top",
+    "x": 53.0,
+    "y": 17.0
+   },
+   {
+    "name": "Iced tea",
+    "detail": "Amber iced tea with a bright lemon twist in the flavour",
+    "x": 50.0,
+    "y": 58.0
+   }
+  ]
+ },
+ {
+  "id": 141,
+  "name": "Fries",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Golden fries",
+    "detail": "Crisp golden fries with a light herb seasoning",
+    "x": 33.0,
+    "y": 22.0
+   },
+   {
+    "name": "Cocktail sauce",
+    "detail": "Creamy pink cocktail sauce for dipping",
+    "x": 67.0,
+    "y": 57.0
+   }
+  ]
+ },
+ {
+  "id": 146,
+  "name": "Asian Beef Salad",
+  "realSizeCm": 20,
+  "parts": [
+   {
+    "name": "Crispy noodles",
+    "detail": "A tangle of crunchy white fried noodles on top",
+    "x": 45.0,
+    "y": 20.0
+   },
+   {
+    "name": "Seared beef",
+    "detail": "Tender slices of seared beef glazed in Asian sauce",
+    "x": 51.0,
+    "y": 45.0
+   },
+   {
+    "name": "Red cabbage",
+    "detail": "Shredded purple cabbage for colour and crunch",
+    "x": 24.0,
+    "y": 41.0
+   },
+   {
+    "name": "Crunchy vegetables",
+    "detail": "Spring greens, peppers and carrots tossed through the salad",
+    "x": 64.0,
+    "y": 66.0
+   }
+  ]
+ },
+ {
+  "id": 153,
+  "name": "Turkey & Cheese",
+  "realSizeCm": 27,
+  "parts": [
+   {
+    "name": "Toasted baguette",
+    "detail": "Golden, crusty baguette with a soft inside",
+    "x": 48.0,
+    "y": 58.0
+   },
+   {
+    "name": "Melted mozzarella",
+    "detail": "Soft melted mozzarella layered through the sandwich",
+    "x": 62.0,
+    "y": 48.0
+   },
+   {
+    "name": "Turkey slices",
+    "detail": "Thin slices of turkey folded inside the bread",
+    "x": 69.0,
+    "y": 70.0
+   },
+   {
+    "name": "Pickles and greens",
+    "detail": "Pickles and greens tucked into the filling",
+    "x": 54.0,
+    "y": 37.0
+   },
+   {
+    "name": "Side salad",
+    "detail": "Mixed leaf salad served alongside",
+    "x": 30.0,
+    "y": 32.0
+   }
+  ]
+ },
+ {
+  "id": 158,
+  "name": "Brie Burger",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Brioche bun",
+    "detail": "Glossy, golden toasted brioche bun",
+    "x": 27.0,
+    "y": 27.0
+   },
+   {
+    "name": "Melted brie",
+    "detail": "Creamy brie melting over the patty",
+    "x": 32.0,
+    "y": 49.0
+   },
+   {
+    "name": "Beef patty",
+    "detail": "Juicy seared beef patty",
+    "x": 21.0,
+    "y": 56.0
+   },
+   {
+    "name": "Arugula",
+    "detail": "Peppery arugula leaves tucked under the patty",
+    "x": 12.0,
+    "y": 57.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Golden seasoned fries served on the side",
+    "x": 56.0,
+    "y": 25.0
+   }
+  ]
+ },
+ {
+  "id": 174,
+  "name": "Mango Peach",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Lemon wedge",
+    "detail": "Bright lemon wedge perched on the rim",
+    "x": 61.0,
+    "y": 21.0
+   },
+   {
+    "name": "Frothy top",
+    "detail": "Light, frothy layer on top of the smoothie",
+    "x": 41.0,
+    "y": 20.0
+   },
+   {
+    "name": "Mango peach smoothie",
+    "detail": "Smooth golden blend of mango and peach",
+    "x": 44.0,
+    "y": 52.0
+   }
+  ]
+ },
+ {
+  "id": 198,
+  "name": "Chicken Avocado Sandwich",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Seeded bread",
+    "detail": "Toasted bread with a crust covered in seeds",
+    "x": 30.0,
+    "y": 27.0
+   },
+   {
+    "name": "Avocado",
+    "detail": "Creamy slices of ripe avocado in the filling",
+    "x": 40.0,
+    "y": 36.0
+   },
+   {
+    "name": "Grilled chicken",
+    "detail": "Grilled chicken with charred edges",
+    "x": 30.0,
+    "y": 46.0
+   },
+   {
+    "name": "Chicken and greens",
+    "detail": "Chicken, avocado and rocca layered in the second half",
+    "x": 55.0,
+    "y": 56.0
+   },
+   {
+    "name": "Side salad",
+    "detail": "Mixed leaves and cherry tomatoes served alongside",
+    "x": 34.0,
+    "y": 70.0
+   },
+   {
+    "name": "Cherry tomato",
+    "detail": "Juicy halved cherry tomato in the salad",
+    "x": 52.0,
+    "y": 74.0
+   }
+  ]
+ },
+ {
+  "id": 222,
+  "name": "Hot Americano",
+  "realSizeCm": 15,
+  "parts": [
+   {
+    "name": "Crema",
+    "detail": "Golden, bubbly crema across the top of the coffee",
+    "x": 41.0,
+    "y": 35.0
+   },
+   {
+    "name": "Ceramic cup",
+    "detail": "Pale blue ceramic cup with a dark rim",
+    "x": 45.0,
+    "y": 57.0
+   },
+   {
+    "name": "Saucer",
+    "detail": "Matching pale blue saucer",
+    "x": 50.0,
+    "y": 77.0
+   }
+  ]
+ },
+ {
+  "id": 239,
+  "name": "Strawberry Passion",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Passion fruit half",
+    "detail": "Half a passion fruit with golden seeds, set on top",
+    "x": 52.0,
+    "y": 18.0
+   },
+   {
+    "name": "Strawberry slices",
+    "detail": "Juicy strawberry slices garnishing the rim",
+    "x": 44.0,
+    "y": 31.0
+   },
+   {
+    "name": "Berry smoothie",
+    "detail": "Thick red blend of strawberry and passion fruit",
+    "x": 47.0,
+    "y": 60.0
+   }
+  ]
+ },
+ {
+  "id": 251,
+  "name": "White Mocha Frappe",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "A generous swirl of whipped cream on top",
+    "x": 42.0,
+    "y": 17.0
+   },
+   {
+    "name": "Sauce drizzle",
+    "detail": "Glossy white mocha sauce drizzled over the cream",
+    "x": 55.0,
+    "y": 14.0
+   },
+   {
+    "name": "White mocha frappe",
+    "detail": "Icy blended coffee with smooth white chocolate",
+    "x": 47.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 277,
+  "name": "Chicken Caesar",
+  "realSizeCm": 22,
+  "parts": [
+   {
+    "name": "Grilled chicken",
+    "detail": "Chunks of chicken breast with charred grill marks",
+    "x": 69.0,
+    "y": 53.0
+   },
+   {
+    "name": "Croutons",
+    "detail": "Golden, crunchy toasted croutons",
+    "x": 54.0,
+    "y": 44.0
+   },
+   {
+    "name": "Romaine lettuce",
+    "detail": "Crisp romaine tossed in creamy Caesar dressing",
+    "x": 52.0,
+    "y": 62.0
+   },
+   {
+    "name": "Shaved parmesan",
+    "detail": "Fine shreds of parmesan scattered over the leaves",
+    "x": 42.0,
+    "y": 57.0
+   }
+  ]
+ },
+ {
+  "id": 282,
+  "name": "Veggie Pizza",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Melted cheese",
+    "detail": "Bubbling mix of melted cheeses with golden spots",
+    "x": 37.0,
+    "y": 45.0
+   },
+   {
+    "name": "Green peppers",
+    "detail": "Sliced green peppers scattered across the top",
+    "x": 55.0,
+    "y": 27.0
+   },
+   {
+    "name": "Sweet corn",
+    "detail": "Little golden kernels of sweet corn",
+    "x": 67.0,
+    "y": 28.0
+   },
+   {
+    "name": "Mushrooms",
+    "detail": "Sliced mushrooms baked into the cheese",
+    "x": 52.0,
+    "y": 62.5
+   },
+   {
+    "name": "Pizza sauce",
+    "detail": "Rich red tomato sauce showing at the edges",
+    "x": 74.0,
+    "y": 56.0
+   },
+   {
+    "name": "Crust",
+    "detail": "Thin, lightly golden crust",
+    "x": 56.0,
+    "y": 71.0
+   }
+  ]
+ },
+ {
+  "id": 357,
+  "name": "Cerelac Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "A tall swirl of whipped cream on top",
+    "x": 46.0,
+    "y": 15.0
+   },
+   {
+    "name": "Cerelac milkshake",
+    "detail": "Smooth, creamy shake blended with Cerelac",
+    "x": 45.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 368,
+  "name": "Iced White Mocha",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes floating at the top of the drink",
+    "x": 47.0,
+    "y": 22.0
+   },
+   {
+    "name": "Iced white mocha",
+    "detail": "Creamy espresso with white chocolate over ice",
+    "x": 45.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 376,
+  "name": "Fresh Orange Juice",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Clear ice cubes floating on top",
+    "x": 50.0,
+    "y": 15.0
+   },
+   {
+    "name": "Orange juice",
+    "detail": "Bright golden orange juice",
+    "x": 45.0,
+    "y": 60.0
+   }
+  ]
+ },
+ {
+  "id": 380,
+  "name": "Mocha Frappe",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "A swirl of whipped cream on top",
+    "x": 37.0,
+    "y": 21.0
+   },
+   {
+    "name": "Chocolate drizzle",
+    "detail": "Dark chocolate sauce drizzled over the cream",
+    "x": 48.0,
+    "y": 23.0
+   },
+   {
+    "name": "Mocha frappe",
+    "detail": "Icy blended coffee and chocolate",
+    "x": 45.0,
+    "y": 50.0
+   },
+   {
+    "name": "Chocolate swirl",
+    "detail": "Chocolate sauce streaked down the inside of the glass",
+    "x": 45.0,
+    "y": 67.0
+   }
+  ]
+ },
+ {
+  "id": 396,
+  "name": "Iced Signature latte",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes floating in the top of the latte",
+    "x": 46.0,
+    "y": 22.0
+   },
+   {
+    "name": "Iced latte",
+    "detail": "Deep brown espresso and milk served over ice",
+    "x": 45.0,
+    "y": 48.0
+   },
+   {
+    "name": "Golden base layer",
+    "detail": "A golden layer settled at the bottom of the glass",
+    "x": 45.0,
+    "y": 77.0
+   }
+  ]
+ },
+ {
+  "id": 469,
+  "name": "Classic Cheeseburger",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Brioche bun",
+    "detail": "Glossy, golden toasted brioche bun",
+    "x": 25.0,
+    "y": 46.0
+   },
+   {
+    "name": "Melted cheese",
+    "detail": "Melted cheese dripping over the edge of the patty",
+    "x": 20.0,
+    "y": 61.0
+   },
+   {
+    "name": "Beef patty",
+    "detail": "Juicy seared beef patty",
+    "x": 32.0,
+    "y": 62.0
+   },
+   {
+    "name": "Lettuce",
+    "detail": "Crisp green lettuce leaves under the patty",
+    "x": 42.0,
+    "y": 61.0
+   },
+   {
+    "name": "Seasoned fries",
+    "detail": "Golden fries dusted with red seasoning",
+    "x": 62.0,
+    "y": 40.0
+   }
+  ]
+ },
+ {
+  "id": 488,
+  "name": "Lotus Crepe",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Lotus crumble",
+    "detail": "Crushed Lotus biscuit scattered over the crepe",
+    "x": 46.0,
+    "y": 30.0
+   },
+   {
+    "name": "Lotus sauce",
+    "detail": "Smooth Lotus spread drizzled and pooling at the edge",
+    "x": 55.0,
+    "y": 67.0
+   },
+   {
+    "name": "Folded crepe",
+    "detail": "Thin, golden crepe folded into a neat rectangle",
+    "x": 26.0,
+    "y": 50.0
+   }
+  ]
+ },
+ {
+  "id": 589,
+  "name": "Entrecote Fries",
+  "realSizeCm": 24,
+  "parts": [
+   {
+    "name": "Chopped beef",
+    "detail": "Tender chopped beef piled over the fries",
+    "x": 52.0,
+    "y": 32.0
+   },
+   {
+    "name": "Entrecote sauce",
+    "detail": "Creamy herb entrecote sauce melting through the dish",
+    "x": 47.0,
+    "y": 47.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Golden seasoned fries under the beef",
+    "x": 57.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 593,
+  "name": "Chicken Popcorn",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Chicken popcorn",
+    "detail": "Bite-size fried chicken with a craggy golden crust",
+    "x": 48.0,
+    "y": 43.0
+   },
+   {
+    "name": "Cocktail sauce",
+    "detail": "Creamy pink cocktail sauce for dipping",
+    "x": 79.0,
+    "y": 35.0
+   }
+  ]
+ },
+ {
+  "id": 597,
+  "name": "Sour Passion Ice Cream",
+  "realSizeCm": 14,
+  "parts": [
+   {
+    "name": "Passion fruit scoop",
+    "detail": "Vivid golden scoop with a tangy passion fruit flavour",
+    "x": 39.0,
+    "y": 55.0
+   },
+   {
+    "name": "White scoop",
+    "detail": "A pale, creamy scoop beside the yellow one.",
+    "x": 65.0,
+    "y": 42.0
+   }
+  ]
+ },
+ {
+  "id": 43,
+  "name": "Iced Latte",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Clear ice cubes floating on top to keep every sip cold",
+    "x": 48.0,
+    "y": 22.0
+   },
+   {
+    "name": "Iced latte",
+    "detail": "Espresso blended with chilled milk into a smooth caramel-brown pour",
+    "x": 50.0,
+    "y": 52.0
+   }
+  ]
+ },
+ {
+  "id": 50,
+  "name": "Hot Latte",
+  "realSizeCm": 15,
+  "parts": [
+   {
+    "name": "Latte art",
+    "detail": "Steamed milk poured into a delicate rosetta leaf pattern",
+    "x": 49.0,
+    "y": 36.0
+   },
+   {
+    "name": "Espresso crema",
+    "detail": "Golden-brown crema framing the milk art around the rim",
+    "x": 37.0,
+    "y": 30.0
+   }
+  ]
+ },
+ {
+  "id": 86,
+  "name": "White Mocha",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Milk foam",
+    "detail": "Thick, velvety white foam crowning the glass",
+    "x": 38.0,
+    "y": 26.0
+   },
+   {
+    "name": "Coffee dot",
+    "detail": "A small swirl of espresso resting on the foam",
+    "x": 50.0,
+    "y": 22.0
+   },
+   {
+    "name": "Coffee layer",
+    "detail": "Espresso mingling with white chocolate and milk in soft brown tones",
+    "x": 50.0,
+    "y": 46.0
+   },
+   {
+    "name": "Milk base",
+    "detail": "Creamy white layer settled at the bottom of the glass",
+    "x": 50.0,
+    "y": 72.0
+   },
+   {
+    "name": "Footed glass",
+    "detail": "Tall tulip glass on a sturdy clear base",
+    "x": 50.0,
+    "y": 88.0
+   }
+  ]
+ },
+ {
+  "id": 91,
+  "name": "Mango Passion",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Passion fruit half",
+    "detail": "Halved passion fruit showing its golden pulp and dark seeds",
+    "x": 50.0,
+    "y": 15.0
+   },
+   {
+    "name": "Smoothie top",
+    "detail": "Thick blended mango surface flecked with passion fruit seeds",
+    "x": 44.0,
+    "y": 33.0
+   },
+   {
+    "name": "Mango smoothie",
+    "detail": "Sunny yellow mango and passion fruit blend, speckled with seeds",
+    "x": 50.0,
+    "y": 56.0
+   },
+   {
+    "name": "Footed glass",
+    "detail": "Tall tulip glass on a clear pedestal base",
+    "x": 50.0,
+    "y": 89.0
+   }
+  ]
+ },
+ {
+  "id": 102,
+  "name": "Iced Spanish Latte",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes chilling the drink from the top down",
+    "x": 49.0,
+    "y": 22.0
+   },
+   {
+    "name": "Espresso layer",
+    "detail": "Rich espresso floating above the milk in a deep brown band",
+    "x": 50.0,
+    "y": 40.0
+   },
+   {
+    "name": "Sweet milk",
+    "detail": "Creamy sweetened milk layer that gives the Spanish latte its smoothness",
+    "x": 50.0,
+    "y": 63.0
+   },
+   {
+    "name": "Footed glass",
+    "detail": "Tall tulip glass on a clear pedestal base",
+    "x": 50.0,
+    "y": 89.0
+   }
+  ]
+ },
+ {
+  "id": 130,
+  "name": "Oreo Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Oreo crumble",
+    "detail": "Crushed Oreo cookies scattered over the cream",
+    "x": 42.0,
+    "y": 21.0
+   },
+   {
+    "name": "Chocolate drizzle",
+    "detail": "Glossy chocolate sauce zig-zagged over the top",
+    "x": 47.0,
+    "y": 11.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "Soft swirls of whipped cream crowning the shake",
+    "x": 50.0,
+    "y": 30.0
+   },
+   {
+    "name": "Chocolate-lined glass",
+    "detail": "Chocolate sauce streaked down the inside of the glass",
+    "x": 41.0,
+    "y": 56.0
+   },
+   {
+    "name": "Oreo milkshake",
+    "detail": "Thick cookies-and-cream shake blended until creamy",
+    "x": 53.0,
+    "y": 45.0
+   }
+  ]
+ },
+ {
+  "id": 142,
+  "name": "Nachos",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Tortilla chips",
+    "detail": "Crunchy golden corn chips piled high",
+    "x": 37.0,
+    "y": 70.0
+   },
+   {
+    "name": "Melted cheese",
+    "detail": "Mixed cheese and cheddar melted into gooey layers over the chips",
+    "x": 40.0,
+    "y": 56.0
+   },
+   {
+    "name": "Jalapeno slices",
+    "detail": "Green jalapeno slices adding a spicy kick",
+    "x": 35.0,
+    "y": 45.0
+   },
+   {
+    "name": "Diced tomato",
+    "detail": "Bright red tomato pieces scattered over the top",
+    "x": 53.0,
+    "y": 23.0
+   },
+   {
+    "name": "Guacamole",
+    "detail": "Creamy green avocado dip served on the side",
+    "x": 79.0,
+    "y": 26.0
+   },
+   {
+    "name": "Sour cream",
+    "detail": "Cool, smooth sour cream for dipping",
+    "x": 87.0,
+    "y": 51.0
+   }
+  ]
+ },
+ {
+  "id": 147,
+  "name": "Tuna Sandwich",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Sub roll",
+    "detail": "Soft golden roll with a lightly crisp crust",
+    "x": 55.0,
+    "y": 46.0
+   },
+   {
+    "name": "Tuna filling",
+    "detail": "Creamy tuna with corn, pickles and mayo mustard dressing",
+    "x": 44.0,
+    "y": 28.0
+   },
+   {
+    "name": "Lettuce",
+    "detail": "Crisp green lettuce tucked under the tuna",
+    "x": 37.0,
+    "y": 46.0
+   },
+   {
+    "name": "Cherry tomato",
+    "detail": "Halved cherry tomatoes adding a juicy pop of colour",
+    "x": 61.0,
+    "y": 22.0
+   },
+   {
+    "name": "Side salad",
+    "detail": "Mixed leaves with tomato and a light dressing",
+    "x": 73.0,
+    "y": 38.0
+   }
+  ]
+ },
+ {
+  "id": 155,
+  "name": "Steak Sandwich",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Seeded bread",
+    "detail": "Toasted bread crusted with seeds and grains",
+    "x": 33.0,
+    "y": 20.0
+   },
+   {
+    "name": "Steak",
+    "detail": "Tender seared steak strips layered inside",
+    "x": 32.0,
+    "y": 40.0
+   },
+   {
+    "name": "Rocket leaves",
+    "detail": "Peppery rocket peeking out from the filling",
+    "x": 44.0,
+    "y": 31.0
+   },
+   {
+    "name": "Melted cheese",
+    "detail": "Mixed cheese melted with mayo and mustard over the steak",
+    "x": 52.0,
+    "y": 36.0
+   },
+   {
+    "name": "Cherry tomato",
+    "detail": "Halved cherry tomato in the side salad",
+    "x": 36.0,
+    "y": 70.0
+   },
+   {
+    "name": "Side salad",
+    "detail": "Spinach and red leaves tossed with a golden dressing",
+    "x": 56.0,
+    "y": 70.0
+   }
+  ]
+ },
+ {
+  "id": 159,
+  "name": "Chicken Ramen",
+  "realSizeCm": 20,
+  "parts": [
+   {
+    "name": "Soft-boiled egg",
+    "detail": "Halved marinated egg with a jammy golden yolk",
+    "x": 27.0,
+    "y": 52.0
+   },
+   {
+    "name": "Carrots",
+    "detail": "Thin carrot strips sprinkled with sesame seeds",
+    "x": 28.0,
+    "y": 24.0
+   },
+   {
+    "name": "Grilled chicken",
+    "detail": "Sliced chicken breast with charred grill marks",
+    "x": 52.0,
+    "y": 63.0
+   },
+   {
+    "name": "Nori",
+    "detail": "Dark sheet of seaweed resting on the broth",
+    "x": 48.0,
+    "y": 38.0
+   },
+   {
+    "name": "Mixed peppers",
+    "detail": "Green and red pepper strips with spring onion",
+    "x": 61.0,
+    "y": 22.0
+   },
+   {
+    "name": "Mushrooms",
+    "detail": "Sauteed mushroom slices tucked beside the chicken",
+    "x": 71.0,
+    "y": 45.0
+   }
+  ]
+ },
+ {
+  "id": 190,
+  "name": "Truffle Burger",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "Brioche bun",
+    "detail": "Glossy golden bun with a soft, toasted crown",
+    "x": 28.0,
+    "y": 20.0
+   },
+   {
+    "name": "Swiss cheese",
+    "detail": "Melted Swiss cheese draped over the patty",
+    "x": 35.0,
+    "y": 51.0
+   },
+   {
+    "name": "Beef patty",
+    "detail": "Juicy seared beef patty with a browned crust",
+    "x": 23.0,
+    "y": 50.0
+   },
+   {
+    "name": "Caramelized onions",
+    "detail": "Soft golden onions and mushrooms tucked under the patty",
+    "x": 31.0,
+    "y": 60.0
+   },
+   {
+    "name": "Rocket leaves",
+    "detail": "Peppery green rocket peeking out from the burger",
+    "x": 49.0,
+    "y": 55.0
+   },
+   {
+    "name": "Truffle fries",
+    "detail": "Golden fries topped with grated cheese and creamy sauce",
+    "x": 66.0,
+    "y": 40.0
+   }
+  ]
+ },
+ {
+  "id": 206,
+  "name": "Mozzarella Sticks",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Mozzarella stick",
+    "detail": "Breaded mozzarella fried until golden and crisp",
+    "x": 35.0,
+    "y": 44.0
+   },
+   {
+    "name": "Crispy breading",
+    "detail": "Crunchy herb-flecked crumb coating",
+    "x": 54.0,
+    "y": 48.0
+   },
+   {
+    "name": "Lettuce garnish",
+    "detail": "Green leaves tucked under the sticks",
+    "x": 60.0,
+    "y": 62.0
+   },
+   {
+    "name": "Cocktail sauce",
+    "detail": "Creamy pink dipping sauce in a small bowl",
+    "x": 69.0,
+    "y": 41.0
+   }
+  ]
+ },
+ {
+  "id": 240,
+  "name": "Matcha Latte",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes floating in a frothy matcha top",
+    "x": 49.0,
+    "y": 26.0
+   },
+   {
+    "name": "Matcha layer",
+    "detail": "Vivid green whisked matcha cascading into the milk",
+    "x": 45.0,
+    "y": 45.0
+   },
+   {
+    "name": "Milk layer",
+    "detail": "Creamy white milk creating a two-tone gradient",
+    "x": 45.0,
+    "y": 63.0
+   },
+   {
+    "name": "Vanilla base",
+    "detail": "Amber vanilla syrup resting at the bottom of the glass",
+    "x": 47.0,
+    "y": 75.0
+   }
+  ]
+ },
+ {
+  "id": 253,
+  "name": "Caramel Milkshake",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Whipped cream",
+    "detail": "Tall swirl of whipped cream on top of the shake",
+    "x": 55.0,
+    "y": 17.0
+   },
+   {
+    "name": "Caramel drizzle",
+    "detail": "Golden caramel sauce ribboned over the cream",
+    "x": 40.0,
+    "y": 16.0
+   },
+   {
+    "name": "Caramel milkshake",
+    "detail": "Thick, creamy shake blended smooth",
+    "x": 45.0,
+    "y": 44.0
+   },
+   {
+    "name": "Caramel streaks",
+    "detail": "Caramel sauce running down the inside of the glass",
+    "x": 47.0,
+    "y": 56.0
+   },
+   {
+    "name": "Footed glass",
+    "detail": "Tall tulip glass on a clear pedestal base",
+    "x": 50.0,
+    "y": 89.0
+   }
+  ]
+ },
+ {
+  "id": 279,
+  "name": "Chicken Mushroom Platter",
+  "realSizeCm": 28,
+  "parts": [
+   {
+    "name": "French fries",
+    "detail": "Golden seasoned fries stacked at the back of the plate",
+    "x": 32.0,
+    "y": 25.0
+   },
+   {
+    "name": "Broccoli",
+    "detail": "Bright green broccoli florets",
+    "x": 68.0,
+    "y": 30.0
+   },
+   {
+    "name": "Green beans",
+    "detail": "Tender green beans piled beside the chicken",
+    "x": 66.0,
+    "y": 62.0
+   },
+   {
+    "name": "Chicken breast",
+    "detail": "Two chicken breasts smothered in creamy sauce",
+    "x": 27.0,
+    "y": 68.0
+   },
+   {
+    "name": "Mushroom sauce",
+    "detail": "Creamy white sauce with sliced mushrooms",
+    "x": 51.0,
+    "y": 54.0
+   },
+   {
+    "name": "Parsley",
+    "detail": "Chopped parsley sprinkled over the sauce",
+    "x": 38.0,
+    "y": 52.0
+   }
+  ]
+ },
+ {
+  "id": 284,
+  "name": "Margarita Pizza",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Melted cheese",
+    "detail": "Mixed cheese melted with golden, toasty spots",
+    "x": 40.0,
+    "y": 47.0
+   },
+   {
+    "name": "Pizza sauce",
+    "detail": "Rich red tomato sauce peeking out at the edges",
+    "x": 38.0,
+    "y": 63.0
+   },
+   {
+    "name": "Crust",
+    "detail": "Golden baked crust with a light crunch",
+    "x": 45.0,
+    "y": 70.0
+   },
+   {
+    "name": "Grated parmesan",
+    "detail": "Shreds of parmesan scattered around the pizza",
+    "x": 79.0,
+    "y": 60.0
+   }
+  ]
+ },
+ {
+  "id": 363,
+  "name": "Chicken alfredo pizza",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Chicken breast",
+    "detail": "Golden roasted chicken pieces across the top",
+    "x": 34.0,
+    "y": 36.0
+   },
+   {
+    "name": "Creamy cheese",
+    "detail": "Creamy sauce, mixed cheese and parmesan melted to a golden finish",
+    "x": 50.0,
+    "y": 52.0
+   },
+   {
+    "name": "Crust",
+    "detail": "Soft golden crust with a puffed edge",
+    "x": 50.0,
+    "y": 84.0
+   }
+  ]
+ },
+ {
+  "id": 371,
+  "name": "Nutella frappe",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Nutella drizzle",
+    "detail": "Thick ribbons of Nutella swirled over the cream",
+    "x": 46.0,
+    "y": 13.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "Fluffy whipped cream piled high on top",
+    "x": 40.0,
+    "y": 25.0
+   },
+   {
+    "name": "Nutella swirl",
+    "detail": "Nutella sauce wrapped around the inside of the glass",
+    "x": 43.0,
+    "y": 45.0
+   },
+   {
+    "name": "Nutella frappe",
+    "detail": "Icy blended chocolate-hazelnut frappe",
+    "x": 46.0,
+    "y": 63.0
+   },
+   {
+    "name": "Footed glass",
+    "detail": "Tall tulip glass on a clear pedestal base",
+    "x": 49.0,
+    "y": 88.0
+   }
+  ]
+ },
+ {
+  "id": 377,
+  "name": "Fresh Minted Lemonade",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Mint leaves",
+    "detail": "A sprig of mint resting on the top",
+    "x": 38.0,
+    "y": 22.0
+   },
+   {
+    "name": "Lemon wedge",
+    "detail": "Juicy lemon wedge perched on the rim",
+    "x": 61.0,
+    "y": 19.0
+   },
+   {
+    "name": "Crushed ice",
+    "detail": "Frosty slush of ice and mint at the surface",
+    "x": 49.0,
+    "y": 28.0
+   },
+   {
+    "name": "Minted lemonade",
+    "detail": "Pale green lemon and mint blend flecked with mint",
+    "x": 45.0,
+    "y": 55.0
+   }
+  ]
+ },
+ {
+  "id": 388,
+  "name": "Hazelnut Frappe",
+  "realSizeCm": 9,
+  "parts": [
+   {
+    "name": "Chopped hazelnuts",
+    "detail": "Toasted hazelnut pieces sprinkled over the cream",
+    "x": 48.0,
+    "y": 17.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "Fluffy whipped cream piled high on top",
+    "x": 37.0,
+    "y": 23.0
+   },
+   {
+    "name": "Hazelnut frappe",
+    "detail": "Icy blended coffee and hazelnut, smooth and creamy",
+    "x": 48.0,
+    "y": 55.0
+   },
+   {
+    "name": "Footed glass",
+    "detail": "Tall tulip glass on a clear pedestal base",
+    "x": 48.0,
+    "y": 88.0
+   }
+  ]
+ },
+ {
+  "id": 398,
+  "name": "Ruby Berry Infusion",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Blackberry",
+    "detail": "Plump blackberry crowning the garnish",
+    "x": 58.0,
+    "y": 14.0
+   },
+   {
+    "name": "Red berry",
+    "detail": "Glossy red berry on the rim",
+    "x": 58.0,
+    "y": 23.0
+   },
+   {
+    "name": "Smoothie top",
+    "detail": "Frothy pink surface dotted with tiny bubbles",
+    "x": 44.0,
+    "y": 27.0
+   },
+   {
+    "name": "Berry smoothie",
+    "detail": "Ruby-pink blend of mixed berries",
+    "x": 47.0,
+    "y": 60.0
+   },
+   {
+    "name": "Footed glass",
+    "detail": "Tall tulip glass on a clear pedestal base",
+    "x": 50.0,
+    "y": 89.0
+   }
+  ]
+ },
+ {
+  "id": 485,
+  "name": "Hershey's Crepe",
+  "realSizeCm": 30,
+  "parts": [
+   {
+    "name": "Folded crepe",
+    "detail": "Thin crepe folded into a neat rectangle",
+    "x": 35.0,
+    "y": 64.0
+   },
+   {
+    "name": "Whipped cream",
+    "detail": "Soft whipped cream piled in the centre",
+    "x": 50.0,
+    "y": 45.0
+   },
+   {
+    "name": "Chocolate drizzle",
+    "detail": "Hershey's chocolate sauce zig-zagged across the top",
+    "x": 57.0,
+    "y": 60.0
+   },
+   {
+    "name": "Powdered sugar",
+    "detail": "A light dusting of icing sugar over the crepe",
+    "x": 70.0,
+    "y": 68.0
+   }
+  ]
+ },
+ {
+  "id": 586,
+  "name": "Truffle Pasta",
+  "realSizeCm": 26,
+  "parts": [
+   {
+    "name": "Grilled chicken",
+    "detail": "Chicken breast slices with charred, golden edges",
+    "x": 48.0,
+    "y": 63.0
+   },
+   {
+    "name": "Tagliatelle",
+    "detail": "Ribbons of pasta coated in creamy truffle white sauce",
+    "x": 33.0,
+    "y": 69.0
+   },
+   {
+    "name": "Parmesan",
+    "detail": "Fine shreds of parmesan piled over the top",
+    "x": 45.0,
+    "y": 34.0
+   },
+   {
+    "name": "Pasta bowl",
+    "detail": "Wide black bowl",
+    "x": 19.0,
+    "y": 52.0
+   }
+  ]
+ },
+ {
+  "id": 590,
+  "name": "Black Widow",
+  "realSizeCm": 24,
+  "parts": [
+   {
+    "name": "Jalapeno slices",
+    "detail": "Thick jalapeno rings for a spicy bite",
+    "x": 52.0,
+    "y": 42.0
+   },
+   {
+    "name": "Beef",
+    "detail": "Tender chopped beef heaped over the fries",
+    "x": 63.0,
+    "y": 52.0
+   },
+   {
+    "name": "Fries",
+    "detail": "Golden seasoned fries underneath it all",
+    "x": 26.0,
+    "y": 46.0
+   },
+   {
+    "name": "Island sauce",
+    "detail": "Creamy pink island sauce drizzled through the fries",
+    "x": 45.0,
+    "y": 54.0
+   },
+   {
+    "name": "Green onion",
+    "detail": "Sliced spring onion scattered on top",
+    "x": 43.0,
+    "y": 36.0
+   },
+   {
+    "name": "Cast-iron pan",
+    "detail": "Served sizzling in a black cast-iron pan on a wooden board",
+    "x": 14.0,
+    "y": 40.0
+   }
+  ]
+ },
+ {
+  "id": 594,
+  "name": "Ichigo Matcha",
+  "realSizeCm": 8,
+  "parts": [
+   {
+    "name": "Ice cubes",
+    "detail": "Ice cubes floating in frothy green matcha",
+    "x": 50.0,
+    "y": 25.0
+   },
+   {
+    "name": "Matcha layer",
+    "detail": "Vivid green matcha swirling into the milk",
+    "x": 50.0,
+    "y": 45.0
+   },
+   {
+    "name": "Milk layer",
+    "detail": "Creamy white milk between the matcha and strawberry",
+    "x": 45.0,
+    "y": 63.0
+   },
+   {
+    "name": "Strawberry puree",
+    "detail": "Deep red strawberry layer at the bottom of the glass",
+    "x": 45.0,
+    "y": 77.0
+   }
+  ]
+ },
+ {
+  "id": 598,
+  "name": "Semi Freddo Ice Cream",
+  "realSizeCm": 14,
+  "parts": [
+   {
+    "name": "Vanilla scoop",
+    "detail": "Creamy vanilla semifreddo scoop",
+    "x": 56.0,
+    "y": 45.0
+   },
+   {
+    "name": "Nutella scoop",
+    "detail": "Rich chocolate-hazelnut scoop with a rough texture",
+    "x": 53.0,
+    "y": 64.0
+   },
+   {
+    "name": "Chocolate drizzle",
+    "detail": "Glossy chocolate sauce striped over the vanilla",
+    "x": 45.0,
+    "y": 46.0
+   },
+   {
+    "name": "Chocolate sauce",
+    "detail": "Sauce pooling at the side of the bowl",
+    "x": 26.0,
+    "y": 60.0
+   }
+  ]
+ }
+]
