@@ -4,6 +4,8 @@
     public record LoginRequest(string Email, string Password);
     public record AuthResponse(bool Success, string? Token, string? Error);
     public record BaseResponse(bool Success, string? Error);
+    public record ForgotPasswordRequest(string Email);
+    public record ResetPasswordRequest(string Email, string Token, string NewPassword);
 
     public record UserDto(int Id, string? Email, string? DisplayName, List<string> Roles, int StatusId );
     public record User2Dto(int Id, string? Email, string? FirstName, string LastName, string PhoneNumber);

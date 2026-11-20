@@ -11,7 +11,35 @@ namespace Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _auth;
-        public AuthController(IAuthService auth) => _auth = auth;
+        private readonly IPasswordResetService _reset;
+        public AuthController(IAuthService auth, IPasswordResetService reset)
+        {
+            _auth = auth;
+            _reset = reset;
+        }
+
+        /// <summary>
+        /// Emails a reset link if an active account uses this email. Always the
+        /// same answer, so it can't be used to find out which emails exist.
+        /// </summary>
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        [AxisAPI.Utils.AnonymousRateLimit(MaxRequests = 5, WindowSeconds = 300)]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req, CancellationToken ct)
+        {
+            await _reset.RequestAsync(req.Email, ct);
+            return Ok(new { message = "If an account uses that email, a reset link is on its way." });
+        }
+
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        [AxisAPI.Utils.AnonymousRateLimit(MaxRequests = 10, WindowSeconds = 300)]
+        public async Task<IActionResult> ResetPassword(ResetPasswordRequest req, CancellationToken ct)
+        {
+            var res = await _reset.ResetAsync(req.Email, req.Token, req.NewPassword, ct);
+            if (!res.Success) return BadRequest(new { error = res.Error });
+            return Ok(new { message = "Password updated. You can sign in now." });
+        }
 
 
 

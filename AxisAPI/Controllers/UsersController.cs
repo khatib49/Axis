@@ -29,11 +29,19 @@ namespace AxisAPI.Controllers
         public async Task<ActionResult<ClientUserResponse>> CreateClient([FromBody] ClientUserCreateRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.PhoneNumber))
-                return BadRequest("PhoneNumber is required.");
+                return BadRequest(new { message = "Phone number is required." });
 
-            var result = await _usersService.CreateClient(request, ct);
-
-            return Ok(result);
+            try
+            {
+                var result = await _usersService.CreateClient(request, ct);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Identity validation (bad/duplicate email, bad username) —
+                // the cashier screens show `message` to the user.
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpGet("search")]

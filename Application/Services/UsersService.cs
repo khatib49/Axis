@@ -259,7 +259,7 @@ namespace Application.Services
                 PhoneNumber = phone,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                Email = request.Email,
+                Email = email,                   // null, never "", when not given
                 DisplayName = $"{request.FirstName} {request.LastName}".Trim(),
                 StatusId = (int)UserStatus.Active
             };

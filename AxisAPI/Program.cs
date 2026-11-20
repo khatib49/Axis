@@ -135,16 +135,7 @@ builder.Services.AddSwaggerGen(c =>
 //});
 
 // Identity
-builder.Services
-    .AddIdentityCore<AppUser>(o =>
-    {
-        o.Password.RequiredLength = 8;
-        o.Password.RequireNonAlphanumeric = false;
-        o.User.RequireUniqueEmail = true;
-    })
-    .AddRoles<AppRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>() // works after packages/fixes
-    .AddDefaultTokenProviders();
+AxisAPI.Utils.IdentitySetup.AddAxisIdentity(builder.Services);
 
 // JWT
 var jwt = builder.Configuration.GetSection("Jwt");

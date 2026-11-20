@@ -16,6 +16,7 @@ namespace Application
             services.AddSingleton<DomainMapper>(); // Riok mapper
             services.AddScoped<ITransactionAuditLogService, TransactionAuditLogService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IPasswordResetService, PasswordResetService>();
             services.AddScoped<IGameService, GameService>();
             services.AddScoped<ISiteContentService, SiteContentService>();
             services.AddScoped<IRolePageService, RolePageService>();
